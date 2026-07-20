@@ -1,0 +1,19 @@
+{
+  // WARNING: the Worker name below is intentionally suffixed -RECONSTRUCTED
+  // so an accidental `wrangler deploy` creates a new, harmless Worker instead
+  // of overwriting the real live homepilot-scenario-share Worker. HOWEVER the
+  // kv_namespaces binding below still points at the REAL production
+  // SCENARIO_KV namespace (same data buyers' real shared scenarios live in).
+  // The Worker identity is safe to accidentally deploy; the KV data is NOT
+  // isolated. Do not invoke this Worker's endpoints against real traffic.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "homepilot-scenario-share-RECONSTRUCTED",
+  "main": "index.js",
+  "compatibility_date": "2025-01-01",
+  "kv_namespaces": [
+    {
+      "binding": "SCENARIO_KV",
+      "id": "61b15a9ce07d4f2c959271361be82669"
+    }
+  ]
+}
