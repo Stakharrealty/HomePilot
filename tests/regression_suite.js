@@ -765,7 +765,8 @@ runSuite7().then(async () => {
     // (condo/town/semi/detached) gets its own unambiguous view-btn using that exact
     // type's real price, instead of the city-level button's guess-the-type logic.
     const selectPropStart = src.indexOf('function selectPropType(cityId, tp, cityName)');
-    const selectPropEnd = src.indexOf('\nfunction ', selectPropStart+30);
+    const selectPropEndRaw = src.indexOf('\nfunction ', selectPropStart+30);
+    const selectPropEnd = selectPropEndRaw === -1 ? src.length : selectPropEndRaw;
     const selectPropSrc = src.slice(selectPropStart, selectPropEnd);
     t('selectPropType() function located for scoping these checks', selectPropStart !== -1 && selectPropEnd > selectPropStart);
     t('per-type panel contains its own view-btn', /class="view-btn"/.test(selectPropSrc));
@@ -785,7 +786,8 @@ runSuite7().then(async () => {
   suite('AIInsights');
   {
     const fetchStart = src.indexOf('async function fetchCityInsights');
-    const fetchEnd = src.indexOf('\nfunction ', fetchStart+30);
+    const fetchEndRaw = src.indexOf('\nfunction ', fetchStart+30);
+    const fetchEnd = fetchEndRaw === -1 ? src.length : fetchEndRaw;
     const fetchSrc = src.slice(fetchStart, fetchEnd);
     t('fetchCityInsights() function located for scoping these checks', fetchStart !== -1 && fetchEnd > fetchStart);
 
