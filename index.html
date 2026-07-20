@@ -640,6 +640,7 @@ input[type=text]:focus,input[type=email]:focus,input[type=tel]:focus{border-colo
   </div>
 </div>
 
+<script src="src/config.js"></script>
 <script>
 const T={
   en:{
@@ -713,11 +714,8 @@ const T={
 // upper-tier rate, nearly identical town/county/education revenue split). Lower confidence than
 // tier 1 — re-verify against each town's own by-law when time allows.
 // tax used in calcCosts() as: annual tax = price × tx (see calcCosts()).
-// Single source of truth for the default/market mortgage rate — every other reference in
-// this file (slider default, reset behavior, "current market rate" hint, share/scenario
-// comparisons, footer disclaimer, DATA_FRESHNESS entry) reads from this constant. Update
-// ONLY here when refreshing the rate.
-const DEFAULT_MORTGAGE_RATE_PCT = 4.19;
+// DEFAULT_MORTGAGE_RATE_PCT now lives in src/config.js (loaded via <script src> before this
+// block) — single source of truth for the default/market mortgage rate, unchanged behavior.
 
 const M=[
   {n:"Welland",r:"niag",min:280000,avg:420000,max:700000,d:"Most affordable in Niagara, condos from $280K, growing community",tx:0.01757,ut:{1:180,2:220,3:270,4:310,5:360},ins:85},
@@ -780,40 +778,8 @@ const M=[
 const RF={all:null,gta:["gta"],west:["west"],east:["east"],north:["north"],duff:["duff"],niag:["niag"],wloo:["wloo"],east2:["east2"]};
 let lang="en",results=[],buyPower=0,comfortBuyPower=0,fam_selected="3",dn_selected=0,grossMonthlyIncome=0,netMonthlyIncome=0,customMortgageRate=DEFAULT_MORTGAGE_RATE_PCT/100,firstTimeBuyer=false,existingDebt=0;
 
-// ── DATA FRESHNESS TRACKER — updated whenever a hardcoded estimate is re-verified ──
-// Purpose: every number in this file that isn't live-computed is a snapshot in time.
-// This object is the single place to check "how stale is this?" before trusting an
-// estimate for a real buyer conversation. Shown in Dev Mode (Shift+D) only — never
-// buyer-facing. To refresh an item: verify against the source listed, update value +
-// lastUpdated, and update this comment's date if you touch multiple items at once.
-const DATA_FRESHNESS = {
-  mortgageRate: {
-    value: DEFAULT_MORTGAGE_RATE_PCT + "%", lastUpdated: "2026-07-09",
-    source: "Ratehub.ca + nesto.ca best insured 5yr fixed rates (3.94%–4.09% range July 8, 2026); " +
-            "set slightly above the rock-bottom broker teaser to reflect a realistically achievable rate.",
-    refreshCadence: "Monthly — fixed rates move with bond yields, can shift meaningfully in weeks."
-  },
-  propertyTaxRates: {
-    value: "51 of 55 cities directly sourced, 4 via documented proxy (Shelburne, Grand Valley, Mono, Erin)",
-    lastUpdated: "2026-07-06",
-    source: "Official municipal by-laws (Fort Erie, Midland, Cobourg, Wasaga Beach, Orangeville) and " +
-            "WOWA.ca published final residential rates for the rest. See tx: comment block above const M.",
-    refreshCadence: "Annually — municipalities finalize tax rates each spring."
-  },
-  homeInsurance: {
-    value: "City base × 1.28 uplift, 0.5× price-scaling, condo factor 0.40×", lastUpdated: "2026-07-06",
-    source: "Rates.ca Home Insuramap 2026 report (ON avg $2,235/yr detached, Toronto ~$1,617/yr).",
-    refreshCadence: "Annually — insurance benchmarks are typically republished yearly."
-  },
-  condoFees: {
-    value: "City base fee scaled 0.5× around each city's typical condo price (see CONDO_FEES + calcCosts)",
-    lastUpdated: "2026-07-06",
-    source: "Structural fix only (no new market data) — base $/mo figures are still estimates, not sourced " +
-            "from real condo corporation budgets. Upgrade path: read actual fees from IDX listings once live.",
-    refreshCadence: "No live source yet — revisit once DDF/IDX lands."
-  }
-};
-function daysSince(dateStr){ return Math.floor((Date.now()-new Date(dateStr).getTime())/86400000); }
+// DATA_FRESHNESS and daysSince() now live in src/config.js (loaded via <script src> before
+// this block) — unchanged behavior, same object shape, same Dev-Mode-only usage below.
 
 const DESIRABILITY={"Toronto - Downtown":10,"Toronto - West End":9.5,"Toronto - East End":9,"Toronto - North York":9,"Toronto - Etobicoke":8.5,"Toronto - Scarborough":8,"Mississauga":8.5,"Oakville":9.5,"Burlington":9,"Richmond Hill":9,"Vaughan":8.5,"Markham":8.5,"Brampton":7.5,"Milton":8.5,"Georgetown":8,"Halton Hills":7.5,"Ajax":7.5,"Pickering":7.5,"Whitby":7.5,"Aurora":8.5,"King City":8.5,"Bolton":7.5,"Newmarket":8,"Bradford":7,"Innisfil":6.5,"Barrie":7,"Caledon":7.5,"Orangeville":7,"Mono":6.5,"Erin":6.5,"Grand Valley":6,"Shelburne":6.5,"Guelph":7.5,"Cambridge":7,"Kitchener":7,"Waterloo":7.5,"Hamilton":7,"Oshawa":6.5,"Clarington":6.5,"Scugog":6,"Georgina":6,"Centre Wellington":6.5,"Acton":6.5,"Collingwood":7,"Wasaga Beach":6.5,"Midland":6,"St. Catharines":6.5,"Niagara Falls":6.5,"Welland":5.5,"Fort Erie":5,"Cobourg":6,"Belleville":6,"Kingston":7,"Peterborough":6.5,"Ottawa":7.5};
 
