@@ -39,3 +39,5 @@ Must show ALL GREEN (245/245 as of the last check) before anything goes to produ
 If a deploy breaks something: revert main to the last tagged commit, redeploy that. Fix forward in dev, never patch live.
 
 The tag v1.0.0-baseline marks the known-good starting point -- the tested index.html and regression suite as they stood before any file-splitting work began. If in doubt, that tag is always safe to roll back to.
+
+<!-- Verified: real git push from Claude working as of 2026-07-20T18:41:49Z -->
