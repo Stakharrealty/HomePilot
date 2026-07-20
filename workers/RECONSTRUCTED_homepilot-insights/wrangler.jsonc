@@ -1,0 +1,6 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "homepilot-insights-RECONSTRUCTED",
+  "main": "index.js",
+  "compatibility_date": "2025-01-01"
+}

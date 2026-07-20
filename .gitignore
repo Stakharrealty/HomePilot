@@ -1,0 +1,13 @@
+# Node & Wrangler local caches — never commit these
+node_modules/
+.wrangler/
+
+# Local environment secrets — these hold real API keys, never commit
+.dev.vars
+.env
+.env.local
+*.local
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
