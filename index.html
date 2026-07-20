@@ -656,6 +656,7 @@ input[type=text]:focus,input[type=email]:focus,input[type=tel]:focus{border-colo
 <script src="src/homepilot-score.js"></script>
 <script src="src/scenario-sandbox.js"></script>
 <script src="src/report.js"></script>
+<script src="src/ui-helpers.js"></script>
 <script>
 // T (translation strings, 6 languages) now lives in src/i18n.js — loaded via <script src>.
 
@@ -690,49 +691,9 @@ let lang="en",results=[],buyPower=0,comfortBuyPower=0,fam_selected="3",dn_select
 // src/homepilot-score.js — loaded via <script src>. Still actively used —
 // homePilotSort() drives the final result ordering inside go().
 
-function setLang(l){
-  lang=l;const t=T[l];
-  const waLbl=document.getElementById('wa_lbl');if(waLbl)waLbl.textContent=t.wa_lbl||'Work arrangement';
-  const wcLbl=document.getElementById('wc_lbl');if(wcLbl)wcLbl.childNodes[0].textContent=t.wc_lbl||'Work city';
-  const wpLbl=document.getElementById('wp_lbl');
-  if(wpLbl){const span=wpLbl.querySelector('span');const txt=t.wp_lbl||'Work postal code';if(span){wpLbl.childNodes[0].textContent=txt+' ';} else wpLbl.textContent=txt;}
-  const workCity=document.getElementById('workCity');if(workCity)workCity.placeholder=t.wc_ph||'e.g. Brampton';
-  const workPostal=document.getElementById('workPostal');if(workPostal)workPostal.placeholder=t.wp_ph||'e.g. L6Y 0A1';
-  const waSelectEl=document.getElementById('waSelect');
-  if(waSelectEl&&waSelectEl.options.length>=3){
-    waSelectEl.options[0].text=t.wa_remote||'Remote';
-    waSelectEl.options[1].text=t.wa_hybrid||'Hybrid (2–4 days/week)';
-    waSelectEl.options[2].text=t.wa_daily||'Daily (5+ days/week)';
-  }
-  const textIds=[["ht","ht"],["hs","hs"],["l1","l1"],["l2","l2"],["l3","l3"],["l4","l4"],["l5","l5"],["bt","bt"],["ctt","ctt"],["ctp","ctp"],["st","st"],["dtt","dtt"],["dtp","dtp"],["bp_lbl","bp_lbl"],["bp_sub_txt","bp_sub"],["cities_title_el","cities_title"]];
-  textIds.forEach(([id,k])=>{const el=document.getElementById(id);if(el&&t[k])el.innerHTML=t[k];});
-  const l3inc=document.getElementById("l3_inc");if(l3inc)l3inc.textContent=t.l3_inc;
-  const l3exc=document.getElementById("l3_exc");if(l3exc)l3exc.textContent=t.l3_exc;
-  const l3zero=document.getElementById("l3_zero");if(l3zero)l3zero.textContent=t.l3_zero;
-  const nm=document.getElementById("nm");if(nm)nm.placeholder=t.fn_ph;
-  const em=document.getElementById("em");if(em)em.placeholder=t.em_ph;
-  const ph=document.getElementById("ph");if(ph)ph.placeholder=t.ph_ph;
-  ["fn_lbl","em_lbl","ph_lbl","q1_lbl","q2_lbl"].forEach((id,i)=>{const el=document.getElementById(id);if(el)el.textContent=t[["fn","em","ph","q1","q2"][i]];});
-  ["pt-all","pt-condo","pt-town","pt-semi","pt-detached"].forEach((id,i)=>{const el=document.getElementById(id);if(el)el.textContent=t[["filter_all","filter_condo","filter_town","filter_semi","filter_det"][i]];});
-  ["ft-all","ft-great","ft-good","ft-stretch"].forEach((id,i)=>{const el=document.getElementById(id);if(el)el.textContent=t[["fit_all","fit_great","fit_good","fit_stretch"][i]];});
-  const areaEl=document.getElementById("area");
-  if(areaEl){const areaMap={all:"area_all",gta:"area_gta",west:"area_west",east:"area_east",north:"area_north",duff:"area_duff",niag:"area_niag",wloo:"area_wloo",east2:"area_east2"};[...areaEl.options].forEach(o=>{if(areaMap[o.value])o.text=t[areaMap[o.value]];});}
-  const famEl=document.getElementById("fam");
-  if(famEl){const famMap=["","fam1","fam2","fam3","fam4","fam5"];[...famEl.options].forEach((o,i)=>{if(famMap[i])o.text=t[famMap[i]];});}
-  const statusEl=document.getElementById("status");
-  if(statusEl){const opts=statusEl.options;if(opts[0])opts[0].text=t.q1_ph;if(opts[1])opts[1].text=t.q1_a;if(opts[2])opts[2].text=t.q1_b;if(opts[3])opts[3].text=t.q1_c;}
-  const timelineEl=document.getElementById("timeline");
-  if(timelineEl){const opts=timelineEl.options;if(opts[0])opts[0].text=t.q2_ph;if(opts[1])opts[1].text=t.q2_a;if(opts[2])opts[2].text=t.q2_b;if(opts[3])opts[3].text=t.q2_c;if(opts[4])opts[4].text=t.q2_d;}
-  document.querySelector('.w').style.direction=l==="ur"?"rtl":"ltr";
-  if(results.length)render();
-}
+// setLang now lives in src/ui-helpers.js — loaded via <script src>.
 
-function toggleTooltip(e,id){
-  e.stopPropagation();
-  document.querySelectorAll('.tooltip-box').forEach(t=>{if(t.id!==id)t.style.display='none';});
-  const t=document.getElementById(id);if(t)t.style.display=t.style.display==='block'?'none':'block';
-}
-document.addEventListener('click',()=>{document.querySelectorAll('.tooltip-box').forEach(t=>t.style.display='none');});
+// toggleTooltip now lives in src/ui-helpers.js — loaded via <script src>.
 document.addEventListener('keydown',function(e){
   if(e.shiftKey&&e.key==='D'){
     devMode=!devMode;
@@ -882,34 +843,7 @@ const PROP_TAX_ANNUAL={
 // getPriceForType now lives in src/utils.js — loaded via <script src>.
 // meetsMinDownPayment() now lives in src/mortgage.js — loaded via <script src>.
 // getPriceForTypeStrict now lives in src/ranking.js — loaded via <script src>.
-function filtProp(f,btn){
-  activeProp=f;
-  ['pt-all','pt-condo','pt-town','pt-semi','pt-detached'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('on');});
-  if(btn) btn.classList.add('on');
-  render();
-}
-function filtFit(f,btn){ activeFit='all'; render(); }
-function filt(f,btn){filtFit(f,btn);}
-
-function updateCardCosts(cityId,cityName,propType){
-  const x=results.find(r=>r.n===cityName);if(!x)return;
-  const price=getPriceForType(cityName,propType,buyPower)||x.homePrice;
-  const c=calcCosts(x,price,fam_selected,dn_selected,propType);
-  document.getElementById(cityId+'-price').textContent=fc(price);
-  document.getElementById(cityId+'-mort').textContent=fc(c.mort)+'/mo';
-  document.getElementById(cityId+'-tax').textContent=fc(c.tax)+'/mo';
-  document.getElementById(cityId+'-ins').textContent=fc(c.ins)+'/mo';
-  document.getElementById(cityId+'-util').textContent=fc(c.util)+'/mo';
-  document.getElementById(cityId+'-maint').textContent=fc(c.maint)+'/mo';
-  if(document.getElementById(cityId+'-condo-fee')){
-    document.getElementById(cityId+'-condo-fee').textContent=c.condoFee>0?fc(c.condoFee)+'/mo':'—';
-    document.getElementById(cityId+'-condo-fee-row').style.display=c.condoFee>0?'':'none';
-  }
-  document.getElementById(cityId+'-total').textContent=fc(c.total)+'/mo';
-  document.getElementById(cityId+'-mtotal').textContent=fc(c.total)+'/mo';
-  document.getElementById(cityId+'-mmort').textContent='Mortgage: '+fc(c.mort)+'/mo';
-  document.querySelectorAll('[data-city="'+cityId+'"]').forEach(b=>{b.style.background=b.dataset.type===propType?'#1D9E75':'#f0fdf8';b.style.color=b.dataset.type===propType?'#fff':'#1D9E75';});
-}
+// filtProp(), filtFit(), filt(), updateCardCosts() now live in src/ui-helpers.js — loaded via <script src>.
 
 // downloadReport(), _downloadReportInner() now live in src/report.js —
 // loaded via <script src>.
@@ -1291,12 +1225,7 @@ function selectPropType(cityId, tp, cityName) {
   panel.style.display = 'block';
 }
 
-function toggle(id){
-  const el=document.getElementById(id);
-  if(el){
-    el.classList.toggle("open");
-  }
-}
+// toggle() now live in src/ui-helpers.js — loaded via <script src>.
 
 // toggleAiInsights(), fetchCityInsights() now live in src/ai.js — loaded via <script src>.
 
@@ -1578,18 +1507,7 @@ function getLeadSummaryForCity(cityName){
   return {city:cityName,type,price,monthlyCost:c.total};
 }
 
-function showTransparencyModal(){
-  // Same required-field guard sub() already applies, checked here too so the modal
-  // doesn't pop up for an incomplete form.
-  const nm=document.getElementById("nm").value, em=document.getElementById("em").value;
-  if(!nm||!em) return;
-  const ov=document.getElementById('transparencyModalOverlay');
-  if(ov){ ov.style.display='flex'; }
-}
-function closeTransparencyModal(){
-  const ov=document.getElementById('transparencyModalOverlay');
-  if(ov){ ov.style.display='none'; }
-}
+// showTransparencyModal(), closeTransparencyModal() now live in src/ui-helpers.js — loaded via <script src>.
 // confirmSendLead(), sub() now live in src/leadform.js — loaded via <script src>.
 
 const DRIVE_TO_TORONTO={"Toronto - Downtown":5,"Toronto - West End":15,"Toronto - East End":20,"Toronto - North York":25,"Toronto - Etobicoke":20,"Toronto - Scarborough":30,"Mississauga":35,"Brampton":45,"Vaughan":40,"Markham":40,"Richmond Hill":45,"Oakville":45,"Burlington":55,"Milton":55,"Ajax":45,"Whitby":55,"Pickering":40,"Oshawa":65,"Aurora":50,"Newmarket":60,"Bradford":65,"Innisfil":75,"Barrie":90,"Georgetown":55,"Halton Hills":60,"Acton":65,"Guelph":75,"Kitchener":90,"Waterloo":95,"Cambridge":85,"Hamilton":70,"Bolton":55,"Caledon":65,"King City":50,"Orangeville":80,"Shelburne":95,"Grand Valley":100,"Mono":90,"Erin":80,"Collingwood":120,"Wasaga Beach":115,"Midland":130,"Georgina":75,"Clarington":80,"Scugog":85,"Centre Wellington":90,"St. Catharines":100,"Niagara Falls":110,"Welland":115,"Fort Erie":120,"Cobourg":100,"Belleville":135,"Kingston":165,"Peterborough":120,"Ottawa":450,"Brock":90};
