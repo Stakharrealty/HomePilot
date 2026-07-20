@@ -1,0 +1,12 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "homepilot-scenario-share",
+  "main": "index.js",
+  "compatibility_date": "2025-01-01",
+  "kv_namespaces": [
+    {
+      "binding": "SCENARIO_KV",
+      "id": "61b15a9ce07d4f2c959271361be82669"
+    }
+  ]
+}
