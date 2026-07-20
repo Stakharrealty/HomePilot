@@ -701,9 +701,9 @@ async function runSuite7(){
   // selectPropType() mutates the DOM in place rather than returning HTML, so instead
   // of simulating a full render we lock in the exact source lines — this catches any
   // accidental future edit that breaks the display formula.
-  t('source contains effectiveDn cash-rich cap (Math.min(dn_selected, price))', /const effectiveDn = Math\.min\(dn_selected, price\)/.test(html));
-  t('source contains Down Payment row using effectiveDn', /row\('Down Payment', '-' \+ fc\(effectiveDn\)\)/.test(html));
-  t('source contains Mortgage Amount row = price - effectiveDn', /row\('Mortgage Amount \(loan\)', fc\(Math\.max\(0, price - effectiveDn\)\)/.test(html));
+  t('source contains effectiveDn cash-rich cap (Math.min(dn_selected, price))', /const effectiveDn = Math\.min\(dn_selected, price\)/.test(src));
+  t('source contains Down Payment row using effectiveDn', /row\('Down Payment', '-' \+ fc\(effectiveDn\)\)/.test(src));
+  t('source contains Mortgage Amount row = price - effectiveDn', /row\('Mortgage Amount \(loan\)', fc\(Math\.max\(0, price - effectiveDn\)\)/.test(src));
 
   // --- Cross-check: displayed loan amount matches calcCosts internal loan math ---
   // For a 20%+-down scenario (no CMHC premium complicating the math), the mortgage
@@ -732,10 +732,10 @@ runSuite7().then(async () => {
   // place rather than returning HTML we could otherwise inspect directly.
   suite('CardLayout');
   {
-    const renderStart = html.indexOf('function render(){');
-    const renderEnd = html.indexOf('function selectPropType', renderStart);
+    const renderStart = src.indexOf('function render(){');
+    const renderEnd = src.indexOf('function selectPropType', renderStart);
     t('render() function located for scoping this suite\'s checks', renderStart !== -1 && renderEnd !== -1 && renderEnd > renderStart);
-    const renderSrc = html.slice(renderStart, renderEnd);
+    const renderSrc = src.slice(renderStart, renderEnd);
 
     const bkOpenIdx = renderSrc.indexOf('<div class="bk">');
     const viewBtnIdx = renderSrc.indexOf('class="view-btn"');
@@ -759,14 +759,14 @@ runSuite7().then(async () => {
     // AI insights trigger: confirm it's intentionally collapsed-by-default (this one
     // SHOULD require a click — only view-btn was the regression, not this).
     t('AI insights box still starts collapsed (display:none) by design', /id="ai-'\+id\+'".*?style="display:none/.test(renderSrc.replace(/\n/g,' ')));
-    t('AI insights has its own dedicated toggle function (toggleAiInsights), independent of card expand', /function toggleAiInsights\(/.test(html));
+    t('AI insights has its own dedicated toggle function (toggleAiInsights), independent of card expand', /function toggleAiInsights\(/.test(src));
 
     // Per-type View Available Homes links (added same day) — each accordion panel
     // (condo/town/semi/detached) gets its own unambiguous view-btn using that exact
     // type's real price, instead of the city-level button's guess-the-type logic.
-    const selectPropStart = html.indexOf('function selectPropType(cityId, tp, cityName)');
-    const selectPropEnd = html.indexOf('\nfunction ', selectPropStart+30);
-    const selectPropSrc = html.slice(selectPropStart, selectPropEnd);
+    const selectPropStart = src.indexOf('function selectPropType(cityId, tp, cityName)');
+    const selectPropEnd = src.indexOf('\nfunction ', selectPropStart+30);
+    const selectPropSrc = src.slice(selectPropStart, selectPropEnd);
     t('selectPropType() function located for scoping these checks', selectPropStart !== -1 && selectPropEnd > selectPropStart);
     t('per-type panel contains its own view-btn', /class="view-btn"/.test(selectPropSrc));
     t('per-type view-btn uses buildIncomUrl(cityName, price, tp) - the exact type\'s price, not the buyer\'s overall buyPower ceiling', /buildIncomUrl\(cityName,price,tp\)/.test(selectPropSrc));
@@ -784,9 +784,9 @@ runSuite7().then(async () => {
   // a real functional test that mocks the AI response and inspects rendered HTML.
   suite('AIInsights');
   {
-    const fetchStart = html.indexOf('async function fetchCityInsights');
-    const fetchEnd = html.indexOf('\nfunction ', fetchStart+30);
-    const fetchSrc = html.slice(fetchStart, fetchEnd);
+    const fetchStart = src.indexOf('async function fetchCityInsights');
+    const fetchEnd = src.indexOf('\nfunction ', fetchStart+30);
+    const fetchSrc = src.slice(fetchStart, fetchEnd);
     t('fetchCityInsights() function located for scoping these checks', fetchStart !== -1 && fetchEnd > fetchStart);
 
     t('"growth" is no longer a field the AI is asked to generate', !/"growth":/.test(fetchSrc));
