@@ -648,6 +648,7 @@ input[type=text]:focus,input[type=email]:focus,input[type=tel]:focus{border-colo
 <script src="src/ranking.js"></script>
 <script src="src/i18n.js"></script>
 <script src="src/scenario-share.js"></script>
+<script src="src/leadform.js"></script>
 <script>
 // T (translation strings, 6 languages) now lives in src/i18n.js — loaded via <script src>.
 
@@ -2074,83 +2075,7 @@ function closeTransparencyModal(){
   const ov=document.getElementById('transparencyModalOverlay');
   if(ov){ ov.style.display='none'; }
 }
-function confirmSendLead(){
-  closeTransparencyModal();
-  sub();
-}
-
-async function sub(){
-  const nm=document.getElementById("nm").value,em=document.getElementById("em").value,ph=document.getElementById("ph").value;
-  const status=document.getElementById("status").value,timeline=document.getElementById("timeline").value;
-  const t=T[lang];if(!nm||!em)return;
-  document.getElementById("subBtn").disabled=true;
-  const leadErrEl=document.getElementById("leadErr");if(leadErrEl)leadErrEl.style.display="none";
-
-  // Enriched payload — built July 13, 2026 after three independent AI audits converged
-  // on the same gap: the lead Sandeep received had no calculator context (income, down
-  // payment, debt, work location, or which specific homes matched), meaning every
-  // conversation started from scratch. This now includes exactly what the buyer saw.
-  const incomeVal=parseFloat(document.getElementById('inc').value)||0;
-  const downPaymentVal=parseFloat(document.getElementById('dwn').value)||0;
-  const debtVal=parseFloat(document.getElementById('dbt').value)||0;
-  const workCityVal=document.getElementById('workCity')?document.getElementById('workCity').value:'';
-  const topMatches=results.slice(0,5).map(x=>getLeadSummaryForCity(x.n)).filter(Boolean);
-
-  const leadPayload={
-    name:nm, email:em, phone:ph, status, timeline, lang,
-    income:incomeVal,
-    downPayment:downPaymentVal,
-    existingMonthlyDebt:debtVal,
-    familySize:fam_selected,
-    firstTimeBuyer:firstTimeBuyer,
-    workCity:workCityVal,
-    workArrangement:workArrangement,
-    bankBuyingPower:buyPower,
-    comfortBuyingPower:comfortBuyPower,
-    mortgageRatePct:(customMortgageRate*100).toFixed(2),
-    topMatches:topMatches, // [{city, type, price, monthlyCost}, ...] — exactly what buyer saw
-    topCitiesSummary:topMatches.map(m=>`${m.city} (${m.type} $${m.price.toLocaleString()}, $${m.monthlyCost.toLocaleString()}/mo)`).join(' | '),
-    // Legacy fields kept for backward compatibility with the existing Formspree inbox view
-    buyingPower:document.getElementById("bpV").textContent,
-    cities:results.slice(0,5).map(x=>x.n).join(", ")
-  };
-
-  // Lead delivery — Cloudflare Worker using Cloudflare's native Email Sending.
-  // Replaces the old Formspree endpoint (malformed URL, silently failed for every
-  // buyer since this build shipped — fixed July 16, 2026). This call is awaited and
-  // its real success/failure is checked before the success screen is ever shown.
-  let sendSucceeded = false;
-  try {
-    const res = await fetch("https://homepilot-send-lead.stakharrealty.workers.dev",{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify(leadPayload)
-    });
-    const data = await res.json().catch(()=>({ok:false}));
-    sendSucceeded = res.ok && data.ok;
-  } catch(e) {
-    sendSucceeded = false;
-  }
-
-  // Zapier webhook -> Follow Up Boss. SANDEEP: replace ZAPIER_WEBHOOK_URL_HERE with your
-  // actual Zapier "Catch Hook" URL once the Zap is created (Webhook trigger -> Follow Up
-  // Boss "Create or Update Person" action). Fails silently if not yet configured, so this
-  // is safe to leave as-is until you're ready to wire it up. This one stays fire-and-forget
-  // since it's a secondary CRM sync, not the primary lead-delivery path.
-  const ZAPIER_WEBHOOK_URL = "ZAPIER_WEBHOOK_URL_HERE";
-  if(ZAPIER_WEBHOOK_URL && ZAPIER_WEBHOOK_URL !== "ZAPIER_WEBHOOK_URL_HERE"){
-    fetch(ZAPIER_WEBHOOK_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(leadPayload)}).catch(()=>{});
-  }
-
-  if(sendSucceeded){
-    document.getElementById("cap").style.display="none";document.getElementById("done").style.display="block";
-    document.getElementById("dtt").textContent=t.dtt;document.getElementById("dtp").textContent=t.dtp;
-    document.getElementById("done").scrollIntoView({behavior:"smooth"});
-  } else {
-    document.getElementById("subBtn").disabled=false;
-    const leadErrEl2=document.getElementById("leadErr");if(leadErrEl2)leadErrEl2.style.display="block";
-  }
-}
+// confirmSendLead(), sub() now live in src/leadform.js — loaded via <script src>.
 
 const DRIVE_TO_TORONTO={"Toronto - Downtown":5,"Toronto - West End":15,"Toronto - East End":20,"Toronto - North York":25,"Toronto - Etobicoke":20,"Toronto - Scarborough":30,"Mississauga":35,"Brampton":45,"Vaughan":40,"Markham":40,"Richmond Hill":45,"Oakville":45,"Burlington":55,"Milton":55,"Ajax":45,"Whitby":55,"Pickering":40,"Oshawa":65,"Aurora":50,"Newmarket":60,"Bradford":65,"Innisfil":75,"Barrie":90,"Georgetown":55,"Halton Hills":60,"Acton":65,"Guelph":75,"Kitchener":90,"Waterloo":95,"Cambridge":85,"Hamilton":70,"Bolton":55,"Caledon":65,"King City":50,"Orangeville":80,"Shelburne":95,"Grand Valley":100,"Mono":90,"Erin":80,"Collingwood":120,"Wasaga Beach":115,"Midland":130,"Georgina":75,"Clarington":80,"Scugog":85,"Centre Wellington":90,"St. Catharines":100,"Niagara Falls":110,"Welland":115,"Fort Erie":120,"Cobourg":100,"Belleville":135,"Kingston":165,"Peterborough":120,"Ottawa":450,"Brock":90};
 
