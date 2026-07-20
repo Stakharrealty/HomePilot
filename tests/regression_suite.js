@@ -2,10 +2,32 @@
 // All test logic executes INSIDE the vm context (via vm.runInContext strings) so it
 // sees the engine's real let/const module state (workZone, netMonthlyIncome, etc.)
 // exactly as the live page does — external ctx.x assignment does not reach these.
-const fs = require('fs'), vm = require('vm');
+const fs = require('fs'), path = require('path'), vm = require('vm');
 const htmlPath = process.argv[2] || 'homepilot.html';
+const htmlDir = path.dirname(htmlPath);
 const html = fs.readFileSync(htmlPath, 'utf8');
-const src = html.match(/<script>([\s\S]*)<\/script>/)[1];
+
+// Phase 2 note (added July 20, 2026): the app now loads via multiple <script> tags
+// (external src="..." files plus the original inline block), same as a real browser
+// loading them in order into one shared scope. This harness mirrors that: it walks
+// every <script> tag in document order, resolves external src files relative to the
+// HTML file's own directory, and concatenates everything into one source string before
+// running it in the vm context — so module extraction doesn't require rewriting every
+// test, only this loading step, once.
+let src = '';
+const scriptTagRe = /<script(\s[^>]*)?>([\s\S]*?)<\/script>/g;
+let m;
+while ((m = scriptTagRe.exec(html)) !== null) {
+  const attrs = m[1] || '';
+  const inlineBody = m[2];
+  const srcMatch = attrs.match(/\bsrc=["']([^"']+)["']/);
+  if (srcMatch) {
+    const extPath = path.join(htmlDir, srcMatch[1]);
+    src += fs.readFileSync(extPath, 'utf8') + '\n';
+  } else if (inlineBody.trim()) {
+    src += inlineBody + '\n';
+  }
+}
 
 const mkEl = () => ({ style:{display:''}, classList:{add(){},remove(){},toggle(){},contains(){return false}}, addEventListener(){}, setAttribute(){}, appendChild(){}, innerHTML:'', textContent:'', value:'', checked:false, dataset:{}, querySelectorAll(){return[]}, querySelector(){return mkEl()}, focus(){}, blur(){}, click(){}, scrollIntoView(){}, disabled:false });
 // Stateful element store: getElementById returns the SAME object on repeated calls
