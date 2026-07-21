@@ -82,7 +82,7 @@ input[type=text]:focus,input[type=email]:focus,input[type=tel]:focus{border-colo
 .done .phone{display:inline-block;margin-top:12px;font-size:16px;font-weight:700;color:#1D9E75;text-decoration:none}
 .note{font-size:11px;color:#bbb;margin-top:16px;line-height:1.7;padding:12px;border-radius:8px;background:#fafafa;border:1px solid #f0f0f0}
 .pw{text-align:center;font-size:11px;color:#ccc;margin-top:24px}
-.info-btn{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#e8e8e8;color:#666;font-size:11px;cursor:pointer;font-style:normal;flex-shrink:0;transition:background 0.2s}
+.info-btn{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#e8e8e8;color:#666;font-size:11px;cursor:pointer;font-style:normal;flex-shrink:0;transition:background 0.2s;border:none;padding:0;margin:0;font-family:inherit;line-height:normal}
 .info-btn:hover{background:#1D9E75;color:#fff}
 .tooltip-box{display:none;font-size:12px;color:#666;line-height:1.6;background:#f9f9f9;border-radius:8px;padding:10px 12px;margin-bottom:10px;border-left:3px solid #1D9E75}
 .err{font-size:13px;color:#c0392b;margin-top:8px;display:none;padding:10px 12px;background:#fdf0ee;border-radius:8px}
@@ -366,7 +366,7 @@ input[type=text]:focus,input[type=email]:focus,input[type=tel]:focus{border-colo
   <div class="card">
     <label class="lbl" style="display:flex;align-items:center;gap:6px;">
       <span id="l1">Annual household income (before tax)</span>
-      <span class="info-btn" onclick="toggleTooltip(event,'inc-tooltip')" aria-label="Income info">ⓘ</span>
+      <button type="button" class="info-btn" onclick="toggleTooltip(event,'inc-tooltip')" aria-label="Income info">ⓘ</button>
     </label>
     <div class="tooltip-box" id="inc-tooltip">
       <div>Enter your total household income before taxes. If two people are buying together, add both incomes.</div>
@@ -377,7 +377,7 @@ input[type=text]:focus,input[type=email]:focus,input[type=tel]:focus{border-colo
   <div class="card">
     <label class="lbl" style="display:flex;align-items:center;gap:6px;">
       <span id="l2">Down payment saved</span>
-      <span class="info-btn" onclick="toggleTooltip(event,'dwn-tooltip')" aria-label="Down payment info">ⓘ</span>
+      <button type="button" class="info-btn" onclick="toggleTooltip(event,'dwn-tooltip')" aria-label="Down payment info">ⓘ</button>
     </label>
     <div class="tooltip-box" id="dwn-tooltip">
       <div>The amount of cash you have saved and ready to put toward a home purchase.</div>
@@ -389,7 +389,7 @@ input[type=text]:focus,input[type=email]:focus,input[type=tel]:focus{border-colo
   <div class="card">
     <label class="lbl" style="display:flex;align-items:center;gap:6px;">
       <span id="l3">Existing monthly debt payments</span>
-      <span class="info-btn" onclick="toggleTooltip(event,'debt-tooltip')" aria-label="Debt info">ⓘ</span>
+      <button type="button" class="info-btn" onclick="toggleTooltip(event,'debt-tooltip')" aria-label="Debt info">ⓘ</button>
     </label>
     <div class="tooltip-box" id="debt-tooltip">
       <div id="l3_inc">Include: car loan, student loan, credit card minimums, personal loans</div>
@@ -424,7 +424,7 @@ input[type=text]:focus,input[type=email]:focus,input[type=tel]:focus{border-colo
   <div class="card">
     <label class="lbl" style="display:flex;align-items:center;gap:6px;">
       <span id="l4">Preferred area</span>
-      <span class="info-btn" onclick="toggleTooltip(event,'area-tooltip')" aria-label="Area info">ⓘ</span>
+      <button type="button" class="info-btn" onclick="toggleTooltip(event,'area-tooltip')" aria-label="Area info">ⓘ</button>
     </label>
     <div class="tooltip-box" id="area-tooltip">
       <div>Select the region you'd like to buy in. Choose "All GTA and surrounding areas" to see every city we cover.</div>
@@ -453,7 +453,7 @@ input[type=text]:focus,input[type=email]:focus,input[type=tel]:focus{border-colo
   <div class="card">
     <label class="lbl" style="display:flex;align-items:center;gap:6px;">
       <span id="l5">Family size</span>
-      <span class="info-btn" onclick="toggleTooltip(event,'fam-tooltip')" aria-label="Family size info">ⓘ</span>
+      <button type="button" class="info-btn" onclick="toggleTooltip(event,'fam-tooltip')" aria-label="Family size info">ⓘ</button>
     </label>
     <div class="tooltip-box" id="fam-tooltip">
       <div>How many people will be living in the home? This affects utility cost estimates in each city.</div>
@@ -499,7 +499,7 @@ input[type=text]:focus,input[type=email]:focus,input[type=tel]:focus{border-colo
 
     <div id="rateBar" style="display:none;margin:0 0 12px 0;background:#fff;border:1px solid #e8e8e8;border-radius:12px;padding:14px 16px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#555;display:flex;align-items:center;gap:4px">Mortgage Rate<span class="info-btn" onclick="toggleTooltip(event,'rate-tooltip')" aria-label="Mortgage rate info">ⓘ</span></div>
+        <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#555;display:flex;align-items:center;gap:4px">Mortgage Rate<button type="button" class="info-btn" onclick="toggleTooltip(event,'rate-tooltip')" aria-label="Mortgage rate info">ⓘ</button></div>
         <div style="display:flex;align-items:center;gap:6px">
           <input id="rateInput" type="number" min="1" max="15" step="0.05"
             style="width:72px;font-size:15px;font-weight:800;color:#1D9E75;border:1.5px solid #e0e0e0;border-radius:8px;padding:4px 8px;text-align:center;outline:none"

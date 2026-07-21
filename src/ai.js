@@ -13,6 +13,29 @@
 // the homepilot-insights Worker, which proxies to Anthropic and returns the
 // response as-is for parsing here).
 
+// Escapes HTML-significant characters before LLM-generated text is inserted
+// into the DOM via innerHTML below. The AI worker's guardrails already keep
+// content on-topic, but this is a defense-in-depth measure: if a future
+// prompt change, worker misconfiguration, or unexpected model output ever
+// returned HTML/script-like text, this stops it from being interpreted as
+// markup rather than displayed as plain text. Added July 20, 2026 audit round.
+//
+// Deliberately implemented as plain string replacement rather than the more
+// common "set textContent, read innerHTML" DOM trick — that trick relies on
+// the browser's real textContent<->innerHTML relationship, which the test
+// suite's lightweight DOM stub (tests/regression_suite.js) doesn't simulate,
+// so it silently returned an empty string there. This version works
+// identically in a real browser, jsdom, and the test harness.
+function escapeHtml(str){
+  if(str==null)return'';
+  return String(str)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
+}
+
 function toggleAiInsights(cityId,cityName){
   const aiBox=document.getElementById("ai-"+cityId);
   const chevron=document.getElementById("ai-trigger-chevron-"+cityId);
@@ -34,7 +57,16 @@ function toggleAiInsights(cityId,cityName){
 
 async function fetchCityInsights(cityId,cityName){
   const aiBox=document.getElementById("ai-"+cityId);
-  if(!aiBox||aiBox.dataset.loaded==="true")return;
+  // dataset.loaded guards against re-fetching after a successful load.
+  // dataset.loading additionally guards against a SECOND fetch starting while
+  // the first is still in flight — e.g. a buyer closing and reopening the
+  // insights panel before the initial request resolves. Without this, two
+  // concurrent requests for the same city could both land, and whichever
+  // response arrives second silently overwrites the first. Added July 20,
+  // 2026 audit round; cleared in the finally block below regardless of
+  // success or failure so a failed fetch can always be retried.
+  if(!aiBox||aiBox.dataset.loaded==="true"||aiBox.dataset.loading==="true")return;
+  aiBox.dataset.loading="true";
 
   const annualIncome=grossMonthlyIncome*12;
   const tier=getBuyerTier(annualIncome);
@@ -91,14 +123,16 @@ Return ONLY valid JSON, no markdown, no explanation:
       : '<div class="ai-section ai-commute"><div class="ai-section-header">🚗 Access to Work</div><div class="ai-section-body"><strong>'+commuteTier.label+'</strong> — '+(ACCESS_NOTE[commuteTier.label]||'')+'</div></div>';
 
     aiBox.innerHTML=
-      '<div class="ai-section ai-positive"><div class="ai-section-header">✅ Why buyers choose this city</div><div class="ai-section-body">'+parsed.whyBuyers+'</div></div>'+
-      '<div class="ai-section ai-negative"><div class="ai-section-header">⚠️ Trade-offs to know</div><div class="ai-section-body">'+parsed.tradeOffs+'</div></div>'+
+      '<div class="ai-section ai-positive"><div class="ai-section-header">✅ Why buyers choose this city</div><div class="ai-section-body">'+escapeHtml(parsed.whyBuyers)+'</div></div>'+
+      '<div class="ai-section ai-negative"><div class="ai-section-header">⚠️ Trade-offs to know</div><div class="ai-section-body">'+escapeHtml(parsed.tradeOffs)+'</div></div>'+
       accessHtml+
-      '<div class="ai-section ai-family"><div class="ai-section-header">📍 Lifestyle snapshot</div><div class="ai-section-body">'+parsed.lifestyleSnapshot+'</div></div>'+
+      '<div class="ai-section ai-family"><div class="ai-section-header">📍 Lifestyle snapshot</div><div class="ai-section-body">'+escapeHtml(parsed.lifestyleSnapshot)+'</div></div>'+
       '<div style="font-size:11px;color:#999;margin-top:10px;line-height:1.5">These observations are generated from HomePilot\'s city profiles and affordability analysis. They\'re intended to help compare cities and should be used alongside your own research.</div>';
     aiBox.dataset.loaded="true";
   }catch(e){
     aiBox.innerHTML='<div style="font-size:12px;color:#c0392b;padding:12px;background:#fdf0ee;border-radius:8px">Could not load city insights. Please try again.</div>';
     console.error("AI insights error:",e);
+  }finally{
+    aiBox.dataset.loading="";
   }
 }
