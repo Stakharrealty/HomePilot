@@ -9,7 +9,9 @@
     "test:kv": "node tests/kv_integrity_test.js"
   },
   "devDependencies": {
+    "http-server": "^14.1.1",
     "jsdom": "^24.0.0",
+    "wait-on": "^9.0.10",
     "wrangler": "4.112.0"
   }
 }

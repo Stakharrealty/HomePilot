@@ -1,0 +1,74 @@
+name: Test and Deploy HomePilot
+
+# Phase 4 — this is the automated deploy pipeline.
+# Trigger: any push to main (main only mirrors what should be live).
+# Runs all 4 Phase 3 test suites in order. If any suite fails, the job
+# stops immediately and the "deploy" step never runs — nothing reaches
+# Cloudflare unless every check is green.
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  test-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Start local static server (for module-load and smoke tests)
+        run: |
+          npx http-server -p 8843 -s > /tmp/httpserver.log 2>&1 &
+          npx wait-on http://localhost:8843/index.html --timeout 15000
+
+      - name: Module load verification
+        run: npm run test:browser-load
+
+      - name: Functional smoke test
+        run: npm run test:smoke
+
+      - name: Regression suite (245 tests)
+        run: npm run test
+
+      - name: KV integrity test
+        run: npm run test:kv
+
+      # Everything above must exit 0 or the workflow stops here —
+      # GitHub Actions fails the whole run on the first non-zero exit,
+      # so this step is unreachable unless all 4 suites passed.
+      #
+      # Build a clean deploy folder with ONLY what buyers should ever see:
+      # index.html + src/. This deliberately excludes tests/, workers/
+      # (which includes SECRETS.md, RECOVERY.md, worker source), README.md,
+      # and package*.json — none of that should ever be publicly servable
+      # from myhomepilot.ca.
+      - name: Build deploy folder
+        run: |
+          mkdir -p deploy
+          cp index.html deploy/
+          cp -r src deploy/
+          cat > deploy/wrangler.jsonc << 'EOF'
+          {
+            "name": "little-heart-362f",
+            "compatibility_date": "2026-07-16",
+            "assets": {
+              "directory": "./"
+            }
+          }
+          EOF
+
+      - name: Deploy to Cloudflare Workers (little-heart-362f)
+        run: npx wrangler deploy
+        working-directory: ./deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
