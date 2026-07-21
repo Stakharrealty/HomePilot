@@ -1,17 +1,3 @@
-// HomePilot DDF Listings Worker
-// Pulls real MLS listing data from CREA's DDF Web API (RESO Web API / OData standard)
-// and will eventually store it for HomePilot to display, replacing the city-average
-// price placeholders currently used throughout the app.
-//
-// STAGE 1 (this file, today): prove the real connection works. GET /test fetches an
-// access token and pulls a small number of real listings, returning them raw so we
-// can visually confirm the feed is actually live and the credentials are correct —
-// before investing time building storage/scheduling around it.
-//
-// Credentials (env.DDF_CLIENT_ID / env.DDF_CLIENT_SECRET) are the DDF feed's
-// username/password, added via `wrangler secret put` — never hardcoded here, never
-// visible in this file, matching the pattern used for every other secret today.
-
 const ALLOWED_ORIGIN = "https://myhomepilot.ca";
 const TOKEN_URL = "https://identity.crea.ca/connect/token";
 const API_BASE = "https://ddfapi.realtor.ca/odata/v1";
@@ -24,119 +10,146 @@ function corsHeaders(origin) {
   };
 }
 
-// Fetch a fresh access token. Tokens last 60 minutes (per CREA docs) - this Worker
-// requests a new one on every invocation for now, since Stage 1 is just proving
-// connectivity works. Once we move to scheduled ingestion, we can cache the token
-// in KV for its lifetime instead of requesting a fresh one every run.
 async function getAccessToken(env) {
-  const res = await fetch(TOKEN_URL, {
+  const body = new URLSearchParams({
+    grant_type: "client_credentials",
+    client_id: env.DDF_CLIENT_ID,
+    client_secret: env.DDF_CLIENT_SECRET,
+    scope: "DDFApi_Read",
+  });
+  const resp = await fetch(TOKEN_URL, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      grant_type: "client_credentials",
-      client_id: env.DDF_CLIENT_ID,
-      client_secret: env.DDF_CLIENT_SECRET,
-      scope: "DDFApi_Read",
-    }).toString(),
+    body: body.toString(),
   });
-
-  if (!res.ok) {
-    const errText = await res.text().catch(() => "");
-    throw new Error(`Token request failed: ${res.status} ${errText}`);
-  }
-  const data = await res.json();
+  const data = await resp.json();
+  if (!resp.ok) throw new Error(`Token failed (${resp.status}): ${JSON.stringify(data)}`);
   return data.access_token;
+}
+
+const HOMEPILOT_CITIES = [
+  "Welland", "Fort Erie", "Belleville", "Oshawa", "Hamilton", "Peterborough",
+  "Barrie", "Kingston", "St. Catharines", "Niagara Falls", "Midland", "Cobourg",
+  "Ottawa", "Wasaga Beach", "Cambridge", "Kitchener", "Waterloo", "Grand Valley",
+  "Shelburne", "Innisfil", "Georgina", "Centre Wellington", "Clarington", "Scugog",
+  "Collingwood", "Guelph", "Orangeville", "Whitby", "Ajax", "Bradford", "Newmarket",
+  "Pickering", "Acton", "Mississauga", "Brampton", "Toronto", "Erin", "Milton",
+  "Georgetown", "Halton Hills", "Aurora", "Vaughan", "Markham", "Caledon",
+  "Richmond Hill", "Burlington", "Oakville", "Mono", "King City",
+];
+
+// NOTE: DaysOnMarket removed from $select (2026-07-21) — confirmed via live /test
+// call that it errors as an invalid field on this feed's Property entity:
+// "Could not find a property named 'DaysOnMarket' on type 'DDF.Core.Entities.Property'."
+// Do not re-add without checking a real /metadata response first.
+function buildQuery(top, skip) {
+  const cityList = HOMEPILOT_CITIES.map((c) => `'${c}'`).join(",");
+  return new URLSearchParams({
+    "$top": String(top),
+    "$skip": String(skip),
+    "$filter": `StateOrProvince eq 'Ontario' and PropertySubType eq 'Single Family' and StandardStatus eq 'Active' and ListPrice ne null and City in (${cityList})`,
+    "$select": "ListingKey,ListPrice,City,PostalCode,Latitude,Longitude,BedroomsTotal,BathroomsTotalInteger,ParkingTotal,PropertySubType,StructureType,StandardStatus,ModificationTimestamp",
+  });
 }
 
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     const origin = request.headers.get("Origin") || "";
+    if (request.method === "OPTIONS") return new Response(null, { headers: corsHeaders(origin) });
 
-    if (request.method === "OPTIONS") {
-      return new Response(null, { headers: corsHeaders(origin) });
-    }
-
-    // GET /metadata - fetches CREA's official field definitions, including the
-    // complete valid value list for PropertySubType. This tells us the REAL
-    // category names to filter on, instead of guessing and risking silently
-    // excluding real houses with a wrong guess.
-    if (url.pathname === "/metadata") {
-      try {
+    try {
+      if (url.pathname === "/test") {
         const token = await getAccessToken(env);
-        const metaRes = await fetch(`${API_BASE}/$metadata`, {
+        const listingsResp = await fetch(`${API_BASE}/Property?${buildQuery(20, 0).toString()}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        const metaText = await metaRes.text();
-        const match = metaText.match(/<EnumType Name="PropertySubType"[\s\S]*?<\/EnumType>/);
-        return new Response(JSON.stringify({
-          ok: metaRes.ok,
-          status: metaRes.status,
-          propertySubTypeEnum: match ? match[0] : "Not found via regex - returning first 3000 chars of full metadata instead",
-          fullMetadataSnippet: match ? undefined : metaText.slice(0, 3000),
-        }, null, 2), {
-          status: 200,
-          headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
-        });
-      } catch (err) {
-        return new Response(JSON.stringify({
-          ok: false,
-          error: err && err.message ? err.message : String(err),
-        }), {
-          status: 502,
-          headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
-        });
+        const listingsData = await listingsResp.json();
+        return new Response(
+          JSON.stringify({ status: listingsResp.status, count: (listingsData.value || []).length, listings: listingsData.value || listingsData }, null, 2),
+          { status: listingsResp.status, headers: { "Content-Type": "application/json", ...corsHeaders(origin) } }
+        );
       }
-    }
 
-    // GET /test - Stage 1 connectivity check. Pulls 3 real Ontario listings and
-    // returns them raw. This is the very first real proof the credentials + feed
-    // actually work end to end.
-    if (url.pathname === "/test") {
-      try {
+      if (url.pathname === "/metadata") {
         const token = await getAccessToken(env);
-
-        // Small, cheap query: top 3 active Ontario listings, only the fields we
-        // actually care about for now (keeps the response readable for this test).
-        const query = new URLSearchParams({
-          "$top": "5",
-          "$filter": "StateOrProvince eq 'Ontario'",
-          "$select": "ListingKey,ListPrice,City,UnparsedAddress,Latitude,Longitude,BedroomsTotal,BathroomsTotalInteger,PropertySubType,CommonInterest,StructureType,ListingURL,ModificationTimestamp",
-        });
-
-        const propRes = await fetch(`${API_BASE}/Property?${query.toString()}`, {
+        const metaResp = await fetch(`${API_BASE}/$metadata`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-
-        const propData = await propRes.json();
-
-        return new Response(JSON.stringify({
-          ok: propRes.ok,
-          status: propRes.status,
-          tokenObtained: true,
-          listingCount: Array.isArray(propData.value) ? propData.value.length : 0,
-          sample: propData,
-        }, null, 2), {
-          status: 200,
-          headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
-        });
-      } catch (err) {
-        return new Response(JSON.stringify({
-          ok: false,
-          error: err && err.message ? err.message : String(err),
-        }), {
-          status: 502,
-          headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
+        const metaText = await metaResp.text();
+        return new Response(metaText, {
+          status: metaResp.status,
+          headers: { "Content-Type": "application/xml", ...corsHeaders(origin) },
         });
       }
-    }
 
-    return new Response(JSON.stringify({
-      ok: true,
-      message: "HomePilot Listings Worker - Stage 1 (connectivity test). Try GET /test",
-    }), {
-      status: 200,
-      headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
-    });
+      if (url.pathname === "/ingest") {
+        const token = await getAccessToken(env);
+        let skip = 0;
+        const pageSize = 50;
+        const maxRecords = 500;
+        let totalWritten = 0;
+        let totalSeen = 0;
+
+        while (totalSeen < maxRecords) {
+          const resp = await fetch(`${API_BASE}/Property?${buildQuery(pageSize, skip).toString()}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          const data = await resp.json();
+          const rows = data.value || [];
+          if (rows.length === 0) break;
+
+          for (const r of rows) {
+            await env.DB.prepare(
+              `INSERT INTO listings (
+                listing_key, list_price, city, postal_code, latitude, longitude,
+                property_subtype, structure_type, bedrooms, bathrooms, parking_total,
+                listing_url, brokerage_name, listing_status, last_updated
+              ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+              ON CONFLICT(listing_key) DO UPDATE SET
+                list_price=excluded.list_price, city=excluded.city, postal_code=excluded.postal_code,
+                latitude=excluded.latitude, longitude=excluded.longitude,
+                property_subtype=excluded.property_subtype, structure_type=excluded.structure_type,
+                bedrooms=excluded.bedrooms, bathrooms=excluded.bathrooms, parking_total=excluded.parking_total,
+                listing_status=excluded.listing_status, last_updated=excluded.last_updated`
+            ).bind(
+              r.ListingKey,
+              r.ListPrice || 0,
+              r.City || "",
+              r.PostalCode || null,
+              r.Latitude || null,
+              r.Longitude || null,
+              r.PropertySubType || "",
+              JSON.stringify(r.StructureType || []),
+              r.BedroomsTotal || null,
+              r.BathroomsTotalInteger || null,
+              r.ParkingTotal || null,
+              `https://www.realtor.ca/real-estate/${r.ListingKey}`,
+              null,
+              r.StandardStatus || "",
+              r.ModificationTimestamp || new Date().toISOString()
+            ).run();
+            totalWritten++;
+          }
+
+          totalSeen += rows.length;
+          skip += pageSize;
+          if (rows.length < pageSize) break;
+        }
+
+        return new Response(
+          JSON.stringify({ status: "ok", totalWritten }, null, 2),
+          { headers: { "Content-Type": "application/json", ...corsHeaders(origin) } }
+        );
+      }
+
+      return new Response(JSON.stringify({ error: "Not found. Try /test, /metadata, or /ingest" }), {
+        status: 404, headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
+      });
+    } catch (err) {
+      return new Response(JSON.stringify({ error: err.message || String(err) }), {
+        status: 500, headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
+      });
+    }
   },
 };
