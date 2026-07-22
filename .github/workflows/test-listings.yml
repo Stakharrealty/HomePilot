@@ -1,20 +1,22 @@
 name: Test homepilot-listings (DDF)
 
-# Separate from deploy.yml on purpose:
+# Trigger matches deploy.yml exactly (main only) -- explicit decision by
+# Sandeep on 2026-07-21, for consistency across both pipelines. Note this
+# means listings tests do NOT run on dev pushes -- only once merged to main.
+# Still separate from deploy.yml itself because:
 # - Tests a different Worker (homepilot-listings), not the main app
-# - Only triggers when files under workers/homepilot-listings/ or the
-#   two listings test files change -- never runs on unrelated app changes
-# - listings_metadata_field_test.js calls CREA's live API via the deployed
-#   Worker's /metadata endpoint, so this should NOT run on every push to
-#   main the way the main app's tests do
 # - Does NOT deploy anything. This is test-only until homepilot-listings
 #   has its own real deploy pipeline (not yet built).
+# - listings_metadata_field_test.js calls CREA's live API via the deployed
+#   Worker's /metadata endpoint on every run
 
 on:
   push:
+    branches: [main]
     paths:
       - "workers/homepilot-listings/**"
       - "tests/listings_query_node_limit_test.js"
+      - "tests/listings_price_floor_test.js"
       - "tests/listings_metadata_field_test.js"
 
 jobs:
@@ -31,6 +33,9 @@ jobs:
 
       - name: Query node-count limit test (no network required)
         run: node tests/listings_query_node_limit_test.js
+
+      - name: Price floor test (no network required)
+        run: node tests/listings_price_floor_test.js
 
       - name: Metadata field verification test (calls live CREA API via deployed Worker)
         run: node tests/listings_metadata_field_test.js

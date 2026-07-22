@@ -9,7 +9,8 @@
     "test:kv": "node tests/kv_integrity_test.js",
     "test:listings-nodecount": "node tests/listings_query_node_limit_test.js",
     "test:listings-fields": "node tests/listings_metadata_field_test.js",
-    "test:listings": "npm run test:listings-nodecount && npm run test:listings-fields"
+    "test:listings-price-floor": "node tests/listings_price_floor_test.js",
+    "test:listings": "npm run test:listings-nodecount && npm run test:listings-price-floor && npm run test:listings-fields"
   },
   "devDependencies": {
     "http-server": "^14.1.1",
