@@ -77,18 +77,37 @@ async function main() {
     const db = await import(pathToFileURL(path.join(SRC_DIR, "db.js")).href);
     check("db.js imports without error", true);
     check("db.js exports upsertListing (function)", typeof db.upsertListing === "function");
+    check(
+      "db.js exports deleteStaleListings (function) -- added 2026-07-21 for scheduled refresh",
+      typeof db.deleteStaleListings === "function"
+    );
   } catch (e) {
     check("db.js imports without error", false, e.message);
   }
 
+  // ingest.js -- added 2026-07-21, shared between /ingest route and
+  // scheduled cron trigger so there's one code path, not two
+  try {
+    const ingest = await import(pathToFileURL(path.join(SRC_DIR, "ingest.js")).href);
+    check("ingest.js imports without error", true);
+    check("ingest.js exports runIngest (function)", typeof ingest.runIngest === "function");
+  } catch (e) {
+    check("ingest.js imports without error", false, e.message);
+  }
+
   // index.js -- the actual entry point, must import all of the above cleanly
-  // and produce a valid Worker export (default export with a fetch function)
+  // and produce a valid Worker export (default export with fetch AND
+  // scheduled handlers -- scheduled added 2026-07-21 for the daily cron)
   try {
     const entry = await import(pathToFileURL(path.join(SRC_DIR, "index.js")).href);
     check("index.js imports without error (all imports resolve)", true);
     check(
       "index.js default export has a fetch(request, env) handler",
       !!entry.default && typeof entry.default.fetch === "function"
+    );
+    check(
+      "index.js default export has a scheduled(event, env, ctx) handler",
+      !!entry.default && typeof entry.default.scheduled === "function"
     );
   } catch (e) {
     check("index.js imports without error (all imports resolve)", false, e.message);

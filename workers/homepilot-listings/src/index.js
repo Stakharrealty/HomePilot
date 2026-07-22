@@ -1,11 +1,13 @@
 // homepilot-listings — entry point
-// Routes requests to /test, /metadata, /ingest. Auth, query-building, city
-// list, and D1 writes now live in dedicated modules (2026-07-21 split) --
-// see auth.js, cities.js, query.js, db.js in this same folder.
+// Routes requests to /test, /metadata, /ingest, and handles the scheduled
+// cron trigger for the daily refresh job (added 2026-07-21). Auth,
+// query-building, city list, D1 writes, and ingest logic now live in
+// dedicated modules -- see auth.js, cities.js, query.js, db.js, ingest.js
+// in this same folder.
 
 import { getAccessToken } from "./auth.js";
 import { buildQuery, API_BASE } from "./query.js";
-import { upsertListing } from "./db.js";
+import { runIngest } from "./ingest.js";
 
 const ALLOWED_ORIGIN = "https://myhomepilot.ca";
 
@@ -49,33 +51,9 @@ export default {
       }
 
       if (url.pathname === "/ingest") {
-        const token = await getAccessToken(env);
-        let skip = 0;
-        const pageSize = 50;
-        const maxRecords = 500;
-        let totalWritten = 0;
-        let totalSeen = 0;
-
-        while (totalSeen < maxRecords) {
-          const resp = await fetch(`${API_BASE}/Property?${buildQuery(pageSize, skip).toString()}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          const data = await resp.json();
-          const rows = data.value || [];
-          if (rows.length === 0) break;
-
-          for (const r of rows) {
-            await upsertListing(env.DB, r);
-            totalWritten++;
-          }
-
-          totalSeen += rows.length;
-          skip += pageSize;
-          if (rows.length < pageSize) break;
-        }
-
+        const result = await runIngest(env);
         return new Response(
-          JSON.stringify({ status: "ok", totalWritten }, null, 2),
+          JSON.stringify({ status: "ok", ...result }, null, 2),
           { headers: { "Content-Type": "application/json", ...corsHeaders(origin) } }
         );
       }
@@ -88,5 +66,12 @@ export default {
         status: 500, headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
       });
     }
+  },
+
+  // Cron trigger handler -- see wrangler.jsonc for the schedule. Runs the
+  // exact same runIngest() used by the manual /ingest route, so there is
+  // only one ingest code path to test and trust.
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(runIngest(env));
   },
 };

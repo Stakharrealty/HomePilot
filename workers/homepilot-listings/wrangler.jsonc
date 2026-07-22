@@ -2,5 +2,12 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "homepilot-listings",
   "main": "src/index.js",
-  "compatibility_date": "2025-01-01"
+  "compatibility_date": "2025-01-01",
+  "triggers": {
+    // Daily refresh, 8:00 AM UTC (~4:00 AM Toronto during EDT, 3:00 AM EST).
+    // Chosen as an off-peak time, before Ontario buyers would typically be
+    // using the app. Runs runIngest() via the scheduled() handler in
+    // src/index.js -- same code path as the manual /ingest route.
+    "crons": ["0 8 * * *"]
+  }
 }

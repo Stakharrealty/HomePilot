@@ -1,20 +1,29 @@
 // homepilot-listings — db module
 // Writes CREA/DDF listing records into the D1 `listings` table. Extracted
 // from the single-file index.js during the 2026-07-21 module split.
+//
+// Stale-listing removal (added 2026-07-21, part of the scheduled refresh
+// job): every row written by a given ingest run gets last_seen_at stamped
+// with that run's start time. deleteStaleListings() then removes any row
+// whose last_seen_at is older than the current run -- meaning CREA no
+// longer returned it (sold, delisted, or no longer matches the filter).
+// This is a "mark and sweep" pattern: mark every row touched this run,
+// sweep away everything that wasn't.
 
-export async function upsertListing(db, r) {
+export async function upsertListing(db, r, runStartedAt) {
   await db.prepare(
     `INSERT INTO listings (
       listing_key, list_price, city, postal_code, latitude, longitude,
       property_subtype, structure_type, bedrooms, bathrooms, parking_total,
-      listing_url, brokerage_name, listing_status, last_updated
-    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      listing_url, brokerage_name, listing_status, last_updated, last_seen_at
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ON CONFLICT(listing_key) DO UPDATE SET
       list_price=excluded.list_price, city=excluded.city, postal_code=excluded.postal_code,
       latitude=excluded.latitude, longitude=excluded.longitude,
       property_subtype=excluded.property_subtype, structure_type=excluded.structure_type,
       bedrooms=excluded.bedrooms, bathrooms=excluded.bathrooms, parking_total=excluded.parking_total,
-      listing_status=excluded.listing_status, last_updated=excluded.last_updated`
+      listing_status=excluded.listing_status, last_updated=excluded.last_updated,
+      last_seen_at=excluded.last_seen_at`
   ).bind(
     r.ListingKey,
     r.ListPrice || 0,
@@ -30,13 +39,18 @@ export async function upsertListing(db, r) {
     `https://www.realtor.ca/real-estate/${r.ListingKey}`,
     null,
     r.StandardStatus || "",
-    r.ModificationTimestamp || new Date().toISOString()
+    r.ModificationTimestamp || new Date().toISOString(),
+    runStartedAt
   ).run();
 }
 
-// NOTE (known gap, flagged 2026-07-21, deliberately not solved in this split
-// per Sandeep's explicit decision): this only inserts/updates. It never
-// removes a listing that's sold, delisted, or no longer matches the query.
-// The `listings` table can only grow or get overwritten -- never shrink --
-// across repeated /ingest runs. Revisit when building the scheduled 24hr
-// refresh job (original plan step 4).
+// Removes listings not touched by the current run -- i.e. CREA no longer
+// returns them as matching Active Single Family in our 49 cities above the
+// price floor. Returns the number of rows deleted.
+export async function deleteStaleListings(db, runStartedAt) {
+  const result = await db
+    .prepare(`DELETE FROM listings WHERE last_seen_at IS NULL OR last_seen_at < ?`)
+    .bind(runStartedAt)
+    .run();
+  return result.meta?.changes ?? 0;
+}
