@@ -47,7 +47,13 @@ function buildQuery(top, skip) {
   return new URLSearchParams({
     "$top": String(top),
     "$skip": String(skip),
-    "$filter": `StateOrProvince eq 'Ontario' and PropertySubType eq 'Single Family' and StandardStatus eq 'Active' and ListPrice ne null and City in (${cityList})`,
+    // ListPrice gt 50000 (not just "ne null") -- added 2026-07-21 after finding
+    // real $1-$5000 "Single Family" listings in production data (Pickering,
+    // Richmond Hill, Kitchener). These are real agent-entered junk/placeholder
+    // prices, not a parsing bug. $50,000 is well below any real Ontario single
+    // family home price, so this can't accidentally exclude legitimate cheap
+    // listings -- it's purely a garbage filter.
+    "$filter": `StateOrProvince eq 'Ontario' and PropertySubType eq 'Single Family' and StandardStatus eq 'Active' and ListPrice gt 50000 and City in (${cityList})`,
     "$select": "ListingKey,ListPrice,City,PostalCode,Latitude,Longitude,BedroomsTotal,BathroomsTotalInteger,ParkingTotal,PropertySubType,StructureType,StandardStatus,ModificationTimestamp",
   });
 }
