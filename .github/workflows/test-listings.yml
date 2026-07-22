@@ -15,6 +15,7 @@ on:
     branches: [main]
     paths:
       - "workers/homepilot-listings/**"
+      - "tests/listings_module_load_test.js"
       - "tests/listings_query_node_limit_test.js"
       - "tests/listings_price_floor_test.js"
       - "tests/listings_metadata_field_test.js"
@@ -30,6 +31,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
+
+      - name: Module load verification (no network required)
+        run: node tests/listings_module_load_test.js
 
       - name: Query node-count limit test (no network required)
         run: node tests/listings_query_node_limit_test.js

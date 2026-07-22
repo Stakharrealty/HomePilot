@@ -20,12 +20,13 @@
 const fs = require("fs");
 const path = require("path");
 
-const WORKER_SRC = path.join(
+const QUERY_SRC = path.join(
   __dirname,
   "..",
   "workers",
   "homepilot-listings",
-  "index.js"
+  "src",
+  "query.js"
 );
 const METADATA_URL = "https://homepilot-listings.stakharrealty.workers.dev/metadata";
 
@@ -42,16 +43,18 @@ function check(label, cond, detail) {
 }
 
 async function main() {
-  const src = fs.readFileSync(WORKER_SRC, "utf8");
+  const src = fs.readFileSync(QUERY_SRC, "utf8");
 
-  // Extract the real $select field list from buildQuery()
-  const selectMatch = src.match(/"\$select":\s*"([^"]+)"/);
-  check("$select field list found in source", !!selectMatch);
+  // Extract the real $select field list. query.js builds this from a
+  // SELECT_FIELDS array (module split, 2026-07-21) rather than a literal
+  // string, so match that array directly.
+  const selectMatch = src.match(/const SELECT_FIELDS\s*=\s*\[([\s\S]*?)\];/);
+  check("SELECT_FIELDS array found in query.js", !!selectMatch);
   if (!selectMatch) {
     console.log(`\n=== RESULT: ${passed} passed, ${failed} failed ===`);
     process.exit(1);
   }
-  const selectedFields = selectMatch[1].split(",").map((f) => f.trim());
+  const selectedFields = [...selectMatch[1].matchAll(/"([^"]+)"/g)].map((m) => m[1]);
   console.log(`  Fields to verify: ${selectedFields.join(", ")}`);
 
   // Fetch live metadata

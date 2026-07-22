@@ -19,12 +19,13 @@
 const fs = require("fs");
 const path = require("path");
 
-const WORKER_SRC = path.join(
+const QUERY_SRC = path.join(
   __dirname,
   "..",
   "workers",
   "homepilot-listings",
-  "index.js"
+  "src",
+  "query.js"
 );
 
 // The floor must be at least this high to actually catch the known junk
@@ -44,11 +45,11 @@ function check(label, cond, detail) {
   }
 }
 
-const src = fs.readFileSync(WORKER_SRC, "utf8");
+const src = fs.readFileSync(QUERY_SRC, "utf8");
 
 // Extract the $filter line
 const filterMatch = src.match(/"\$filter":\s*`([^`]+)`/);
-check("$filter found in source", !!filterMatch);
+check("$filter found in query.js", !!filterMatch);
 const filterStr = filterMatch ? filterMatch[1] : "";
 
 // Must NOT rely on just "ne null" for price (that's what let $1 junk through)
@@ -59,10 +60,23 @@ check(
   "a bare null-check does not exclude non-null junk values like $1"
 );
 
-// Must have a real "gt" (greater than) price threshold
-const gtMatch = filterStr.match(/ListPrice gt (\d+)/);
-check("$filter contains a 'ListPrice gt N' threshold", !!gtMatch);
+// query.js (post-2026-07-21 module split) interpolates a MIN_LIST_PRICE
+// constant into the filter string rather than a literal number, so check
+// both: the filter references the constant, and the constant itself has a
+// real numeric value.
+const usesInterpolatedFloor = /ListPrice gt \$\{MIN_LIST_PRICE\}/.test(filterStr);
+const literalGtMatch = filterStr.match(/ListPrice gt (\d+)/);
+check(
+  "$filter contains a 'ListPrice gt N' threshold (literal or interpolated constant)",
+  usesInterpolatedFloor || !!literalGtMatch
+);
 
+const constMatch = src.match(/const MIN_LIST_PRICE\s*=\s*(\d+)/);
+if (usesInterpolatedFloor) {
+  check("MIN_LIST_PRICE constant found in query.js", !!constMatch);
+}
+
+const gtMatch = literalGtMatch || constMatch;
 if (gtMatch) {
   const floorValue = parseInt(gtMatch[1], 10);
   check(

@@ -16,12 +16,21 @@
 const fs = require("fs");
 const path = require("path");
 
-const WORKER_SRC = path.join(
+const CITIES_SRC = path.join(
   __dirname,
   "..",
   "workers",
   "homepilot-listings",
-  "index.js"
+  "src",
+  "cities.js"
+);
+const QUERY_SRC = path.join(
+  __dirname,
+  "..",
+  "workers",
+  "homepilot-listings",
+  "src",
+  "query.js"
 );
 
 const CREA_NODE_LIMIT = 100;
@@ -38,11 +47,12 @@ function check(label, cond, detail) {
   }
 }
 
-const src = fs.readFileSync(WORKER_SRC, "utf8");
+const citiesSrc = fs.readFileSync(CITIES_SRC, "utf8");
+const querySrc = fs.readFileSync(QUERY_SRC, "utf8");
 
 // Extract HOMEPILOT_CITIES array literal
-const citiesMatch = src.match(/const HOMEPILOT_CITIES\s*=\s*\[([\s\S]*?)\];/);
-check("HOMEPILOT_CITIES array found in source", !!citiesMatch);
+const citiesMatch = citiesSrc.match(/export const HOMEPILOT_CITIES\s*=\s*\[([\s\S]*?)\];/);
+check("HOMEPILOT_CITIES array found in cities.js", !!citiesMatch);
 
 const cityListRaw = citiesMatch ? citiesMatch[1] : "";
 const cities = [...cityListRaw.matchAll(/"([^"]+)"/g)].map((m) => m[1]);
@@ -53,8 +63,8 @@ check(
 );
 
 // Confirm the filter uses a single `in (...)` clause, not chained `or`
-const usesInClause = /City in \(/.test(src);
-const usesChainedOr = /City eq '[^']+' or City eq '[^']+'/.test(src);
+const usesInClause = /City in \(/.test(querySrc);
+const usesChainedOr = /City eq '[^']+' or City eq '[^']+'/.test(querySrc);
 check("$filter uses a single City in (...) clause", usesInClause);
 check("$filter does NOT use chained City eq 'X' or ... clauses", !usesChainedOr);
 
