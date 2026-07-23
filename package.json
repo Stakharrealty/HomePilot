@@ -7,6 +7,7 @@
     "test:browser-load": "node tests/browser_load_verification.js",
     "test:smoke": "node tests/smoke_test.js",
     "test:kv": "node tests/kv_integrity_test.js",
+    "test:listings-frontend": "node tests/listings_frontend_display_test.js",
     "test:listings-nodecount": "node tests/listings_query_node_limit_test.js",
     "test:listings-price-floor": "node tests/listings_price_floor_test.js",
     "test:listings-fields": "node tests/listings_metadata_field_test.js",

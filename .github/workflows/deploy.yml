@@ -36,6 +36,9 @@ jobs:
       - name: Functional smoke test
         run: npm run test:smoke
 
+      - name: DDF listing display frontend test (added 2026-07-22)
+        run: npm run test:listings-frontend
+
       - name: Regression suite (245 tests)
         run: npm run test
 

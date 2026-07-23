@@ -172,6 +172,28 @@ input[type=text]:focus,input[type=email]:focus,input[type=tel]:focus{border-colo
 .work-location-fields input{width:100%;font-size:15px;padding:11px 13px;border-radius:8px;border:1px solid #e0e0e0;background:#fafafa;color:#1a1a1a;outline:none;transition:border-color 0.2s;}
 .work-location-fields input:focus{border-color:#1D9E75;background:#fff;}
 .br-tick.active{color:#1D9E75!important;font-weight:700!important;}
+
+/* DDF listing display (added 2026-07-22) -- matches existing .card/.city
+   design tokens: white bg, #e8e8e8 border, 12px radius, #1D9E75 accent */
+.live-listings-toggle{width:100%;padding:12px;font-size:14px;font-weight:600;border-radius:10px;border:1.5px solid #1D9E75;background:#fff;color:#1D9E75;cursor:pointer;margin-top:8px;transition:all 0.2s;display:flex;align-items:center;justify-content:center;gap:6px;}
+.live-listings-toggle:hover{background:#E1F5EE;}
+.live-listings-toggle .beta-tag{font-size:10px;font-weight:700;background:#5B3A7E;color:#fff;padding:2px 6px;border-radius:999px;letter-spacing:0.3px;}
+.listings-loading,.listings-empty,.listings-error{padding:1.5rem;text-align:center;color:#555;font-size:14px;background:#fafafa;border-radius:12px;margin-top:10px;}
+.listings-error{color:#c0392b;background:#FAEEDA;}
+.listings-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-top:12px;}
+.listing-card{background:#fff;border:1px solid #e8e8e8;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.04);transition:box-shadow 0.2s;}
+.listing-card:hover{box-shadow:0 2px 10px rgba(29,158,117,0.15);}
+.listing-photo-wrap{width:100%;aspect-ratio:4/3;background:#f0f0f0;}
+.listing-photo{width:100%;height:100%;object-fit:cover;display:block;}
+.listing-photo-empty{width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#999;font-size:12px;background:#f0f0f0;}
+.listing-body{padding:12px;}
+.listing-price{font-size:18px;font-weight:700;color:#1a1a1a;}
+.listing-meta{font-size:13px;color:#555;margin-top:2px;}
+.listing-brokerage{font-size:12px;color:#555;margin-top:6px;font-weight:500;}
+.listing-realtor-badge{display:flex;align-items:center;justify-content:space-between;margin-top:10px;padding:6px 10px;background:#f5f5f5;border-radius:8px;text-decoration:none;font-size:11px;font-weight:600;color:#1a1a1a;min-width:90px;transition:background 0.2s;}
+.listing-realtor-badge:hover{background:#E6F1FB;}
+.listing-realtor-badge-arrow{color:#1D9E75;}
+.listings-trademark{font-size:10px;color:#999;margin-top:16px;padding-top:12px;border-top:1px solid #e8e8e8;line-height:1.5;}
 </style>
 
 <style id="printStyles">
@@ -660,6 +682,7 @@ input[type=text]:focus,input[type=email]:focus,input[type=tel]:focus{border-colo
 <script src="src/render-support.js"></script>
 <script src="src/main.js"></script>
 <script src="src/render.js"></script>
+<script src="src/listings-display.js"></script>
 <script>
 // T (translation strings, 6 languages) now lives in src/i18n.js — loaded via <script src>.
 

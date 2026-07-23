@@ -262,6 +262,8 @@ function render(){
       (fit.cls==='fs'?'<div style="font-size:12px;color:#633806;background:#FAEEDA;border-radius:8px;padding:8px 10px;margin-top:10px;line-height:1.6;">'+t.stretch_warn+'</div>':'')+
       '</div>'+
       '<a href="'+buildIncomUrl(x.n,buyPower,activeProp!=='all'?activeProp:(()=>{const pt=PT[x.n]||{};return pt.detached&&pt.detached<=buyPower?'detached':pt.semi&&pt.semi<=buyPower?'semi':pt.town&&pt.town<=buyPower?'town':'condo';})())+'" target="_blank" onclick="event.stopPropagation()" class="view-btn">🏠 View Available Homes in '+x.n+'</a>'+
+      '<button type="button" class="live-listings-toggle" onclick="event.stopPropagation();toggleLiveListings(this,\''+x.n+'\')"><span class="beta-tag">BETA</span> View Live Listings</button>'+
+      '<div class="live-listings-container" style="display:none"></div>'+
       '</div></div>';
   }).join('');
 }
@@ -380,6 +382,8 @@ function selectPropType(cityId, tp, cityName) {
   // has to guess which property type to link to (that was the deferred INCOM bug —
   // see July 15 audit notes). We already know exactly which type this panel is for.
   html += '<a href="'+buildIncomUrl(cityName,price,tp)+'" target="_blank" onclick="event.stopPropagation()" class="view-btn" style="margin-top:12px">🏠 View Available '+(PLBL[tp]||tp)+' in '+cityName+'</a>';
+  html += '<button type="button" class="live-listings-toggle" onclick="event.stopPropagation();toggleLiveListings(this,\''+cityName+'\')"><span class="beta-tag">BETA</span> View Live Listings</button>';
+  html += '<div class="live-listings-container" style="display:none"></div>';
 
   html += '</div>';
 
