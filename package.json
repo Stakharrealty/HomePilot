@@ -12,7 +12,8 @@
     "test:listings-fields": "node tests/listings_metadata_field_test.js",
     "test:listings-modules": "node tests/listings_module_load_test.js",
     "test:listings-stale-removal": "node tests/listings_stale_removal_test.js",
-    "test:listings": "npm run test:listings-modules && npm run test:listings-nodecount && npm run test:listings-price-floor && npm run test:listings-stale-removal && npm run test:listings-fields"
+    "test:listings-display": "node tests/listings_display_backend_test.js",
+    "test:listings": "npm run test:listings-modules && npm run test:listings-nodecount && npm run test:listings-price-floor && npm run test:listings-stale-removal && npm run test:listings-display && npm run test:listings-fields"
   },
   "devDependencies": {
     "http-server": "^14.1.1",

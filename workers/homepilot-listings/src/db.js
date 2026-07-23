@@ -9,21 +9,46 @@
 // longer returned it (sold, delisted, or no longer matches the filter).
 // This is a "mark and sweep" pattern: mark every row touched this run,
 // sweep away everything that wasn't.
+//
+// Photos + brokerage name (added 2026-07-22, for the listing display UI):
+// - photos: extracted from r.Media (a Collection(Media) field), stored as a
+//   JSON array of URLs. CREA's own display rules require their watermark on
+//   listing photos -- MediaURL is assumed to already point to CREA's
+//   pre-watermarked image, not a raw source photo. This has NOT been
+//   visually confirmed yet (no live /ingest run with Media selected has
+//   happened as of this commit) -- flagged as a real thing to verify before
+//   this goes live, not assumed safe.
+// - brokerageName: NOT extracted from Property (no such field exists there,
+//   confirmed via /metadata). Must be looked up separately via
+//   buildOfficeQuery() in query.js and passed in here by ingest.js, which
+//   is the caller responsible for doing that second query and building an
+//   officeKey -> officeName lookup map.
 
-export async function upsertListing(db, r, runStartedAt) {
+function extractPhotoUrls(media) {
+  if (!Array.isArray(media) || media.length === 0) return [];
+  return media
+    .map((m) => m.MediaURL)
+    .filter((url) => typeof url === "string" && url.length > 0);
+}
+
+export async function upsertListing(db, r, runStartedAt, brokerageName) {
+  const photos = extractPhotoUrls(r.Media);
+
   await db.prepare(
     `INSERT INTO listings (
       listing_key, list_price, city, postal_code, latitude, longitude,
       property_subtype, structure_type, bedrooms, bathrooms, parking_total,
-      listing_url, brokerage_name, listing_status, last_updated, last_seen_at
-    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      listing_url, brokerage_name, listing_status, last_updated, last_seen_at,
+      photos
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ON CONFLICT(listing_key) DO UPDATE SET
       list_price=excluded.list_price, city=excluded.city, postal_code=excluded.postal_code,
       latitude=excluded.latitude, longitude=excluded.longitude,
       property_subtype=excluded.property_subtype, structure_type=excluded.structure_type,
       bedrooms=excluded.bedrooms, bathrooms=excluded.bathrooms, parking_total=excluded.parking_total,
       listing_status=excluded.listing_status, last_updated=excluded.last_updated,
-      last_seen_at=excluded.last_seen_at`
+      last_seen_at=excluded.last_seen_at, brokerage_name=excluded.brokerage_name,
+      photos=excluded.photos`
   ).bind(
     r.ListingKey,
     r.ListPrice || 0,
@@ -37,10 +62,11 @@ export async function upsertListing(db, r, runStartedAt) {
     r.BathroomsTotalInteger || null,
     r.ParkingTotal || null,
     `https://www.realtor.ca/real-estate/${r.ListingKey}`,
-    null,
+    brokerageName || null,
     r.StandardStatus || "",
     r.ModificationTimestamp || new Date().toISOString(),
-    runStartedAt
+    runStartedAt,
+    JSON.stringify(photos)
   ).run();
 }
 
@@ -53,4 +79,42 @@ export async function deleteStaleListings(db, runStartedAt) {
     .bind(runStartedAt)
     .run();
   return result.meta?.changes ?? 0;
+}
+
+// Read path for the public /listings endpoint (added 2026-07-22, listing
+// display UI). Returns listings for a given city, most recently updated
+// first, capped at `limit`. Parses the photos JSON column back into a real
+// array for the caller -- callers should never see the raw JSON string.
+export async function getListingsByCity(db, city, limit = 20) {
+  const result = await db
+    .prepare(
+      `SELECT listing_key, list_price, city, postal_code, bedrooms, bathrooms,
+              parking_total, listing_url, brokerage_name, photos, last_updated
+       FROM listings
+       WHERE city = ?
+       ORDER BY last_updated DESC
+       LIMIT ?`
+    )
+    .bind(city, limit)
+    .all();
+
+  return (result.results || []).map((row) => ({
+    listingKey: row.listing_key,
+    listPrice: row.list_price,
+    city: row.city,
+    postalCode: row.postal_code,
+    bedrooms: row.bedrooms,
+    bathrooms: row.bathrooms,
+    parkingTotal: row.parking_total,
+    listingUrl: row.listing_url,
+    brokerageName: row.brokerage_name,
+    photos: (() => {
+      try {
+        return JSON.parse(row.photos || "[]");
+      } catch {
+        return [];
+      }
+    })(),
+    lastUpdated: row.last_updated,
+  }));
 }

@@ -8,6 +8,8 @@
 import { getAccessToken } from "./auth.js";
 import { buildQuery, API_BASE } from "./query.js";
 import { runIngest } from "./ingest.js";
+import { getListingsByCity } from "./db.js";
+import { HOMEPILOT_CITIES } from "./cities.js";
 
 const ALLOWED_ORIGIN = "https://myhomepilot.ca";
 
@@ -58,7 +60,31 @@ export default {
         );
       }
 
-      return new Response(JSON.stringify({ error: "Not found. Try /test, /metadata, or /ingest" }), {
+      if (url.pathname === "/listings") {
+        const city = url.searchParams.get("city");
+        if (!city) {
+          return new Response(JSON.stringify({ error: "Missing required 'city' query param" }), {
+            status: 400, headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
+          });
+        }
+        // Only serve the 49 cities HomePilot actually covers -- prevents
+        // this becoming an open-ended D1 query surface for arbitrary input.
+        if (!HOMEPILOT_CITIES.includes(city)) {
+          return new Response(JSON.stringify({ error: `Unknown city: ${city}` }), {
+            status: 400, headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
+          });
+        }
+        const limitParam = parseInt(url.searchParams.get("limit") || "20", 10);
+        const limit = Number.isFinite(limitParam) ? Math.min(Math.max(limitParam, 1), 50) : 20;
+
+        const listings = await getListingsByCity(env.DB, city, limit);
+        return new Response(
+          JSON.stringify({ city, count: listings.length, listings }, null, 2),
+          { headers: { "Content-Type": "application/json", ...corsHeaders(origin) } }
+        );
+      }
+
+      return new Response(JSON.stringify({ error: "Not found. Try /test, /metadata, /ingest, or /listings" }), {
         status: 404, headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
       });
     } catch (err) {
