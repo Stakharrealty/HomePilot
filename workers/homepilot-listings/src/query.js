@@ -34,12 +34,34 @@ const SELECT_FIELDS = [
 // price, so this can't accidentally exclude legitimate cheap listings.
 const MIN_LIST_PRICE = 50000;
 
+// buildQuery(): all-49-cities-combined query. Used ONLY by /test (a quick
+// 20-listing sanity sample) -- NOT used for real /ingest anymore.
+//
+// Why not: with one combined query capped by $top, CREA returns results in
+// whatever order it chooses (observed: large-inventory cities like Ottawa,
+// Hamilton, Kitchener dominate the front of the result set). Found in
+// production 2026-07-22: after a real /ingest run, 14 of 49 cities
+// (including Brampton, Markham -- not small towns) had ZERO listings in D1,
+// not because CREA has none, but because the combined 500-record cap never
+// reached them. Real ingestion now uses buildCityQuery() per-city instead
+// -- see runIngest() in ingest.js.
 export function buildQuery(top, skip) {
   const cityList = HOMEPILOT_CITIES.map((c) => `'${c}'`).join(",");
   return new URLSearchParams({
     "$top": String(top),
     "$skip": String(skip),
     "$filter": `StateOrProvince eq 'Ontario' and PropertySubType eq 'Single Family' and StandardStatus eq 'Active' and ListPrice gt ${MIN_LIST_PRICE} and City in (${cityList})`,
+    "$select": SELECT_FIELDS.join(","),
+  });
+}
+
+// buildCityQuery(): one city per query, used by real /ingest (added
+// 2026-07-22) so every one of the 49 cities gets a guaranteed, fair share
+// of coverage regardless of how large any other city's inventory is.
+export function buildCityQuery(city, top) {
+  return new URLSearchParams({
+    "$top": String(top),
+    "$filter": `StateOrProvince eq 'Ontario' and PropertySubType eq 'Single Family' and StandardStatus eq 'Active' and ListPrice gt ${MIN_LIST_PRICE} and City eq '${city}'`,
     "$select": SELECT_FIELDS.join(","),
   });
 }

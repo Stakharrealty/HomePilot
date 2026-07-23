@@ -44,6 +44,7 @@ jobs:
           node tests/listings_query_node_limit_test.js
           node tests/listings_price_floor_test.js
           node tests/listings_stale_removal_test.js
+          node tests/listings_city_fairness_test.js
           node tests/listings_display_backend_test.js
 
       - name: Deploy to Cloudflare Workers (homepilot-listings)

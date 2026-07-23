@@ -770,7 +770,7 @@ runSuite7().then(async () => {
     const selectPropSrc = src.slice(selectPropStart, selectPropEnd);
     t('selectPropType() function located for scoping these checks', selectPropStart !== -1 && selectPropEnd > selectPropStart);
     t('per-type panel contains its own view-btn', /class="view-btn"/.test(selectPropSrc));
-    t('per-type view-btn uses buildIncomUrl(cityName, price, tp) - the exact type\'s price, not the buyer\'s overall buyPower ceiling', /buildIncomUrl\(cityName,price,tp\)/.test(selectPropSrc));
+    t('per-type view-btn wires to real DDF listings via toggleLiveListings(this,cityName) -- INCOM removed 2026-07-22', selectPropSrc.includes('toggleLiveListings(this,') && /toggleLiveListings\(this,.*cityName.*\)/.test(selectPropSrc));
     t('per-type view-btn label uses PLBL to show the real type name (e.g. "Townhouse", not raw "town")', /View Available '\+\(PLBL\[tp\]\|\|tp\)\+' in '\+cityName/.test(selectPropSrc));
     t('per-type view-btn appears inside the panel before panel.innerHTML is assigned (i.e. actually gets rendered, not dead code after assignment)', selectPropSrc.indexOf('class="view-btn"') < selectPropSrc.indexOf('panel.innerHTML = html'));
   }

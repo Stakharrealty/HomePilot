@@ -261,8 +261,7 @@ function render(){
       '<div class="bk">'+
       (fit.cls==='fs'?'<div style="font-size:12px;color:#633806;background:#FAEEDA;border-radius:8px;padding:8px 10px;margin-top:10px;line-height:1.6;">'+t.stretch_warn+'</div>':'')+
       '</div>'+
-      '<a href="'+buildIncomUrl(x.n,buyPower,activeProp!=='all'?activeProp:(()=>{const pt=PT[x.n]||{};return pt.detached&&pt.detached<=buyPower?'detached':pt.semi&&pt.semi<=buyPower?'semi':pt.town&&pt.town<=buyPower?'town':'condo';})())+'" target="_blank" onclick="event.stopPropagation()" class="view-btn">🏠 View Available Homes in '+x.n+'</a>'+
-      '<button type="button" class="live-listings-toggle" onclick="event.stopPropagation();toggleLiveListings(this,\''+x.n+'\')"><span class="beta-tag">BETA</span> View Live Listings</button>'+
+      '<button type="button" class="view-btn" onclick="event.stopPropagation();toggleLiveListings(this,\''+x.n+'\')">🏠 View Available Homes in '+x.n+'</button>'+
       '<div class="live-listings-container" style="display:none"></div>'+
       '</div></div>';
   }).join('');
@@ -378,11 +377,11 @@ function selectPropType(cityId, tp, cityName) {
 
   html += '<div style="font-size:10px;color:#aaa;margin-top:10px;line-height:1.6">Estimates only — actual costs vary by transaction. New builds: HST may apply.</div>';
 
-  // Per-type "View Available Homes" — unlike the city-level button, this one never
-  // has to guess which property type to link to (that was the deferred INCOM bug —
-  // see July 15 audit notes). We already know exactly which type this panel is for.
-  html += '<a href="'+buildIncomUrl(cityName,price,tp)+'" target="_blank" onclick="event.stopPropagation()" class="view-btn" style="margin-top:12px">🏠 View Available '+(PLBL[tp]||tp)+' in '+cityName+'</a>';
-  html += '<button type="button" class="live-listings-toggle" onclick="event.stopPropagation();toggleLiveListings(this,\''+cityName+'\')"><span class="beta-tag">BETA</span> View Live Listings</button>';
+  // "View Available Homes" now opens real DDF listings for this city
+  // directly -- INCOM removed entirely per Sandeep's explicit decision
+  // (2026-07-22). DDF is city-level (not filterable by exact property type
+  // price the way the old INCOM link was), so this uses cityName only.
+  html += '<button type="button" class="view-btn" style="margin-top:12px" onclick="event.stopPropagation();toggleLiveListings(this,\''+cityName+'\')">🏠 View Available '+(PLBL[tp]||tp)+' in '+cityName+'</button>';
   html += '<div class="live-listings-container" style="display:none"></div>';
 
   html += '</div>';

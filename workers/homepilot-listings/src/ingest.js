@@ -5,14 +5,33 @@
 // not two copies that could quietly drift apart.
 
 import { getAccessToken } from "./auth.js";
-import { buildQuery, buildOfficeQuery, API_BASE } from "./query.js";
+import { buildCityQuery, buildOfficeQuery, API_BASE } from "./query.js";
+import { HOMEPILOT_CITIES } from "./cities.js";
 import { upsertListing, deleteStaleListings } from "./db.js";
 
-const PAGE_SIZE = 50;
-const MAX_RECORDS = 500;
-// CREA's OData 'in' operator hits a node-count limit around 100 (same issue
-// solved for cities, see tests/listings_query_node_limit_test.js) -- so
-// office key lookups are batched to stay safely under that.
+// Per-city listing cap (added 2026-07-22, replacing a single global-capped
+// query). Real production data found 2026-07-22: with one combined
+// $top=500 query across all 49 cities, large-inventory cities (Ottawa 123,
+// Hamilton 95, Kitchener 68) consumed most of the cap, leaving 14 cities
+// -- including Brampton and Markham, not small towns -- with ZERO listings
+// in D1. Not a data problem on CREA's end -- a fairness problem in how we
+// queried. 25/city covers every city's realistic inventory (only 3 of 49
+// cities exceeded 25 listings in that same production snapshot) while
+// still capping any single city from starving the others.
+const PER_CITY_LIMIT = 25;
+
+// How many city queries to run concurrently. Sequential (1 at a time) for
+// 49 cities would be slow; unlimited concurrency risks hitting Cloudflare
+// Workers' execution limits or CREA rate limits. 8 is a reasonable middle
+// ground, not verified against any documented CREA rate limit (none found
+// in their public docs) -- worth revisiting if ingest runs start failing.
+const CITY_FETCH_CONCURRENCY = 8;
+
+// Office lookups still use a combined 'in' clause (unlike cities, which
+// moved to per-city queries 2026-07-22) since starving one office's name
+// lookup has no fairness impact -- a missing brokerage name just shows a
+// fallback, it doesn't hide an entire city's listings. Still batched to
+// stay under CREA's ~100-node OData query limit.
 const OFFICE_BATCH_SIZE = 80;
 
 // Fetches OfficeName for a deduplicated list of ListOfficeKey values,
@@ -37,27 +56,41 @@ async function fetchOfficeNames(token, officeKeys) {
   return lookup;
 }
 
+// Fetches up to PER_CITY_LIMIT listings for a single city. Returns [] on a
+// failed request rather than throwing -- one city's CREA hiccup shouldn't
+// abort the whole run and leave every OTHER city un-ingested too.
+async function fetchListingsForCity(token, city) {
+  try {
+    const resp = await fetch(`${API_BASE}/Property?${buildCityQuery(city, PER_CITY_LIMIT).toString()}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!resp.ok) return { city, rows: [], failed: true };
+    const data = await resp.json();
+    return { city, rows: data.value || [], failed: false };
+  } catch {
+    return { city, rows: [], failed: true };
+  }
+}
+
 export async function runIngest(env) {
   const runStartedAt = new Date().toISOString();
   const token = await getAccessToken(env);
-  let skip = 0;
-  let totalSeen = 0;
   const allRows = [];
+  const cityResults = []; // per-city outcome, for real visibility into coverage
 
-  // Phase 1: fetch all matching Property rows (paginated)
-  while (totalSeen < MAX_RECORDS) {
-    const resp = await fetch(`${API_BASE}/Property?${buildQuery(PAGE_SIZE, skip).toString()}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const data = await resp.json();
-    const rows = data.value || [];
-    if (rows.length === 0) break;
-
-    allRows.push(...rows);
-    totalSeen += rows.length;
-    skip += PAGE_SIZE;
-    if (rows.length < PAGE_SIZE) break;
+  // Phase 1: fetch each city's listings separately (bounded concurrency),
+  // so no single city's inventory can starve the others out of the run.
+  for (let i = 0; i < HOMEPILOT_CITIES.length; i += CITY_FETCH_CONCURRENCY) {
+    const batch = HOMEPILOT_CITIES.slice(i, i + CITY_FETCH_CONCURRENCY);
+    const results = await Promise.all(batch.map((city) => fetchListingsForCity(token, city)));
+    for (const r of results) {
+      allRows.push(...r.rows);
+      cityResults.push({ city: r.city, count: r.rows.length, failed: r.failed });
+    }
   }
+
+  const citiesWithZeroListings = cityResults.filter((r) => r.count === 0 && !r.failed).map((r) => r.city);
+  const citiesFailed = cityResults.filter((r) => r.failed).map((r) => r.city);
 
   // Phase 2: look up brokerage names for every unique office in this batch,
   // in one (batched) pass, rather than one query per listing
@@ -87,7 +120,9 @@ export async function runIngest(env) {
     runStartedAt,
     totalWritten,
     totalDeleted,
-    totalSeen,
+    citiesQueried: HOMEPILOT_CITIES.length,
+    citiesWithZeroListings,
+    citiesFailed,
     officesLookedUp: uniqueOfficeKeys.length,
     officesFound: officeNameLookup.size,
   };

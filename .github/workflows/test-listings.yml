@@ -19,6 +19,7 @@ on:
       - "tests/listings_query_node_limit_test.js"
       - "tests/listings_price_floor_test.js"
       - "tests/listings_stale_removal_test.js"
+      - "tests/listings_city_fairness_test.js"
       - "tests/listings_display_backend_test.js"
       - "tests/listings_metadata_field_test.js"
 
@@ -45,6 +46,9 @@ jobs:
 
       - name: Stale listing removal test (no network required, uses in-memory fake D1)
         run: node tests/listings_stale_removal_test.js
+
+      - name: Per-city fair coverage test (no network required)
+        run: node tests/listings_city_fairness_test.js
 
       - name: Listing display backend test (office lookup, analytics URL, photos -- no network required)
         run: node tests/listings_display_backend_test.js
