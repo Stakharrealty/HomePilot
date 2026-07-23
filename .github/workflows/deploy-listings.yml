@@ -1,0 +1,54 @@
+name: Deploy homepilot-listings (DDF Worker)
+
+# Deploys the homepilot-listings Worker via wrangler, using the same
+# CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID secrets already configured
+# for the main app's deploy.yml pipeline (same Cloudflare account).
+#
+# IMPORTANT: DDF_CLIENT_ID and DDF_CLIENT_SECRET are set directly on the
+# Worker via the Cloudflare dashboard (wrangler secret / dashboard secrets),
+# NOT declared here -- those persist independently across `wrangler deploy`
+# runs and are not touched by this workflow. The D1 binding IS declared in
+# wrangler.jsonc, which is required -- any binding not declared there gets
+# stripped on deploy.
+#
+# Runs the 4 listings tests first (module load, node-count, price-floor,
+# stale-removal -- all no-network) as a safety gate. Does NOT run the
+# metadata-fields test here since that needs the Worker already live to
+# call /metadata against.
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths:
+      - "workers/homepilot-listings/**"
+
+jobs:
+  deploy-listings:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Pre-deploy tests (no network required)
+        run: |
+          node tests/listings_module_load_test.js
+          node tests/listings_query_node_limit_test.js
+          node tests/listings_price_floor_test.js
+          node tests/listings_stale_removal_test.js
+          node tests/listings_display_backend_test.js
+
+      - name: Deploy to Cloudflare Workers (homepilot-listings)
+        run: npx wrangler deploy
+        working-directory: ./workers/homepilot-listings
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

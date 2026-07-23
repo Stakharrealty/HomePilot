@@ -3,6 +3,13 @@
   "name": "homepilot-listings",
   "main": "src/index.js",
   "compatibility_date": "2025-01-01",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "homepilot-listings-db",
+      "database_id": "7f41ed53-8824-4561-bc7a-82873d0ed677"
+    }
+  ],
   "triggers": {
     // Daily refresh, 8:00 AM UTC (~4:00 AM Toronto during EDT, 3:00 AM EST).
     // Chosen as an off-peak time, before Ontario buyers would typically be
