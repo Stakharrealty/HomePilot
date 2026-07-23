@@ -13,10 +13,9 @@
 // show a "Powered by REALTOR.ca" mark linking to the listing on REALTOR.ca,
 // the brokerage name in readable text (not hidden behind a click), and
 // must not be wrapped in any advertising/co-branding. This module attempts
-// to satisfy all three. The exact official "Powered by REALTOR.ca" logo
-// asset (CREA typically provides a specific image file for this) has NOT
-// been sourced -- this uses a text-based badge as a placeholder. Get the
-// real logo asset from CREA before this goes live to real buyers.
+// to satisfy all three. The REALTOR® logo asset (src/assets/realtor-r.svg)
+// and the exact CREA trademark wording were both sourced from the real
+// REALTOR.ca site footer, 2026-07-22 -- not placeholders, not paraphrased.
 
 const LISTINGS_API_BASE = "https://homepilot-listings.stakharrealty.workers.dev";
 const ANALYTICS_ENDPOINT = "https://analytics.crea.ca/LogEvents.svc/LogEvents";
@@ -127,6 +126,7 @@ function renderListingCard(listing) {
       ${bedsBaths ? `<div class="listing-meta">${bedsBaths}</div>` : ""}
       <div class="listing-brokerage">Listed by ${brokerage}</div>
       <a class="listing-realtor-badge" href="${listing.listingUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()">
+        <img class="listing-realtor-badge-logo" src="src/assets/realtor-r.svg" alt="REALTOR® logo" width="16" height="18">
         <span class="listing-realtor-badge-mark">Powered by REALTOR.ca</span>
         <span class="listing-realtor-badge-arrow">→</span>
       </a>
@@ -165,8 +165,12 @@ async function renderLiveListings(city, containerEl) {
     // listings section, not per-card.
     const trademark = document.createElement("div");
     trademark.className = "listings-trademark";
-    trademark.textContent =
-      "The trademarks MLS®, Multiple Listing Service® and the associated logos are owned by CREA and identify the quality of services provided by real estate professionals who are members of CREA.";
+    // Exact CREA/REALTOR.ca trademark wording, not a paraphrase (per
+    // copyright/trademark accuracy -- confirmed against real REALTOR.ca
+    // site footer text, 2026-07-22).
+    trademark.innerHTML =
+      "The MLS® mark and associated logos identify professional services rendered by REALTOR® members of CREA to effect the purchase, sale and lease of real estate as part of a cooperative selling system.<br>" +
+      "The trademarks REALTOR®, REALTORS® and the REALTOR® logo are controlled by CREA and identify real estate professionals who are members of CREA.";
     containerEl.appendChild(trademark);
   } catch (err) {
     containerEl.innerHTML = `<div class="listings-error">Couldn't load live listings right now. Please try again shortly.</div>`;

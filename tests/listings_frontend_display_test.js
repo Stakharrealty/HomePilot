@@ -116,6 +116,10 @@ const FAKE_LISTINGS = {
   );
   check("'Powered by REALTOR.ca' badge text is present", html.includes("Powered by REALTOR.ca"));
   check(
+    "real REALTOR® logo image is referenced (not a text-only placeholder)",
+    html.includes("src/assets/realtor-r.svg")
+  );
+  check(
     "REALTOR.ca badge links to the real listing URL, not a placeholder",
     html.includes('href="https://www.realtor.ca/real-estate/TEST111"')
   );
