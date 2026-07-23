@@ -73,10 +73,25 @@ export async function upsertListing(db, r, runStartedAt, brokerageName) {
 // Removes listings not touched by the current run -- i.e. CREA no longer
 // returns them as matching Active Single Family in our 49 cities above the
 // price floor. Returns the number of rows deleted.
-export async function deleteStaleListings(db, runStartedAt) {
+//
+// SCOPED TO citiesToSweep (added 2026-07-23, bug fix): the mark-and-sweep
+// pattern only works correctly if every row's city was actually
+// re-confirmed this run. If a city's fetch fails mid-run (CREA rate limit,
+// timeout, etc.), its OLD rows in D1 still carry a stale last_seen_at from
+// a prior successful run -- a global, city-blind sweep would wrongly treat
+// those as "no longer returned by CREA" and delete real, still-active
+// listings just because we failed to re-check them this pass. Restricting
+// the DELETE to only cities that were successfully queried this run means
+// a failed city's existing listings are left untouched (neither confirmed
+// nor deleted) until the next run actually re-confirms them.
+export async function deleteStaleListings(db, runStartedAt, citiesToSweep) {
+  if (!Array.isArray(citiesToSweep) || citiesToSweep.length === 0) return 0;
+  const placeholders = citiesToSweep.map(() => "?").join(",");
   const result = await db
-    .prepare(`DELETE FROM listings WHERE last_seen_at IS NULL OR last_seen_at < ?`)
-    .bind(runStartedAt)
+    .prepare(
+      `DELETE FROM listings WHERE (last_seen_at IS NULL OR last_seen_at < ?) AND city IN (${placeholders})`
+    )
+    .bind(runStartedAt, ...citiesToSweep)
     .run();
   return result.meta?.changes ?? 0;
 }

@@ -15,7 +15,8 @@
     "test:listings-stale-removal": "node tests/listings_stale_removal_test.js",
     "test:listings-display": "node tests/listings_display_backend_test.js",
     "test:listings-fairness": "node tests/listings_city_fairness_test.js",
-    "test:listings": "npm run test:listings-modules && npm run test:listings-nodecount && npm run test:listings-price-floor && npm run test:listings-stale-removal && npm run test:listings-fairness && npm run test:listings-display && npm run test:listings-fields"
+    "test:listings-office-lookup-failure": "node tests/listings_office_lookup_failure_test.js",
+    "test:listings": "npm run test:listings-modules && npm run test:listings-nodecount && npm run test:listings-price-floor && npm run test:listings-stale-removal && npm run test:listings-fairness && npm run test:listings-display && npm run test:listings-fields && npm run test:listings-office-lookup-failure"
   },
   "devDependencies": {
     "http-server": "^14.1.1",

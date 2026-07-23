@@ -56,6 +56,42 @@ const FAKE_LISTINGS = {
   ],
 };
 
+// Bug fix 2026-07-23: brokerageName, city, and listingUrl/photo URLs come
+// straight from CREA's DDF feed and were being inserted into innerHTML
+// unescaped. Two listings here, split deliberately:
+//   - XSS-CITY: has a VALID https photo, so the city value actually gets
+//     rendered (it only ever appears in the photo's alt attribute -- with
+//     no photo, city is never referenced at all, so this needs a real
+//     photo to exercise the code path).
+//   - XSS-BROKER-URL: malicious brokerageName + javascript: listingUrl +
+//     javascript: photo, to prove those are neutralized independently.
+const XSS_LISTINGS = {
+  city: "Guelph",
+  count: 2,
+  listings: [
+    {
+      listingKey: "XSS-CITY",
+      listPrice: 500000,
+      city: "<img src=x onerror=alert(1)>",
+      bedrooms: 3,
+      bathrooms: 2,
+      listingUrl: "https://www.realtor.ca/real-estate/XSS-CITY",
+      brokerageName: "Safe Realty",
+      photos: ["https://cdn.example.com/xss-photo.jpg"],
+    },
+    {
+      listingKey: "XSS-BROKER-URL",
+      listPrice: 500000,
+      city: "Guelph",
+      bedrooms: 3,
+      bathrooms: 2,
+      listingUrl: "javascript:alert(document.cookie)",
+      brokerageName: "<script>alert('brokerage')</script>",
+      photos: ["javascript:alert(1)"],
+    },
+  ],
+};
+
 (async () => {
   const virtualConsole = new VirtualConsole();
   virtualConsole.on("jsdomError", (e) => errors.push("jsdomError: " + e.message));
@@ -134,6 +170,69 @@ const FAKE_LISTINGS = {
   check(
     "required MLS/CREA trademark statement is present on the page",
     html.includes("MLS") && html.includes("CREA")
+  );
+
+  // --- 3b. XSS: malicious CREA-shaped payloads must be neutralized, not
+  //     rendered as live markup/script/links (bug fix 2026-07-23).
+  //     Checked via real DOM APIs (element counts, attribute/textContent
+  //     values as the browser actually parsed them) rather than exact
+  //     string matching -- browsers don't necessarily round-trip escaped
+  //     quotes/apostrophes the same way on serialization, but what
+  //     actually matters for security is that no extra element, script,
+  //     or executable attribute got created. ---
+  win.fetch = async (fetchUrl) => {
+    if (String(fetchUrl).includes("/listings")) {
+      return { ok: true, json: async () => XSS_LISTINGS };
+    }
+    return { ok: true, json: async () => ({}) };
+  };
+  const xssContainer = win.document.createElement("div");
+  win.document.body.appendChild(xssContainer);
+  await win.renderLiveListings("Guelph", xssContainer);
+
+  const cityCard = xssContainer.querySelector('img.listing-photo');
+  check(
+    "malicious city value lands as inert alt text, not a live extra <img> element",
+    !!cityCard && cityCard.alt === "Photo of listing in <img src=x onerror=alert(1)>",
+    `alt="${cityCard && cityCard.alt}"`
+  );
+  check(
+    "no attacker-controlled onerror attribute got attached to any real element",
+    xssContainer.querySelectorAll("[onerror]").length === 0
+  );
+  check(
+    "exactly the expected number of real <img> elements exist (no injected extra one from the city payload)",
+    xssContainer.querySelectorAll("img").length === 3, // card1: photo img + logo img; card2: logo img only (its photo URL was rejected)
+    `found ${xssContainer.querySelectorAll("img").length}`
+  );
+
+  const brokerEls = [...xssContainer.querySelectorAll(".listing-brokerage")];
+  const maliciousBrokerEl = brokerEls.find((el) => el.textContent.includes("alert"));
+  check(
+    "malicious brokerageName lands as inert text content, not a live <script> element",
+    !!maliciousBrokerEl && maliciousBrokerEl.textContent === "Listed by <script>alert('brokerage')</script>",
+    `textContent="${maliciousBrokerEl && maliciousBrokerEl.textContent}"`
+  );
+  check(
+    "no live <script> element was created anywhere in the rendered output",
+    xssContainer.querySelectorAll("script").length === 0
+  );
+
+  const xssCards = [...xssContainer.querySelectorAll(".listing-card")];
+  const brokerUrlCard = xssCards[1];
+  const realtorLink = brokerUrlCard ? brokerUrlCard.querySelector("a.listing-realtor-badge") : null;
+  check(
+    "badge link's real href attribute is not a javascript: URL (checked via DOM property, not string match)",
+    !!realtorLink && !String(realtorLink.getAttribute("href")).toLowerCase().startsWith("javascript:"),
+    `href="${realtorLink && realtorLink.getAttribute("href")}"`
+  );
+  check(
+    "listing with a javascript: photo URL falls back to the no-photo state instead of rendering it",
+    !!brokerUrlCard && brokerUrlCard.querySelector(".listing-photo-empty") !== null
+  );
+  check(
+    "javascript: photo URL was never used as any <img> src on that card",
+    !!brokerUrlCard && brokerUrlCard.querySelectorAll('img[src^="javascript:"]').length === 0
   );
 
   // --- 4. Empty-results and error-path behavior (not just the happy path) ---

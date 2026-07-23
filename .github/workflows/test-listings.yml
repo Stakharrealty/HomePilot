@@ -22,6 +22,7 @@ on:
       - "tests/listings_city_fairness_test.js"
       - "tests/listings_display_backend_test.js"
       - "tests/listings_metadata_field_test.js"
+      - "tests/listings_office_lookup_failure_test.js"
 
 jobs:
   test-listings:
@@ -55,3 +56,6 @@ jobs:
 
       - name: Metadata field verification test (calls live CREA API via deployed Worker)
         run: node tests/listings_metadata_field_test.js
+
+      - name: Office lookup failure visibility test (no network required, mocked fetch)
+        run: node tests/listings_office_lookup_failure_test.js

@@ -38,14 +38,33 @@ const OFFICE_BATCH_SIZE = 80;
 // batched to avoid CREA's query node limit. Returns a Map(officeKey ->
 // officeName). Missing/failed lookups are simply absent from the map --
 // callers should treat a missing key as "brokerage name unknown", not throw.
+// Returns { lookup, failedBatches, failedKeyCount } rather than a bare Map
+// (changed 2026-07-23, bug fix): a failed batch used to be silently
+// dropped with zero logging or visibility, which was very likely the real
+// cause of the 28% brokerage-name resolution rate this session never
+// diagnosed. Callers still treat a missing key as "brokerage name
+// unknown" -- this doesn't change ingest behavior, it just stops hiding
+// the failure.
 async function fetchOfficeNames(token, officeKeys) {
   const lookup = new Map();
+  let failedBatches = 0;
+  let failedKeyCount = 0;
   for (let i = 0; i < officeKeys.length; i += OFFICE_BATCH_SIZE) {
     const batch = officeKeys.slice(i, i + OFFICE_BATCH_SIZE);
     const resp = await fetch(`${API_BASE}/Office?${buildOfficeQuery(batch).toString()}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
-    if (!resp.ok) continue; // don't let one failed office batch break ingest
+    if (!resp.ok) {
+      failedBatches++;
+      failedKeyCount += batch.length;
+      // Visible in `wrangler tail` / Cloudflare Worker logs -- this used to
+      // be a bare `continue` with no trace at all.
+      console.error(
+        `[homepilot-listings] Office lookup batch failed: status=${resp.status}, ` +
+        `batchIndex=${i / OFFICE_BATCH_SIZE}, batchSize=${batch.length}`
+      );
+      continue; // don't let one failed office batch break ingest
+    }
     const data = await resp.json();
     for (const office of data.value || []) {
       if (office.OfficeKey && office.OfficeName) {
@@ -53,7 +72,7 @@ async function fetchOfficeNames(token, officeKeys) {
       }
     }
   }
-  return lookup;
+  return { lookup, failedBatches, failedKeyCount };
 }
 
 // Fetches up to PER_CITY_LIMIT listings for a single city. Returns [] on a
@@ -95,9 +114,10 @@ export async function runIngest(env) {
   // Phase 2: look up brokerage names for every unique office in this batch,
   // in one (batched) pass, rather than one query per listing
   const uniqueOfficeKeys = [...new Set(allRows.map((r) => r.ListOfficeKey).filter(Boolean))];
-  const officeNameLookup = uniqueOfficeKeys.length > 0
+  const officeLookupResult = uniqueOfficeKeys.length > 0
     ? await fetchOfficeNames(token, uniqueOfficeKeys)
-    : new Map();
+    : { lookup: new Map(), failedBatches: 0, failedKeyCount: 0 };
+  const officeNameLookup = officeLookupResult.lookup;
 
   // Phase 3: write everything to D1
   let totalWritten = 0;
@@ -111,9 +131,16 @@ export async function runIngest(env) {
   // delisted, or no longer matching the filter). Only runs if we actually
   // wrote at least one row this pass -- guards against a CREA outage or
   // auth failure silently wiping the whole table via a 0-listing "success".
+  //
+  // SCOPED to citiesSucceeded, not the whole table (bug fix 2026-07-23):
+  // see the comment on deleteStaleListings() in db.js. A city whose fetch
+  // failed this run must not have its existing listings swept just because
+  // they weren't re-confirmed -- that's a fetch failure, not evidence the
+  // listings are gone.
+  const citiesSucceeded = cityResults.filter((r) => !r.failed).map((r) => r.city);
   let totalDeleted = 0;
   if (totalWritten > 0) {
-    totalDeleted = await deleteStaleListings(env.DB, runStartedAt);
+    totalDeleted = await deleteStaleListings(env.DB, runStartedAt, citiesSucceeded);
   }
 
   return {
@@ -123,7 +150,10 @@ export async function runIngest(env) {
     citiesQueried: HOMEPILOT_CITIES.length,
     citiesWithZeroListings,
     citiesFailed,
+    citiesSweptForStaleRemoval: citiesSucceeded.length,
     officesLookedUp: uniqueOfficeKeys.length,
     officesFound: officeNameLookup.size,
+    officeLookupFailedBatches: officeLookupResult.failedBatches,
+    officeLookupFailedKeyCount: officeLookupResult.failedKeyCount,
   };
 }

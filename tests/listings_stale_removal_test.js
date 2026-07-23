@@ -65,9 +65,14 @@ function makeFakeD1() {
                 return { meta: { changes: 1 } };
               }
               if (isDelete) {
-                const cutoff = args[0];
+                // args = [cutoff, ...citiesToSweep] -- must match the real
+                // db.js query shape (bug fix 2026-07-23: DELETE is now
+                // scoped by `city IN (...)`, not global).
+                const [cutoff, ...cities] = args;
+                const citySet = new Set(cities);
                 let changes = 0;
                 for (const [key, row] of rows.entries()) {
+                  if (!citySet.has(row.city)) continue; // not swept this run
                   if (row.last_seen_at === null || row.last_seen_at === undefined || row.last_seen_at < cutoff) {
                     rows.delete(key);
                     changes++;
@@ -102,13 +107,53 @@ async function main() {
   await db.upsertListing(fakeDb, { ListingKey: "BBB222", ListPrice: 595000, City: "Barrie" }, run2Time);
   await db.upsertListing(fakeDb, { ListingKey: "CCC333", ListPrice: 700000, City: "Orangeville" }, run2Time);
 
-  const deletedCount = await db.deleteStaleListings(fakeDb, run2Time);
+  // Guelph was successfully re-queried this run (just returned nothing --
+  // AAA111 is genuinely gone), so it belongs in the sweep scope along with
+  // the cities that produced rows.
+  const citiesSucceededRun2 = ["Guelph", "Barrie", "Orangeville"];
+  const deletedCount = await db.deleteStaleListings(fakeDb, run2Time, citiesSucceededRun2);
 
   check("deleteStaleListings removed exactly 1 row (the sold listing)", deletedCount === 1, `deleted=${deletedCount}`);
   check("sold listing (AAA111) is actually gone", !fakeDb._rows.has("AAA111"));
   check("still-active listing (BBB222) survived and was updated", fakeDb._rows.has("BBB222") && fakeDb._rows.get("BBB222").list_price === 595000);
   check("new listing (CCC333) is present", fakeDb._rows.has("CCC333"));
   check("final table size is 2 (BBB222 + CCC333), not 3", fakeDb._rows.size === 2, `size=${fakeDb._rows.size}`);
+
+  // --- Bug fix 2026-07-23: a city whose fetch FAILED this run must not
+  //     have its existing listings swept just because they weren't
+  //     re-confirmed. Simulates exactly the reported scenario: cities
+  //     31-49 fail mid-run (rate limit), earlier cities succeed. ---
+  const run3Time = "2026-07-23T08:00:00.000Z";
+  await db.upsertListing(fakeDb, { ListingKey: "DDD444", ListPrice: 550000, City: "Kingston" }, run1Time); // seeded from an earlier run, never touched since
+  fakeDb._rows.get("DDD444").last_seen_at = run1Time; // predates run3 -- would look "stale" globally
+
+  // Run 3: Barrie + Orangeville succeed and get re-confirmed; Kingston's
+  // fetch fails (simulated CREA rate limit) so it's NOT in this run's
+  // success list.
+  await db.upsertListing(fakeDb, { ListingKey: "BBB222", ListPrice: 595000, City: "Barrie" }, run3Time);
+  await db.upsertListing(fakeDb, { ListingKey: "CCC333", ListPrice: 700000, City: "Orangeville" }, run3Time);
+  const citiesSucceededRun3 = ["Barrie", "Orangeville"]; // Kingston deliberately excluded -- its fetch failed
+
+  const deletedCountRun3 = await db.deleteStaleListings(fakeDb, run3Time, citiesSucceededRun3);
+
+  check(
+    "run with a failed city deletes 0 rows from that city (Kingston listing survives despite stale last_seen_at)",
+    fakeDb._rows.has("DDD444"),
+    "DDD444 (Kingston) should NOT have been deleted -- its city fetch failed, so it was never re-confirmed, not proven gone"
+  );
+  check(
+    "successfully-swept cities are unaffected by the fix (still confirmed/updated normally)",
+    fakeDb._rows.has("BBB222") && fakeDb._rows.has("CCC333")
+  );
+  check(
+    "deleteStaleListings with an empty citiesToSweep list is a safe no-op",
+    (await db.deleteStaleListings(fakeDb, run3Time, [])) === 0
+  );
+  check(
+    "deleteStaleListings with a missing/undefined citiesToSweep is a safe no-op, not a global sweep",
+    (await db.deleteStaleListings(fakeDb, run3Time, undefined)) === 0
+  );
+  check("run 3 deleted 0 rows (nothing genuinely gone from the swept cities)", deletedCountRun3 === 0, `deleted=${deletedCountRun3}`);
 
   // --- Safety guard check: ingest.js must never sweep on a 0-write run ---
   const ingestSrc = fs.readFileSync(path.join(SRC_DIR, "ingest.js"), "utf8");
@@ -117,6 +162,20 @@ async function main() {
     "ingest.js has a guard against sweeping on a 0-listing run (CREA outage safety)",
     hasGuard,
     "without this, an auth failure or CREA outage returning 0 results could wipe the entire table"
+  );
+
+  // --- ingest.js must actually scope the sweep to succeeded cities, not
+  //     call deleteStaleListings with the whole table implicitly ---
+  const scopesSweepToSucceededCities = /deleteStaleListings\(\s*env\.DB\s*,\s*runStartedAt\s*,\s*citiesSucceeded\s*\)/.test(ingestSrc);
+  check(
+    "ingest.js calls deleteStaleListings() with a citiesSucceeded argument (not table-wide)",
+    scopesSweepToSucceededCities,
+    "without this, a partial CREA failure mid-run could wrongly delete active listings from the cities that failed"
+  );
+  const excludesFailedCities = /citiesSucceeded\s*=\s*cityResults\.filter\(\s*\(?r\)?\s*=>\s*!r\.failed\s*\)/.test(ingestSrc);
+  check(
+    "ingest.js derives citiesSucceeded by excluding failed cities from cityResults",
+    excludesFailedCities
   );
 
   console.log(`\n=== RESULT: ${passed} passed, ${failed} failed ===`);

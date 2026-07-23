@@ -2,11 +2,12 @@
 // Added 2026-07-22. Renders real CREA/DDF listings pulled from the
 // homepilot-listings Worker's D1 database, via GET /listings?city=X.
 //
-// DELIBERATELY ADDITIVE: this does NOT touch or replace the existing INCOM
-// "View Available Homes" buttons (buildIncomUrl(), in utils.js, called from
-// render.js). Per Sandeep's explicit decision, INCOM stays live until this
-// DDF-powered UI is fully proven -- this adds a second, clearly-labeled
-// "Beta" option alongside it, not a replacement.
+// INCOM WAS FULLY REMOVED 2026-07-22 (see utils.js). This is no longer an
+// additive/"Beta" option alongside INCOM -- every "View Available Homes"
+// button (render.js, render-support.js) now calls toggleLiveListings()
+// below directly, and is the only listings experience in the app. This
+// comment previously said otherwise; corrected 2026-07-23 to match reality
+// -- the code had already moved on, the comment hadn't.
 //
 // COMPLIANCE NOTE (CREA DDF Policy and Rules, section 6 -- confirmed via
 // the official PDF this session, not assumed): every rendered listing must
@@ -106,26 +107,48 @@ function fmtPrice(n) {
   return new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 }).format(n);
 }
 
+// escapeHtml() is defined in ai.js and shared globally (plain <script> tags,
+// same pattern as every other module here) -- ai.js loads before this file
+// in index.html. Not redefined here to avoid two copies drifting apart.
+//
+// XSS fix, 2026-07-23: brokerageName, city, and listingUrl/photo URLs all
+// come straight from CREA's DDF feed and were being inserted into
+// innerHTML unescaped -- a real gap against this codebase's own
+// established escapeHtml() rule (see ai.js). Fixed here.
+
+// escapeHtml() alone doesn't stop a malicious `javascript:` URL from being
+// dropped into an href/src -- neutralizes that separately by only ever
+// allowing https:// URLs through (CREA/REALTOR.ca URLs are always https
+// anyway). Anything else is treated as absent.
+function safeUrl(url) {
+  if (typeof url !== "string") return "";
+  const trimmed = url.trim();
+  return /^https:\/\//i.test(trimmed) ? trimmed : "";
+}
+
 function renderListingCard(listing) {
-  const photo = listing.photos && listing.photos.length > 0 ? listing.photos[0] : null;
+  const rawPhoto = listing.photos && listing.photos.length > 0 ? listing.photos[0] : null;
+  const photo = safeUrl(rawPhoto);
   const beds = listing.bedrooms != null ? `${listing.bedrooms} bd` : null;
   const baths = listing.bathrooms != null ? `${listing.bathrooms} ba` : null;
-  const bedsBaths = [beds, baths].filter(Boolean).join(" · ");
-  const brokerage = listing.brokerageName || "Brokerage not available";
+  const bedsBaths = escapeHtml([beds, baths].filter(Boolean).join(" · "));
+  const brokerage = escapeHtml(listing.brokerageName || "Brokerage not available");
+  const cityEsc = escapeHtml(listing.city || "");
+  const listingUrl = safeUrl(listing.listingUrl) || "#";
 
   const card = document.createElement("div");
   card.className = "listing-card";
   card.innerHTML = `
     <div class="listing-photo-wrap">
       ${photo
-        ? `<img class="listing-photo" src="${photo}" alt="Photo of listing in ${listing.city}" loading="lazy">`
+        ? `<img class="listing-photo" src="${photo}" alt="Photo of listing in ${cityEsc}" loading="lazy">`
         : `<div class="listing-photo listing-photo-empty">No photo available</div>`}
     </div>
     <div class="listing-body">
       <div class="listing-price">${fmtPrice(listing.listPrice)}</div>
       ${bedsBaths ? `<div class="listing-meta">${bedsBaths}</div>` : ""}
       <div class="listing-brokerage">Listed by ${brokerage}</div>
-      <a class="listing-realtor-badge" href="${listing.listingUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()">
+      <a class="listing-realtor-badge" href="${listingUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()">
         <img class="listing-realtor-badge-logo" src="src/assets/realtor-r.svg" alt="REALTOR® logo" width="16" height="18">
         <span class="listing-realtor-badge-mark">Powered by REALTOR.ca</span>
         <span class="listing-realtor-badge-arrow">→</span>
@@ -142,13 +165,14 @@ function renderListingCard(listing) {
 // Called from render.js alongside (not replacing) the existing INCOM
 // "View Available Homes" button.
 async function renderLiveListings(city, containerEl) {
-  containerEl.innerHTML = `<div class="listings-loading">Loading live listings for ${city}…</div>`;
+  const cityEsc = escapeHtml(city);
+  containerEl.innerHTML = `<div class="listings-loading">Loading live listings for ${cityEsc}…</div>`;
 
   try {
     const listings = await fetchListings(city);
 
     if (listings.length === 0) {
-      containerEl.innerHTML = `<div class="listings-empty">No active listings found in ${city} right now. Check back soon.</div>`;
+      containerEl.innerHTML = `<div class="listings-empty">No active listings found in ${cityEsc} right now. Check back soon.</div>`;
       return;
     }
 
