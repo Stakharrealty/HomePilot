@@ -20,24 +20,24 @@ export const API_BASE = "https://ddfapi.realtor.ca/odata/v1";
 // - Media and ListOfficeKey: ADDED 2026-07-22, needed for the listing
 //   display UI (photos + brokerage name, both required by CREA's DDF
 //   display rules).
-// - CommonInterest and PropertyAttachedYN: ADDED 2026-07-24, needed for
-//   real property-type filtering (condo/town/semi/detached). Both
-//   confirmed to exist on the Property entity via a live /metadata check
-//   this session -- CommonInterest (Freehold/Condo-Strata/etc.) is the
-//   real ownership-type field (StructureType alone cannot tell a condo
-//   apartment from a freehold one). PropertyAttachedYN is CREA's only
-//   signal for semi-detached -- there is NO "Semi-Detached" enum value
-//   anywhere in the DDF schema (verified via full-text search of the
-//   entire /metadata document, all 64 enum types); a semi-detached house
-//   is StructureType=House with PropertyAttachedYN=true. NOT YET verified
-//   that PropertyAttachedYN is actually populated with meaningful data by
-//   real MLS boards -- that's the point of adding it here, to sample real
-//   values via /test before trusting it in the ingest filter.
+// - CommonInterest and PropertyAttachedYN: ADDED 2026-07-24, then
+//   ROLLED BACK same day -- confirmed via /metadata that both fields exist
+//   on the Property entity, but the moment they were added to $select,
+//   live /test started returning 400 "StandardStatus cannot be used in
+//   the $filter query option" -- a filter clause that was working
+//   unchanged before this. Root cause NOT yet confirmed (could be a
+//   field-level entitlement restriction tied to requesting these two
+//   fields, or an unrelated CREA-side change that happened to land at the
+//   same time) -- rolled back first to stop the live outage (ingest was
+//   failing for all 49 cities), root-cause investigation to follow before
+//   re-adding. See PROPERTY_TYPE_FILTERS in db.js -- condo/semi/detached
+//   filtering depends on these two fields and will return 0 results until
+//   this is resolved and re-deployed.
 const SELECT_FIELDS = [
   "ListingKey", "ListPrice", "City", "PostalCode", "Latitude", "Longitude",
   "BedroomsTotal", "BathroomsTotalInteger", "ParkingTotal", "PropertySubType",
   "StructureType", "StandardStatus", "ModificationTimestamp", "Media",
-  "ListOfficeKey", "CommonInterest", "PropertyAttachedYN",
+  "ListOfficeKey",
 ];
 
 // ListPrice gt 50000 (not just "ne null") -- added 2026-07-21 after finding

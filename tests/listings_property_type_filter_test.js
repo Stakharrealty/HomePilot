@@ -71,9 +71,21 @@ async function main() {
   const citiesModule = await import(pathToFileURL(path.join(SRC_DIR, "cities.js")).href);
   const dbModule = await import(pathToFileURL(path.join(SRC_DIR, "db.js")).href);
 
-  // --- 1. query.js requests the two fields the filter depends on ---
-  check("query.js SELECT_FIELDS includes CommonInterest", /["']CommonInterest["']/.test(querySrc));
-  check("query.js SELECT_FIELDS includes PropertyAttachedYN", /["']PropertyAttachedYN["']/.test(querySrc));
+  // --- 1. query.js: CommonInterest/PropertyAttachedYN status ---
+  // ROLLED BACK 2026-07-24 same day as added: live /test started returning
+  // 400 "StandardStatus cannot be used in the $filter query option" the
+  // moment these two fields were added to $select -- see the SELECT_FIELDS
+  // comment in query.js. Asserting their ABSENCE here (not presence) until
+  // root-caused and safely re-added -- an outage-causing regression should
+  // fail this test if it comes back without being re-verified live first.
+  check(
+    "query.js SELECT_FIELDS does NOT include CommonInterest (rolled back -- caused a live 400 error, see query.js comment)",
+    !/["']CommonInterest["']/.test(querySrc)
+  );
+  check(
+    "query.js SELECT_FIELDS does NOT include PropertyAttachedYN (rolled back -- caused a live 400 error, see query.js comment)",
+    !/["']PropertyAttachedYN["']/.test(querySrc)
+  );
 
   // --- 2. cities.js: every broken display name is mapped to a real city ---
   const expectedAliases = {
