@@ -93,9 +93,16 @@ function observeForViewTracking(cardEl, listingId) {
 
 // --- Data fetching ---
 
-async function fetchListings(city, limit = 12) {
-  const url = `${LISTINGS_API_BASE}/listings?city=${encodeURIComponent(city)}&limit=${limit}`;
-  const resp = await fetch(url);
+// PAGE_LIMIT (renamed from a fixed display cap, 2026-07-24): this is now
+// just the page SIZE for "Load more" pagination, not a ceiling on total
+// listings shown -- a buyer can page through everything stored for their
+// city/type via the Load More button (see loadMoreListings() below).
+const PAGE_LIMIT = 24;
+
+async function fetchListings(city, propertyType, offset = 0, limit = PAGE_LIMIT) {
+  const params = new URLSearchParams({ city, limit: String(limit), offset: String(offset) });
+  if (propertyType && propertyType !== "all") params.set("type", propertyType);
+  const resp = await fetch(`${LISTINGS_API_BASE}/listings?${params.toString()}`);
   if (!resp.ok) throw new Error(`Listings fetch failed: ${resp.status}`);
   const data = await resp.json();
   return data.listings || [];
@@ -143,6 +150,7 @@ function renderListingCard(listing) {
       ${photo
         ? `<img class="listing-photo" src="${photo}" alt="Photo of listing in ${cityEsc}" loading="lazy">`
         : `<div class="listing-photo listing-photo-empty">No photo available</div>`}
+      <span class="listing-verified-seal" title="Sourced directly from CREA's DDF® feed, not scraped or estimated">Verified · CREA DDF®</span>
     </div>
     <div class="listing-body">
       <div class="listing-price">${fmtPrice(listing.listPrice)}</div>
@@ -160,19 +168,57 @@ function renderListingCard(listing) {
   return card;
 }
 
-// --- Public entry point ---
-// Renders live DDF listings for a city into the given container element.
-// Called from render.js alongside (not replacing) the existing INCOM
-// "View Available Homes" button.
-async function renderLiveListings(city, containerEl) {
-  const cityEsc = escapeHtml(city);
-  containerEl.innerHTML = `<div class="listings-loading">Loading live listings for ${cityEsc}…</div>`;
+const TYPE_LABELS = { condo: "condo", town: "townhouse", semi: "semi-detached", detached: "detached home" };
+
+// Fetches the next page for an already-open listings container and appends
+// it to the existing grid, rather than re-rendering from scratch -- keeps
+// already-loaded cards (and their view-tracking observers) intact.
+async function loadMoreListings(buttonEl) {
+  const containerEl = buttonEl.closest(".live-listings-container");
+  const state = containerEl && containerEl._hpListingsState;
+  if (!state) return;
+
+  buttonEl.disabled = true;
+  buttonEl.textContent = "Loading more…";
 
   try {
-    const listings = await fetchListings(city);
+    const nextOffset = state.offset + PAGE_LIMIT;
+    const listings = await fetchListings(state.city, state.propertyType, nextOffset);
+    for (const listing of listings) {
+      state.grid.appendChild(renderListingCard(listing));
+    }
+    state.offset = nextOffset;
+    if (listings.length < PAGE_LIMIT) {
+      buttonEl.remove(); // that was the last page -- nothing more to load
+    } else {
+      buttonEl.disabled = false;
+      buttonEl.textContent = "Load more homes";
+    }
+  } catch {
+    buttonEl.disabled = false;
+    buttonEl.textContent = "Couldn't load more — try again";
+  }
+}
+window.loadMoreListings = loadMoreListings;
+
+// --- Public entry point ---
+// Renders live DDF listings for a city (optionally filtered to one
+// property type) into the given container element. propertyType is one of
+// 'condo'/'town'/'semi'/'detached', or 'all'/omitted for no filter. Shows
+// every listing stored for that city/type via "Load more" pagination
+// (2026-07-24) -- no longer capped at a single fixed-size batch; per
+// Sandeep, a buyer should be able to see everything they qualify for.
+async function renderLiveListings(city, containerEl, propertyType) {
+  const cityEsc = escapeHtml(city);
+  const typeLabel = TYPE_LABELS[propertyType];
+  const typePhrase = typeLabel ? `${typeLabel} listings` : "listings";
+  containerEl.innerHTML = `<div class="listings-loading">Loading live ${escapeHtml(typePhrase)} for ${cityEsc}…</div>`;
+
+  try {
+    const listings = await fetchListings(city, propertyType, 0);
 
     if (listings.length === 0) {
-      containerEl.innerHTML = `<div class="listings-empty">No active listings found in ${cityEsc} right now. Check back soon.</div>`;
+      containerEl.innerHTML = `<div class="listings-empty">No active ${escapeHtml(typePhrase)} found in ${cityEsc} right now. Check back soon.</div>`;
       return;
     }
 
@@ -183,6 +229,23 @@ async function renderLiveListings(city, containerEl) {
       grid.appendChild(renderListingCard(listing));
     }
     containerEl.appendChild(grid);
+
+    // Track pagination state on the container itself so loadMoreListings()
+    // can pick up where this left off.
+    containerEl._hpListingsState = { city, propertyType, offset: 0, grid };
+
+    if (listings.length === PAGE_LIMIT) {
+      // A full page came back -- there may be more. Rather than firing an
+      // extra COUNT query, the button itself resolves this: clicking it
+      // fetches the next page, and removes itself once a short page proves
+      // there's nothing left.
+      const loadMoreBtn = document.createElement("button");
+      loadMoreBtn.type = "button";
+      loadMoreBtn.className = "listings-load-more";
+      loadMoreBtn.textContent = "Load more homes";
+      loadMoreBtn.onclick = () => loadMoreListings(loadMoreBtn);
+      containerEl.appendChild(loadMoreBtn);
+    }
 
     // Trademark statement -- required on every page displaying DDF content
     // (CREA DDF Policy and Rules, section 6). Placed once per rendered
@@ -204,11 +267,15 @@ async function renderLiveListings(city, containerEl) {
 // Exposed for render.js to call.
 window.renderLiveListings = renderLiveListings;
 
-// Called by the "View Live Listings (BETA)" button in render.js. Finds the
-// sibling .live-listings-container, toggles it open/closed, and lazy-loads
-// listings the first time it's opened (not on every toggle, to avoid
-// re-fetching and re-firing view-tracking events on repeat clicks).
-function toggleLiveListings(buttonEl, city) {
+// Called by the "View Available Homes" button in render.js /
+// render-support.js. Finds the sibling .live-listings-container, toggles
+// it open/closed, and lazy-loads listings the first time it's opened for a
+// given propertyType (not on every toggle, to avoid re-fetching and
+// re-firing view-tracking events on repeat clicks). Re-fetches only when
+// propertyType actually changed since the last load for this container --
+// e.g. buyer expands "Condo", closes it, then expands "Townhouse" on the
+// same city card; those are different result sets, not a repeat click.
+function toggleLiveListings(buttonEl, city, propertyType) {
   const container = buttonEl.nextElementSibling;
   if (!container || !container.classList.contains("live-listings-container")) return;
 
@@ -219,9 +286,9 @@ function toggleLiveListings(buttonEl, city) {
   }
 
   container.style.display = "block";
-  if (!container.dataset.loaded) {
-    container.dataset.loaded = "true";
-    renderLiveListings(city, container);
+  if (container.dataset.loadedType !== propertyType) {
+    container.dataset.loadedType = propertyType;
+    renderLiveListings(city, container, propertyType);
   }
 }
 

@@ -23,6 +23,7 @@ on:
       - "tests/listings_display_backend_test.js"
       - "tests/listings_metadata_field_test.js"
       - "tests/listings_office_lookup_failure_test.js"
+      - "tests/listings_property_type_filter_test.js"
 
 jobs:
   test-listings:
@@ -59,3 +60,6 @@ jobs:
 
       - name: Office lookup failure visibility test (no network required, mocked fetch)
         run: node tests/listings_office_lookup_failure_test.js
+
+      - name: Property-type filtering + city-alias test (no network required, fake D1)
+        run: node tests/listings_property_type_filter_test.js

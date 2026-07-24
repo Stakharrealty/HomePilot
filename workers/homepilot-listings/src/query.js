@@ -20,11 +20,24 @@ export const API_BASE = "https://ddfapi.realtor.ca/odata/v1";
 // - Media and ListOfficeKey: ADDED 2026-07-22, needed for the listing
 //   display UI (photos + brokerage name, both required by CREA's DDF
 //   display rules).
+// - CommonInterest and PropertyAttachedYN: ADDED 2026-07-24, needed for
+//   real property-type filtering (condo/town/semi/detached). Both
+//   confirmed to exist on the Property entity via a live /metadata check
+//   this session -- CommonInterest (Freehold/Condo-Strata/etc.) is the
+//   real ownership-type field (StructureType alone cannot tell a condo
+//   apartment from a freehold one). PropertyAttachedYN is CREA's only
+//   signal for semi-detached -- there is NO "Semi-Detached" enum value
+//   anywhere in the DDF schema (verified via full-text search of the
+//   entire /metadata document, all 64 enum types); a semi-detached house
+//   is StructureType=House with PropertyAttachedYN=true. NOT YET verified
+//   that PropertyAttachedYN is actually populated with meaningful data by
+//   real MLS boards -- that's the point of adding it here, to sample real
+//   values via /test before trusting it in the ingest filter.
 const SELECT_FIELDS = [
   "ListingKey", "ListPrice", "City", "PostalCode", "Latitude", "Longitude",
   "BedroomsTotal", "BathroomsTotalInteger", "ParkingTotal", "PropertySubType",
   "StructureType", "StandardStatus", "ModificationTimestamp", "Media",
-  "ListOfficeKey",
+  "ListOfficeKey", "CommonInterest", "PropertyAttachedYN",
 ];
 
 // ListPrice gt 50000 (not just "ne null") -- added 2026-07-21 after finding
@@ -58,9 +71,14 @@ export function buildQuery(top, skip) {
 // buildCityQuery(): one city per query, used by real /ingest (added
 // 2026-07-22) so every one of the 49 cities gets a guaranteed, fair share
 // of coverage regardless of how large any other city's inventory is.
-export function buildCityQuery(city, top) {
+// skip param added 2026-07-24: ingest now paginates through a city's full
+// inventory (see PAGE_SIZE/MAX_PAGES_PER_CITY in ingest.js) rather than
+// capping at one page -- "every listing the buyer qualifies for", not an
+// arbitrary product-imposed ceiling.
+export function buildCityQuery(city, top, skip = 0) {
   return new URLSearchParams({
     "$top": String(top),
+    "$skip": String(skip),
     "$filter": `StateOrProvince eq 'Ontario' and PropertySubType eq 'Single Family' and StandardStatus eq 'Active' and ListPrice gt ${MIN_LIST_PRICE} and City eq '${city}'`,
     "$select": SELECT_FIELDS.join(","),
   });

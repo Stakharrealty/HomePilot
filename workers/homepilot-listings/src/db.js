@@ -23,12 +23,30 @@
 //   buildOfficeQuery() in query.js and passed in here by ingest.js, which
 //   is the caller responsible for doing that second query and building an
 //   officeKey -> officeName lookup map.
+//
+// - common_interest, property_attached (added 2026-07-24, property-type
+//   filtering bug fix): CommonInterest (Freehold/Condo-Strata/etc.) and
+//   PropertyAttachedYN, straight passthrough of what CREA returns. See the
+//   SELECT_FIELDS comment in query.js for why these two specific fields
+//   were chosen -- CommonInterest is the real condo signal (StructureType
+//   alone can't tell a condo apartment from a freehold one), and
+//   PropertyAttachedYN is CREA's only semi-detached signal (there is no
+//   dedicated enum value for it anywhere in the DDF schema).
+// property_attached is stored as 0/1/NULL (SQLite has no native boolean) --
+// NULL specifically preserved (not coerced to 0) since "we don't know" and
+// "confirmed not attached" are different things for filtering purposes.
 
 function extractPhotoUrls(media) {
   if (!Array.isArray(media) || media.length === 0) return [];
   return media
     .map((m) => m.MediaURL)
     .filter((url) => typeof url === "string" && url.length > 0);
+}
+
+function toAttachedFlag(v) {
+  if (v === true) return 1;
+  if (v === false) return 0;
+  return null; // unknown/not provided by CREA for this listing
 }
 
 export async function upsertListing(db, r, runStartedAt, brokerageName) {
@@ -39,8 +57,8 @@ export async function upsertListing(db, r, runStartedAt, brokerageName) {
       listing_key, list_price, city, postal_code, latitude, longitude,
       property_subtype, structure_type, bedrooms, bathrooms, parking_total,
       listing_url, brokerage_name, listing_status, last_updated, last_seen_at,
-      photos
-    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      photos, common_interest, property_attached
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ON CONFLICT(listing_key) DO UPDATE SET
       list_price=excluded.list_price, city=excluded.city, postal_code=excluded.postal_code,
       latitude=excluded.latitude, longitude=excluded.longitude,
@@ -48,7 +66,8 @@ export async function upsertListing(db, r, runStartedAt, brokerageName) {
       bedrooms=excluded.bedrooms, bathrooms=excluded.bathrooms, parking_total=excluded.parking_total,
       listing_status=excluded.listing_status, last_updated=excluded.last_updated,
       last_seen_at=excluded.last_seen_at, brokerage_name=excluded.brokerage_name,
-      photos=excluded.photos`
+      photos=excluded.photos, common_interest=excluded.common_interest,
+      property_attached=excluded.property_attached`
   ).bind(
     r.ListingKey,
     r.ListPrice || 0,
@@ -66,7 +85,9 @@ export async function upsertListing(db, r, runStartedAt, brokerageName) {
     r.StandardStatus || "",
     r.ModificationTimestamp || new Date().toISOString(),
     runStartedAt,
-    JSON.stringify(photos)
+    JSON.stringify(photos),
+    r.CommonInterest || null,
+    toAttachedFlag(r.PropertyAttachedYN)
   ).run();
 }
 
@@ -96,21 +117,47 @@ export async function deleteStaleListings(db, runStartedAt, citiesToSweep) {
   return result.meta?.changes ?? 0;
 }
 
+// PROPERTY_TYPE_FILTERS (added 2026-07-24, property-type filtering bug
+// fix): maps the app's 4 buyer-facing property-type buttons to real SQL
+// conditions over the fields confirmed via live /metadata inspection this
+// session. 'semi' is a DERIVED signal, not a dedicated CREA field -- see
+// the SELECT_FIELDS comment in query.js. structure_type is stored as a
+// JSON-stringified array (e.g. '["House"]'), so matching uses a LIKE on
+// the raw column rather than an exact match.
+const PROPERTY_TYPE_FILTERS = {
+  condo: `common_interest = 'Condo/Strata'`,
+  town: `structure_type LIKE '%Row / Townhouse%'`,
+  semi: `structure_type LIKE '%House%' AND property_attached = 1`,
+  detached: `structure_type LIKE '%House%' AND (property_attached = 0 OR property_attached IS NULL) AND (common_interest = 'Freehold' OR common_interest IS NULL)`,
+};
+
 // Read path for the public /listings endpoint (added 2026-07-22, listing
 // display UI). Returns listings for a given city, most recently updated
-// first, capped at `limit`. Parses the photos JSON column back into a real
-// array for the caller -- callers should never see the raw JSON string.
-export async function getListingsByCity(db, city, limit = 20) {
+// first, capped at `limit` starting at `offset`. Parses the photos JSON
+// column back into a real array for the caller -- callers should never see
+// the raw JSON string.
+// propertyType is optional -- 'all'/undefined/unrecognized all mean no
+// type filter (matches prior behavior exactly, so existing callers that
+// don't pass it are unaffected).
+// offset added 2026-07-24 (removing the old fixed display cap, per
+// Sandeep: buyers should be able to page through EVERY listing they
+// qualify for, not just a first batch) -- the front end's "Load more"
+// button increments this to fetch the next page.
+export async function getListingsByCity(db, city, limit = 20, propertyType = null, offset = 0) {
+  const typeClause = propertyType && PROPERTY_TYPE_FILTERS[propertyType]
+    ? ` AND ${PROPERTY_TYPE_FILTERS[propertyType]}`
+    : "";
+
   const result = await db
     .prepare(
       `SELECT listing_key, list_price, city, postal_code, bedrooms, bathrooms,
               parking_total, listing_url, brokerage_name, photos, last_updated
        FROM listings
-       WHERE city = ?
+       WHERE city = ?${typeClause}
        ORDER BY last_updated DESC
-       LIMIT ?`
+       LIMIT ? OFFSET ?`
     )
-    .bind(city, limit)
+    .bind(city, limit, offset)
     .all();
 
   return (result.results || []).map((row) => ({

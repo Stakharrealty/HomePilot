@@ -248,7 +248,7 @@ function renderAnglePicks(tpEl, withPrice) {
           '<div style="font-size:11px;font-weight:600;color:'+scoreColor+';opacity:0.85;margin-top:1px">of take-home pay</div>'+
           '<div style="font-size:11px;color:'+scoreColor+';opacity:0.75;margin-top:3px">'+fit.msg+'</div></div>'+
         '</div>'+
-        '<button type="button" class="view-btn" onclick="toggleLiveListings(this,\''+e.city.n+'\')">🏠 View '+PLBL[dispType]+' homes in '+e.city.n+'</button>'+
+        '<button type="button" class="view-btn" onclick="toggleLiveListings(this,\''+e.city.n+'\',\''+dispType+'\')">🏠 View '+PLBL[dispType]+' homes in '+e.city.n+'</button>'+
         '<div class="live-listings-container" style="display:none"></div>'+
       '</div>'+
     '</div>';

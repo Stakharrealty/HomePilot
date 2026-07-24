@@ -9,16 +9,22 @@ import { buildCityQuery, buildOfficeQuery, API_BASE } from "./query.js";
 import { HOMEPILOT_CITIES } from "./cities.js";
 import { upsertListing, deleteStaleListings } from "./db.js";
 
-// Per-city listing cap (added 2026-07-22, replacing a single global-capped
-// query). Real production data found 2026-07-22: with one combined
-// $top=500 query across all 49 cities, large-inventory cities (Ottawa 123,
-// Hamilton 95, Kitchener 68) consumed most of the cap, leaving 14 cities
-// -- including Brampton and Markham, not small towns -- with ZERO listings
-// in D1. Not a data problem on CREA's end -- a fairness problem in how we
-// queried. 25/city covers every city's realistic inventory (only 3 of 49
-// cities exceeded 25 listings in that same production snapshot) while
-// still capping any single city from starving the others.
-const PER_CITY_LIMIT = 25;
+// PAGE_SIZE / MAX_PAGES_PER_CITY (added 2026-07-24, replacing the old fixed
+// PER_CITY_LIMIT=25 cap): Sandeep's explicit direction -- a buyer should
+// see EVERY listing they qualify for, not a product-imposed sample. 25 was
+// never a CREA limit, it was a leftover from the 2026-07-22 fairness fix
+// (solved structurally by per-city queries; the 25 number itself was just
+// "covers most cities in one snapshot", not a real ceiling).
+// This now paginates through a city's full result set via $skip, stopping
+// only when: (a) CREA returns fewer than PAGE_SIZE rows (no more results),
+// or (b) MAX_PAGES_PER_CITY is hit (a genuine safety bound against a City
+// filter somehow matching a huge unbounded result set and blowing past
+// Cloudflare Workers' execution-time limit for a single ingest run -- NOT
+// a realistic ceiling for any of the 49 Ontario cities HomePilot covers;
+// 10 * 200 = 2,000 listings/city is far beyond any single city's real
+// active Single Family inventory).
+const PAGE_SIZE = 200;
+const MAX_PAGES_PER_CITY = 10;
 
 // How many city queries to run concurrently. Sequential (1 at a time) for
 // 49 cities would be slow; unlimited concurrency risks hitting Cloudflare
@@ -75,20 +81,49 @@ async function fetchOfficeNames(token, officeKeys) {
   return { lookup, failedBatches, failedKeyCount };
 }
 
-// Fetches up to PER_CITY_LIMIT listings for a single city. Returns [] on a
-// failed request rather than throwing -- one city's CREA hiccup shouldn't
-// abort the whole run and leave every OTHER city un-ingested too.
+// Fetches ALL listings for a single city, paginating via $skip until CREA
+// returns a short page (fewer than PAGE_SIZE = no more results) or
+// MAX_PAGES_PER_CITY is hit. Returns [] on a failed request rather than
+// throwing -- one city's CREA hiccup shouldn't abort the whole run and
+// leave every OTHER city un-ingested too. A failure on any page marks the
+// WHOLE city failed (not partial) -- a partial result silently passed as
+// "success" would let deleteStaleListings() wrongly sweep away real
+// listings CREA has but this run didn't finish fetching.
+// truncated (added 2026-07-24): true only if MAX_PAGES_PER_CITY was
+// actually hit -- i.e. the safety wall fired for real, meaning this city's
+// stored listings may be incomplete. This should never be true for any of
+// HomePilot's 49 cities under normal conditions; if it ever is, it must
+// show up in the /ingest response, not fail silently.
 async function fetchListingsForCity(token, city) {
-  try {
-    const resp = await fetch(`${API_BASE}/Property?${buildCityQuery(city, PER_CITY_LIMIT).toString()}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!resp.ok) return { city, rows: [], failed: true };
-    const data = await resp.json();
-    return { city, rows: data.value || [], failed: false };
-  } catch {
-    return { city, rows: [], failed: true };
+  const rows = [];
+  let truncated = false;
+  for (let page = 0; page < MAX_PAGES_PER_CITY; page++) {
+    try {
+      const resp = await fetch(`${API_BASE}/Property?${buildCityQuery(city, PAGE_SIZE, page * PAGE_SIZE).toString()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!resp.ok) return { city, rows: [], failed: true, truncated: false };
+      const data = await resp.json();
+      const pageRows = data.value || [];
+      rows.push(...pageRows);
+      if (pageRows.length < PAGE_SIZE) break; // last page -- no more results
+      if (page === MAX_PAGES_PER_CITY - 1) {
+        // Hit the wall on the LAST allowed page and it was still full --
+        // there's more CREA data we didn't fetch. Log immediately (visible
+        // in `wrangler tail`/Cloudflare Worker logs) in addition to
+        // surfacing it in the returned result below.
+        truncated = true;
+        console.error(
+          `[homepilot-listings] Pagination safety wall hit for city="${city}": ` +
+          `stopped at ${rows.length} listings (MAX_PAGES_PER_CITY=${MAX_PAGES_PER_CITY}). ` +
+          `CREA likely has more -- this city's D1 data is INCOMPLETE this run.`
+        );
+      }
+    } catch {
+      return { city, rows: [], failed: true, truncated: false };
+    }
   }
+  return { city, rows, failed: false, truncated };
 }
 
 export async function runIngest(env) {
@@ -104,12 +139,18 @@ export async function runIngest(env) {
     const results = await Promise.all(batch.map((city) => fetchListingsForCity(token, city)));
     for (const r of results) {
       allRows.push(...r.rows);
-      cityResults.push({ city: r.city, count: r.rows.length, failed: r.failed });
+      cityResults.push({ city: r.city, count: r.rows.length, failed: r.failed, truncated: r.truncated });
     }
   }
 
   const citiesWithZeroListings = cityResults.filter((r) => r.count === 0 && !r.failed).map((r) => r.city);
   const citiesFailed = cityResults.filter((r) => r.failed).map((r) => r.city);
+  // citiesTruncated (added 2026-07-24): should be [] under all normal
+  // conditions -- see the truncated comment on fetchListingsForCity above.
+  // Surfaced here (not just console.error'd) so a real occurrence is
+  // visible in the /ingest response itself, not just Worker logs someone
+  // has to go looking for.
+  const citiesTruncated = cityResults.filter((r) => r.truncated).map((r) => r.city);
 
   // Phase 2: look up brokerage names for every unique office in this batch,
   // in one (batched) pass, rather than one query per listing
@@ -150,6 +191,7 @@ export async function runIngest(env) {
     citiesQueried: HOMEPILOT_CITIES.length,
     citiesWithZeroListings,
     citiesFailed,
+    citiesTruncated,
     citiesSweptForStaleRemoval: citiesSucceeded.length,
     officesLookedUp: uniqueOfficeKeys.length,
     officesFound: officeNameLookup.size,

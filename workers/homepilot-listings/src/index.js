@@ -9,7 +9,12 @@ import { getAccessToken } from "./auth.js";
 import { buildQuery, API_BASE } from "./query.js";
 import { runIngest } from "./ingest.js";
 import { getListingsByCity } from "./db.js";
-import { HOMEPILOT_CITIES } from "./cities.js";
+import { CITY_ALIASES, PUBLIC_CITY_NAMES } from "./cities.js";
+
+// The 4 buyer-facing property-type buttons the main app supports. Anything
+// else (including 'all', missing, or unrecognized) means no type filter --
+// see PROPERTY_TYPE_FILTERS in db.js for what each one actually queries.
+const VALID_PROPERTY_TYPES = new Set(["condo", "town", "semi", "detached"]);
 
 const ALLOWED_ORIGIN = "https://myhomepilot.ca";
 
@@ -61,25 +66,38 @@ export default {
       }
 
       if (url.pathname === "/listings") {
-        const city = url.searchParams.get("city");
-        if (!city) {
+        const requestedCity = url.searchParams.get("city");
+        if (!requestedCity) {
           return new Response(JSON.stringify({ error: "Missing required 'city' query param" }), {
             status: 400, headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
           });
         }
-        // Only serve the 49 cities HomePilot actually covers -- prevents
-        // this becoming an open-ended D1 query surface for arbitrary input.
-        if (!HOMEPILOT_CITIES.includes(city)) {
-          return new Response(JSON.stringify({ error: `Unknown city: ${city}` }), {
+        // Accept both real CREA-queryable cities AND display-only aliases
+        // (Toronto sub-regions, Bolton) -- see CITY_ALIASES in cities.js.
+        // Fixed 2026-07-24: this previously only accepted HOMEPILOT_CITIES,
+        // silently 400-ing every Toronto sub-region and Bolton request.
+        if (!PUBLIC_CITY_NAMES.includes(requestedCity)) {
+          return new Response(JSON.stringify({ error: `Unknown city: ${requestedCity}` }), {
             status: 400, headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
           });
         }
+        // Resolve to the real city D1 rows are actually stored under.
+        const city = CITY_ALIASES[requestedCity] || requestedCity;
+
+        const rawType = url.searchParams.get("type");
+        const propertyType = VALID_PROPERTY_TYPES.has(rawType) ? rawType : null;
+
         const limitParam = parseInt(url.searchParams.get("limit") || "20", 10);
         const limit = Number.isFinite(limitParam) ? Math.min(Math.max(limitParam, 1), 50) : 20;
+        // offset added 2026-07-24 for "Load more" pagination -- lets the
+        // front end page through a city's full stored inventory instead of
+        // being capped at the first `limit` rows.
+        const offsetParam = parseInt(url.searchParams.get("offset") || "0", 10);
+        const offset = Number.isFinite(offsetParam) ? Math.max(offsetParam, 0) : 0;
 
-        const listings = await getListingsByCity(env.DB, city, limit);
+        const listings = await getListingsByCity(env.DB, city, limit, propertyType, offset);
         return new Response(
-          JSON.stringify({ city, count: listings.length, listings }, null, 2),
+          JSON.stringify({ city: requestedCity, propertyType: propertyType || "all", offset, count: listings.length, listings }, null, 2),
           { headers: { "Content-Type": "application/json", ...corsHeaders(origin) } }
         );
       }
