@@ -33,61 +33,6 @@ export default {
     if (request.method === "OPTIONS") return new Response(null, { headers: corsHeaders(origin) });
 
     try {
-      // TEMPORARY DIAGNOSTIC (added 2026-07-24, to be removed once root
-      // cause is found) -- isolates exactly which part of the $filter
-      // clause CREA is rejecting, instead of guessing. Tries each clause
-      // alone, then combinations, against the real live API.
-      if (url.pathname === "/debug-filter") {
-        const token = await getAccessToken(env);
-        const trials = {
-          "status_only": `StandardStatus eq 'Active'`,
-          "subtype_only": `PropertySubType eq 'Single Family'`,
-          "price_only": `ListPrice gt 50000`,
-          "province_only": `StateOrProvince eq 'Ontario'`,
-          "city_only": `City eq 'Toronto'`,
-          "status_and_province": `StateOrProvince eq 'Ontario' and StandardStatus eq 'Active'`,
-          "full_original": `StateOrProvince eq 'Ontario' and PropertySubType eq 'Single Family' and StandardStatus eq 'Active' and ListPrice gt 50000 and City eq 'Toronto'`,
-          "no_status": `StateOrProvince eq 'Ontario' and PropertySubType eq 'Single Family' and ListPrice gt 50000 and City eq 'Toronto'`,
-        };
-        const results = {};
-        for (const [label, filterClause] of Object.entries(trials)) {
-          const qs = new URLSearchParams({ "$top": "1", "$filter": filterClause, "$select": "ListingKey" });
-          const resp = await fetch(`${API_BASE}/Property?${qs.toString()}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          const body = await resp.json();
-          results[label] = { filter: filterClause, status: resp.status, ok: resp.ok, error: body.error?.details || null };
-        }
-        return new Response(JSON.stringify(results, null, 2), {
-          headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
-        });
-      }
-
-      // TEMPORARY DIAGNOSTIC (added 2026-07-24): checks what StandardStatus
-      // values actually show up in DDF data when we don't filter by status
-      // at all -- answers "does CREA's National Shared Pool even send
-      // non-Active listings, or is Active-only already guaranteed by the
-      // feed itself regardless of our query?"
-      if (url.pathname === "/debug-status-sample") {
-        const token = await getAccessToken(env);
-        const qs = new URLSearchParams({
-          "$top": "50",
-          "$filter": `StateOrProvince eq 'Ontario' and PropertySubType eq 'Single Family'`,
-          "$select": "ListingKey,StandardStatus,City",
-        });
-        const resp = await fetch(`${API_BASE}/Property?${qs.toString()}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await resp.json();
-        const rows = data.value || [];
-        const statusCounts = {};
-        for (const r of rows) {
-          statusCounts[r.StandardStatus || "(missing)"] = (statusCounts[r.StandardStatus || "(missing)"] || 0) + 1;
-        }
-        return new Response(JSON.stringify({ status: resp.status, sampleSize: rows.length, statusCounts }, null, 2), {
-          headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
-        });
-      }
 
       if (url.pathname === "/test") {
         const token = await getAccessToken(env);

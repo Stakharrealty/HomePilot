@@ -71,9 +71,12 @@ check("$filter does NOT use chained City eq 'X' or ... clauses", !usesChainedOr)
 // Approximate CREA's node counting: for `in (a,b,c,...)`, this is generally
 // treated as roughly 1 node per value plus a small constant overhead for the
 // `in` operator itself and the other filter terms (StateOrProvince,
-// PropertySubType, StandardStatus, ListPrice). We count conservatively —
-// worst case, each city = 1 node, plus 6 nodes of overhead for the other
-// filter terms — and assert we're under CREA's limit with real headroom.
+// PropertySubType, ListPrice -- StandardStatus removed 2026-07-24, CREA
+// rejects it in $filter; turns out unnecessary anyway since the National
+// Shared Pool feed only ever sends Active listings regardless). We count
+// conservatively -- worst case, each city = 1 node, plus 6 nodes of
+// overhead for the other filter terms -- and assert we're under CREA's
+// limit with real headroom.
 const OTHER_FILTER_TERM_NODES = 6;
 const estimatedNodes = cities.length + OTHER_FILTER_TERM_NODES;
 check(

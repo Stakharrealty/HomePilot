@@ -58,12 +58,24 @@ const MIN_LIST_PRICE = 50000;
 // not because CREA has none, but because the combined 500-record cap never
 // reached them. Real ingestion now uses buildCityQuery() per-city instead
 // -- see runIngest() in ingest.js.
-export function buildQuery(top, skip) {
+export // StandardStatus removed from $filter 2026-07-24: CREA started rejecting
+// it with 400 "StandardStatus cannot be used in the $filter query
+// option" -- confirmed via isolated /debug-filter testing that this was
+// the ONLY clause failing (every other clause worked fine alone and in
+// combination). Investigated whether this needed a client-side status
+// check as a replacement -- it doesn't: /debug-status-sample pulled 50
+// Ontario Single Family listings with NO status filter at all, and all
+// 50 came back "Active". CREA's National Shared Pool feed only ever
+// distributes Active listings in the first place (this is how DDF is
+// designed, not specific to our account) -- the StandardStatus filter
+// was always redundant, just happened to also be harmless until CREA
+// stopped allowing it to be queried.
+function buildQuery(top, skip) {
   const cityList = HOMEPILOT_CITIES.map((c) => `'${c}'`).join(",");
   return new URLSearchParams({
     "$top": String(top),
     "$skip": String(skip),
-    "$filter": `StateOrProvince eq 'Ontario' and PropertySubType eq 'Single Family' and StandardStatus eq 'Active' and ListPrice gt ${MIN_LIST_PRICE} and City in (${cityList})`,
+    "$filter": `StateOrProvince eq 'Ontario' and PropertySubType eq 'Single Family' and ListPrice gt ${MIN_LIST_PRICE} and City in (${cityList})`,
     "$select": SELECT_FIELDS.join(","),
   });
 }
@@ -79,7 +91,7 @@ export function buildCityQuery(city, top, skip = 0) {
   return new URLSearchParams({
     "$top": String(top),
     "$skip": String(skip),
-    "$filter": `StateOrProvince eq 'Ontario' and PropertySubType eq 'Single Family' and StandardStatus eq 'Active' and ListPrice gt ${MIN_LIST_PRICE} and City eq '${city}'`,
+    "$filter": `StateOrProvince eq 'Ontario' and PropertySubType eq 'Single Family' and ListPrice gt ${MIN_LIST_PRICE} and City eq '${city}'`,
     "$select": SELECT_FIELDS.join(","),
   });
 }
