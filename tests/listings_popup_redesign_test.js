@@ -112,6 +112,16 @@ function main() {
       /window\.open\(url,\s*["'][\w-]+["']/.test(fnBody)
     );
     check(
+      "window.open() call does NOT include 'noopener' -- noopener makes window.open() ALWAYS return null by design (browser withholds the reference), which silently broke the very next line's `if (popup)` check: every desktop click fell through to the else-branch (same-tab navigation) regardless of whether a popup actually opened. Confirmed live 2026-07-25 with a real mouse click, not just a script-simulated one.",
+      (() => {
+        const openCallStart = fnBody.indexOf("window.open(url,");
+        if (openCallStart === -1) return false;
+        const openCallEnd = fnBody.indexOf(")", openCallStart);
+        const openCall = fnBody.slice(openCallStart, openCallEnd);
+        return !/noopener/.test(openCall);
+      })()
+    );
+    check(
       "mobile path uses real navigation (window.location.href), not an in-app overlay -- gives the native back button and a shareable URL",
       /window\.location\.href\s*=\s*url/.test(fnBody)
     );

@@ -326,11 +326,21 @@ function openListingsWindow(city, propertyType) {
     // Named target ("hp_listings") means clicking a second "View Available
     // Homes" button re-focuses the same popup and navigates it to the new
     // city/type, rather than piling up multiple popup windows.
-    const popup = window.open(url, "hp_listings", "width=1040,height=840,scrollbars=yes,resizable=yes,noopener");
+    // NOTE: deliberately no "noopener" here -- noopener makes window.open()
+    // always return null BY DESIGN (the browser refuses to hand back a
+    // reference), which broke the very check on the next line: `if (popup)`
+    // was always false, so every desktop click fell through to the mobile
+    // fallback and navigated the CURRENT tab away instead of opening a
+    // separate window -- confirmed live 2026-07-25 (a real mouse click,
+    // not a script-simulated one, still hit this). This function needs the
+    // real popup reference (to .focus() it on repeat clicks, and to
+    // legitimately detect an actual browser-level block), so noopener and
+    // "check if popup is truthy" can't be combined.
+    const popup = window.open(url, "hp_listings", "width=1040,height=840,scrollbars=yes,resizable=yes");
     if (popup) popup.focus();
-    // If popup is null, the browser blocked it despite the synchronous
-    // call (e.g. user has popups hard-disabled) -- fall back to a normal
-    // same-tab navigation rather than silently doing nothing.
+    // If popup is still null here, that's now a REAL block (e.g. the user
+    // has popups hard-disabled) -- fall back to same-tab navigation rather
+    // than silently doing nothing.
     else window.location.href = url;
   } else {
     // Mobile: real navigation, not an in-app overlay -- gives the phone's
