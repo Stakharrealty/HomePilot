@@ -17,6 +17,25 @@ body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;bac
 .hero{margin-bottom:1.75rem}
 .hero h1{font-size:18px;font-weight:700;color:#1a1a1a;line-height:1.3;margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .hero p{font-size:14px;color:#666;line-height:1.7}
+.hero-checklist{display:none}
+.hero-stats{display:none}
+.hero-cta{display:none}
+@media(min-width:900px){
+  .hero{text-align:center;margin-bottom:2.5rem}
+  .hero h1{font-size:32px;white-space:normal;overflow:visible;text-overflow:clip;margin-bottom:14px;letter-spacing:-0.4px}
+  .hero p{font-size:15px;max-width:560px;margin:0 auto 24px;line-height:1.6}
+  .hero-checklist{display:block;max-width:420px;margin:0 auto 24px;text-align:left}
+  .hero-checklist-title{font-size:13px;font-weight:600;color:#1a1a1a;margin-bottom:12px}
+  .hero-checklist-item{display:flex;align-items:flex-start;gap:10px;margin-bottom:10px;font-size:14px;color:#666;line-height:1.4}
+  .hero-checklist-item svg{flex-shrink:0;margin-top:2px}
+  .hero-cta{display:inline-flex;align-items:center;gap:8px;padding:13px 28px;border-radius:8px;border:none;background:#1a1a1a;color:#fff;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:32px}
+  .hero-cta:hover{background:#333}
+  .hero-stats{display:flex;justify-content:center;gap:0;border-top:1px solid #eee;border-bottom:1px solid #eee;margin:0 auto 32px;max-width:560px}
+  .hero-stat{flex:1;padding:16px 12px;text-align:center}
+  .hero-stat+.hero-stat{border-left:1px solid #eee}
+  .hero-stat-val{font-size:19px;font-weight:700;color:#1a1a1a}
+  .hero-stat-lbl{font-size:11px;color:#888;margin-top:3px}
+}
 .card{background:#fff;border:1px solid #e8e8e8;border-radius:12px;padding:1.25rem;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,0.04)}
 .lbl{font-size:13px;color:#666;margin-bottom:7px;display:block;font-weight:500}
 input[type=number],select{width:100%;font-size:15px;padding:11px 13px;border-radius:8px;border:1px solid #e0e0e0;background:#fafafa;color:#1a1a1a;outline:none;transition:border-color 0.2s}
@@ -385,8 +404,24 @@ input[type=text]:focus,input[type=email]:focus,input[type=tel]:focus{border-colo
   </div>
 
   <div class="hero">
-    <h1 id="ht">Your Dream Home Is Closer Than You Think.</h1>
-    <p id="hs">The only calculator that shows your true monthly cost across 50+ Ontario cities.</p>
+    <h1 id="ht">Find out how much home you can actually afford in Ontario</h1>
+    <p id="hs">HomePilot is Ontario's smarter home affordability tool that shows you where you can buy based on your income, down payment, monthly budget, commute, and real housing costs.</p>
+    <div class="hero-checklist" id="heroChecklist">
+      <div class="hero-checklist-title">Unlike a traditional mortgage calculator, HomePilot helps you discover:</div>
+      <div class="hero-checklist-item"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="8" fill="#1D9E75"/><path d="M4.5 8.2L6.8 10.5L11.5 5.5" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span>How much home you can realistically afford</span></div>
+      <div class="hero-checklist-item"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="8" fill="#1D9E75"/><path d="M4.5 8.2L6.8 10.5L11.5 5.5" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Which Ontario cities fit your budget</span></div>
+      <div class="hero-checklist-item"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="8" fill="#1D9E75"/><path d="M4.5 8.2L6.8 10.5L11.5 5.5" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Your estimated monthly ownership costs</span></div>
+      <div class="hero-checklist-item"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="8" fill="#1D9E75"/><path d="M4.5 8.2L6.8 10.5L11.5 5.5" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Real homes currently available in your price range</span></div>
+    </div>
+    <button type="button" class="hero-cta" id="heroCtaBtn" onclick="document.getElementById('inc').scrollIntoView({behavior:'smooth',block:'center'});document.getElementById('inc').focus();">
+      Find your dream home
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <div class="hero-stats" id="heroStats">
+      <div class="hero-stat"><div class="hero-stat-val">55</div><div class="hero-stat-lbl">Ontario cities ranked</div></div>
+      <div class="hero-stat"><div class="hero-stat-val">9,900+</div><div class="hero-stat-lbl">Live MLS listings</div></div>
+      <div class="hero-stat"><div class="hero-stat-val">1 min</div><div class="hero-stat-lbl">To see your buying power</div></div>
+    </div>
   </div>
 
   <div class="card">
