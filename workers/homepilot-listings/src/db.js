@@ -122,7 +122,16 @@ export function buildUpsertStatement(db, r, runStartedAt, brokerageName) {
     r.BedroomsTotal || null,
     r.BathroomsTotalInteger || null,
     r.ParkingTotal || null,
-    r.ListingURL || null,
+    // listing_url falls back to "" (not null) -- the D1 column is NOT
+    // NULL, and a real constraint violation on even one row in a batch
+    // chunk would abort that ENTIRE chunk's transaction (see
+    // env.DB.batch() in ingest.js), silently losing up to 49 other
+    // listings' worth of real data over one missing field. safeUrl() on
+    // the front end already treats "" as "no link" gracefully (renders as
+    // href="#"), so this has no visible behavior change for the listings
+    // that DO have a real ListingURL (confirmed 20/20 present in a live
+    // sample, 2026-07-25) -- it's purely a safety net for the rare case.
+    r.ListingURL || "",
     brokerageName || null,
     r.StandardStatus || "",
     r.ModificationTimestamp || new Date().toISOString(),
