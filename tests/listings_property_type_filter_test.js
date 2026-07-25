@@ -72,19 +72,19 @@ async function main() {
   const dbModule = await import(pathToFileURL(path.join(SRC_DIR, "db.js")).href);
 
   // --- 1. query.js: CommonInterest/PropertyAttachedYN status ---
-  // ROLLED BACK 2026-07-24 same day as added: live /test started returning
-  // 400 "StandardStatus cannot be used in the $filter query option" the
-  // moment these two fields were added to $select -- see the SELECT_FIELDS
-  // comment in query.js. Asserting their ABSENCE here (not presence) until
-  // root-caused and safely re-added -- an outage-causing regression should
-  // fail this test if it comes back without being re-verified live first.
+  // RE-ADDED 2026-07-25 after being rolled back 2026-07-24 on suspicion of
+  // causing a live 400 -- root-caused since then: the actual causes were
+  // `StandardStatus eq` in $filter (CREA rejects that clause specifically)
+  // and separately PAGE_SIZE exceeding CREA's real 100-row $top limit.
+  // Neither had anything to do with these two fields. See query.js's
+  // SELECT_FIELDS comment for the full history.
   check(
-    "query.js SELECT_FIELDS does NOT include CommonInterest (rolled back -- caused a live 400 error, see query.js comment)",
-    !/["']CommonInterest["']/.test(querySrc)
+    "query.js SELECT_FIELDS includes CommonInterest (re-added -- confirmed NOT the cause of the earlier 400, see query.js comment)",
+    /["']CommonInterest["']/.test(querySrc)
   );
   check(
-    "query.js SELECT_FIELDS does NOT include PropertyAttachedYN (rolled back -- caused a live 400 error, see query.js comment)",
-    !/["']PropertyAttachedYN["']/.test(querySrc)
+    "query.js SELECT_FIELDS includes PropertyAttachedYN (re-added -- confirmed NOT the cause of the earlier 400, see query.js comment)",
+    /["']PropertyAttachedYN["']/.test(querySrc)
   );
 
   // --- 2. cities.js: every broken display name is mapped to a real city ---

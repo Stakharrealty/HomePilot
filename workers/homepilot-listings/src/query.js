@@ -20,24 +20,27 @@ export const API_BASE = "https://ddfapi.realtor.ca/odata/v1";
 // - Media and ListOfficeKey: ADDED 2026-07-22, needed for the listing
 //   display UI (photos + brokerage name, both required by CREA's DDF
 //   display rules).
-// - CommonInterest and PropertyAttachedYN: ADDED 2026-07-24, then
-//   ROLLED BACK same day -- confirmed via /metadata that both fields exist
-//   on the Property entity, but the moment they were added to $select,
-//   live /test started returning 400 "StandardStatus cannot be used in
-//   the $filter query option" -- a filter clause that was working
-//   unchanged before this. Root cause NOT yet confirmed (could be a
-//   field-level entitlement restriction tied to requesting these two
-//   fields, or an unrelated CREA-side change that happened to land at the
-//   same time) -- rolled back first to stop the live outage (ingest was
-//   failing for all 49 cities), root-cause investigation to follow before
-//   re-adding. See PROPERTY_TYPE_FILTERS in db.js -- condo/semi/detached
-//   filtering depends on these two fields and will return 0 results until
-//   this is resolved and re-deployed.
+// - CommonInterest and PropertyAttachedYN: ADDED 2026-07-24, then ROLLED
+//   BACK same day when a live 400 appeared, then RE-ADDED 2026-07-25 once
+//   root-caused: the 400 was NEVER these two fields. It was
+//   `StandardStatus eq 'Active'` in $filter (CREA stopped allowing that
+//   clause; confirmed via isolated per-clause testing -- every other
+//   clause worked fine alone and combined) plus, separately, PAGE_SIZE=200
+//   exceeding CREA's real 100-row $top ceiling. Both fixed independently
+//   of these two fields (see the $filter history below and PAGE_SIZE in
+//   ingest.js). CommonInterest (Freehold/Condo-Strata/etc.) is the real
+//   ownership-type field (StructureType alone cannot tell a condo
+//   apartment from a freehold one). PropertyAttachedYN is CREA's only
+//   signal for semi-detached -- there is NO "Semi-Detached" enum value
+//   anywhere in the DDF schema (verified via full-text search of the
+//   entire /metadata document, all 64 enum types); a semi-detached house
+//   is StructureType=House with PropertyAttachedYN=true. See
+//   PROPERTY_TYPE_FILTERS in db.js for how condo/semi/detached use these.
 const SELECT_FIELDS = [
   "ListingKey", "ListPrice", "City", "PostalCode", "Latitude", "Longitude",
   "BedroomsTotal", "BathroomsTotalInteger", "ParkingTotal", "PropertySubType",
   "StructureType", "StandardStatus", "ModificationTimestamp", "Media",
-  "ListOfficeKey",
+  "ListOfficeKey", "CommonInterest", "PropertyAttachedYN",
 ];
 
 // ListPrice gt 50000 (not just "ne null") -- added 2026-07-21 after finding

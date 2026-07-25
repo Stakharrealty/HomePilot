@@ -47,10 +47,19 @@ function main() {
   const querySrc = fs.readFileSync(path.join(SRC_DIR, "query.js"), "utf8");
   const indexSrc = fs.readFileSync(path.join(SRC_DIR, "index.js"), "utf8");
 
-  check(
-    "query.js does NOT include 'StandardStatus eq' in any $filter clause (CREA rejects it -- confirmed live, 2026-07-24)",
-    !/StandardStatus eq/.test(querySrc)
-  );
+  {
+    // Check only the real $filter template strings (lines containing
+    // "$filter":), not comment text elsewhere in the file -- comments
+    // legitimately reference the old `StandardStatus eq` clause as
+    // history/documentation, which a blanket text search would wrongly
+    // flag as a regression.
+    const filterLines = querySrc.split("\n").filter((line) => /"\$filter"\s*:/.test(line));
+    check(
+      "query.js's actual \\$filter clauses do NOT include 'StandardStatus eq' (CREA rejects it -- confirmed live, 2026-07-24)",
+      filterLines.length > 0 && filterLines.every((line) => !/StandardStatus eq/.test(line)),
+      filterLines.join(" | ")
+    );
+  }
   check(
     "query.js's rollback is documented (not just silently removed, so a future dev knows why)",
     /StandardStatus removed from \$filter 2026-07-24/.test(querySrc)
