@@ -137,9 +137,18 @@ function main() {
     /openListingsWindow\(\\'\+cityName\+\\',\\'\+tp\+\\'\)/.test(renderSrc) ||
     /openListingsWindow\(.*cityName.*tp.*\)/.test(renderSrc)
   );
+  // render-support.js's angle-pick button check REMOVED 2026-07-25 (not
+  // just silently deleted): the "3 Ways to Look at Your Search" angle-pick
+  // cards this button lived in were removed entirely per explicit product
+  // decision (frequently redundant with the top of the sorted "All
+  // Cities" list below them -- confirmed via live testing). There is no
+  // longer any angle-pick button in render-support.js to call
+  // openListingsWindow() at all -- toggleLiveListings() is still
+  // confirmed absent everywhere via the check below, which is what
+  // actually matters for this test file's purpose (the popup redesign).
   check(
-    "render-support.js's angle-pick button calls openListingsWindow(...), not toggleLiveListings(...)",
-    /openListingsWindow\(/.test(renderSupportSrc) && !/toggleLiveListings\(/.test(renderSupportSrc)
+    "toggleLiveListings() is not reintroduced anywhere in render-support.js (whether or not an angle-pick button exists)",
+    !/toggleLiveListings\(/.test(renderSupportSrc)
   );
 
   // --- 4. old inline containers removed from the per-city button markup ---
