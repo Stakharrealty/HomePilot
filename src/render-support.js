@@ -159,8 +159,26 @@ function getLeadSummaryForCity(cityName){
   return {city:cityName,type,price,monthlyCost:c.total};
 }
 
+// renderAnglePicks() (added 2026-07-25, simplification): the "3 Ways to
+// Look at Your Search" cards (Best Overall / Most House / Most Financial
+// Freedom) were REMOVED per explicit product decision -- they were
+// frequently redundant with the top of the main sorted "All Cities" list
+// immediately below (confirmed via live testing across 5 income
+// scenarios: exact duplication happened in 1/5 tests, and even when the
+// three picks were distinct from each other, showing them as a separate
+// highlighted section above the same data already sorted below added
+// cognitive load without adding a decision the buyer couldn't already
+// make from the sorted list itself).
+//
+// getAnglePicks() ITSELF is NOT removed -- it's still a real dependency
+// of scenario-sandbox.js's "What If..." comparison feature (a completely
+// separate consumer). This function still calls it, for one reason only:
+// to detect the null case (nothing fits comfortably anywhere) and keep
+// showing the Stretch fallback warning below, which serves a genuinely
+// different purpose than the removed cards -- it's the only thing that
+// prevents a buyer with a very tight budget from seeing a blank results
+// screen. That fallback is unchanged.
 function renderAnglePicks(tpEl, withPrice) {
-  var t     = T[lang] || T['en'];
   var picks = getAnglePicks(withPrice);
   var net   = netMonthlyIncome || grossMonthlyIncome * 0.72;
   var PLBL  = {detached:'Detached',semi:'Semi-Detached',town:'Townhouse',condo:'Condo'};
@@ -201,60 +219,9 @@ function renderAnglePicks(tpEl, withPrice) {
     return;
   }
 
-  window._anglePicks = picks;
-
-  var angles = [
-    { label:'⭐ Best Overall',          pick: picks.overall, useLowest: false },
-    { label:'🏡 Most House',            pick: picks.house,   useLowest: false },
-    { label:'🗽 Most Financial Freedom', pick: picks.value,  useLowest: true  },
-  ].filter(function(a){ return a.pick !== null; });
-
-  var cardsHTML = angles.map(function(a) {
-    var e    = a.pick;
-    var id   = 'tp-'+e.city.n.replace(/[^a-zA-Z0-9]/g,'-')+'-'+a.label.replace(/[^a-zA-Z]/g,'');
-    // Most Financial Freedom shows the cheapest type (most cash left over)
-    var dispType  = a.useLowest ? (e.lowestType  || e.bestType)  : e.bestType;
-    var dispPrice = a.useLowest ? (e.lowestPrice || e.bestPrice) : e.bestPrice;
-    var c         = a.useLowest ? (e.lowestCost  || e.bestCost)  : e.bestCost;
-    var fit = getFit(c.total, grossMonthlyIncome);
-    var tier = workArrangement !== 'remote' ? getAccessTier(e.cm) : null;
-    var drive = tier ? tier.label : '';
-    var pct = net>0 ? Math.round((c.total/net)*100) : 0;
-    var scoreColor = fit.cls==='fg'?'#085041':fit.cls==='fo'?'#0C447C':'#633806';
-    var scoreBg    = fit.cls==='fg'?'#E1F5EE':fit.cls==='fo'?'#E6F1FB':'#FAEEDA';
-
-    return '<div class="city tp" id="'+id+'" onclick="toggle(\''+id+'\')">'+
-      '<div class="ct">'+
-        '<div>'+
-          '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#1D9E75;margin-bottom:3px">'+a.label+'</div>'+
-          '<div class="cn">'+e.city.n+'</div>'+
-          '<div class="cd">'+PLBL[dispType]+' · '+fc(dispPrice)+' · '+fc(c.total)+'/mo'+(drive?' · '+drive:'')+'</div>'+
-        '</div>'+
-        '<div style="text-align:right">'+
-          '<span class="cmp-fit '+fit.cls+'" style="font-size:11px;padding:3px 8px;border-radius:20px;font-weight:600;display:inline-block">'+fit.lbl+'</span>'+
-        '</div>'+
-      '</div>'+
-      '<div class="bk">'+
-        '<div class="brow"><div class="blbl"><span class="bico">🏷</span>'+t.price_lbl+'</div><div class="bval">'+fc(dispPrice)+'</div></div>'+
-        '<div class="brow"><div class="blbl"><span class="bico">⌂</span>'+t.mortgage+'</div><div class="bval">'+fc(c.mort)+'/mo</div></div>'+
-        '<div class="brow"><div class="blbl"><span class="bico">%</span>'+t.prop_tax+'</div><div class="bval">'+fc(c.tax)+'/mo</div></div>'+
-        '<div class="brow"><div class="blbl"><span class="bico">🛡</span>'+t.insurance+'</div><div class="bval">'+fc(c.ins)+'/mo</div></div>'+
-        '<div class="brow"><div class="blbl"><span class="bico">⚡</span>'+t.utilities+'</div><div class="bval">'+fc(c.util)+'/mo</div></div>'+
-        '<div class="brow"><div class="blbl"><span class="bico">🔧</span>'+t.maintenance+'</div><div class="bval">'+fc(c.maint)+'/mo</div></div>'+
-        (c.condoFee>0?'<div class="brow"><div class="blbl"><span class="bico">🏢</span>Condo Fees</div><div class="bval">'+fc(c.condoFee)+'/mo</div></div>':'')+
-        '<div class="brow"><div class="btlbl">'+t.total+'</div><div class="btval">'+fc(c.total)+'/mo</div></div>'+
-        '<div style="margin-top:8px;padding:8px 10px;border-radius:8px;background:'+scoreBg+';display:flex;align-items:center;justify-content:space-between">'+
-          '<div><div style="font-size:22px;font-weight:800;color:'+scoreColor+'">'+pct+'%</div>'+
-          '<div style="font-size:11px;font-weight:600;color:'+scoreColor+';opacity:0.85;margin-top:1px">of take-home pay</div>'+
-          '<div style="font-size:11px;color:'+scoreColor+';opacity:0.75;margin-top:3px">'+fit.msg+'</div></div>'+
-        '</div>'+
-        '<button type="button" class="view-btn" onclick="openListingsWindow(\''+e.city.n+'\',\''+dispType+'\')">🏠 View '+PLBL[dispType]+' homes in '+e.city.n+'</button>'+
-      '</div>'+
-    '</div>';
-  }).join('');
-
-  tpEl.innerHTML =
-    '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:#bbb;margin-bottom:10px">3 Ways to Look at Your Search</div>'+
-    cardsHTML+
-    '<div class="tp-divider">All Cities</div>';
+  // picks exist (something fits comfortably) -- intentionally render
+  // nothing here. The buyer goes straight from the property-type filter
+  // bar to the sorted "All Cities" list; no separate highlighted section
+  // above it anymore.
+  tpEl.innerHTML = '';
 }

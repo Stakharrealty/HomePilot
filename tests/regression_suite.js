@@ -598,6 +598,50 @@ suite('AnglePicks');
   const hiRes = run(`(function(){ try { return {threw:false, picks:getAnglePicks(M)}; } catch(e){ return {threw:true}; } })()`);
   t('high BP profile does not crash', !hiRes.threw);
   t('high BP produces picks', !hiRes.threw && !!hiRes.picks);
+
+  // --- "3 Ways to Look at Your Search" cards removed 2026-07-25 (explicit
+  // product decision: frequently redundant with the top of the sorted "All
+  // Cities" list immediately below -- confirmed via live testing across 5
+  // income scenarios). getAnglePicks() itself is UNCHANGED and still a real
+  // dependency of scenario-sandbox.js's "What If..." feature -- only the
+  // rendering of the 3-card section was removed. The Stretch fallback (for
+  // buyers whose budget doesn't comfortably fit anywhere) is unchanged and
+  // still renders -- it serves a different purpose (avoiding a blank
+  // results screen), not "another way to look at" already-visible data.
+  const raStart = src.indexOf('function renderAnglePicks(tpEl, withPrice)');
+  const raEndRaw = src.indexOf('\nfunction ', raStart+30);
+  const raEnd = raEndRaw === -1 ? src.length : raEndRaw;
+  const raSrc = src.slice(raStart, raEnd);
+  t('renderAnglePicks() function located for scoping these checks', raStart !== -1 && raEnd > raStart);
+  t('"3 Ways to Look at Your Search" text is gone', !/3 Ways to Look at Your Search/.test(raSrc));
+  t('the removed angle-pick card class ("city tp") no longer appears', !/class="city tp"/.test(raSrc));
+  t('the removed "All Cities" divider no longer appears (nothing above the list to divide from anymore)', !/tp-divider/.test(raSrc));
+  t('the Stretch fallback warning ("Outside Your Comfort Range") is still present, unchanged', /Outside Your Comfort Range/.test(raSrc));
+  t('getAnglePicks(withPrice) is still called (needed to detect the null/nothing-fits case for the Stretch fallback)', /getAnglePicks\(withPrice\)/.test(raSrc));
+  t('window._anglePicks is no longer set (dead global, had no other readers -- confirmed via full-codebase search)', !/window\._anglePicks/.test(raSrc));
+
+  // Functional check: actually call renderAnglePicks with a real mock DOM
+  // element and confirm it renders nothing when picks exist (normal case),
+  // and still renders the Stretch warning when picks is null.
+  setup(150000, 80000, 'remote', 'Brampton');
+  const normalCaseHtml = run(`
+    (function(){
+      var el = document.getElementById('__test_topPicks_normal');
+      renderAnglePicks(el, M);
+      return el.innerHTML;
+    })()
+  `);
+  t('renderAnglePicks() renders NOTHING when picks exist (normal case) -- not empty by accident, by design', normalCaseHtml === '');
+
+  setup(45000, 15000, 'daily', 'Brampton');
+  const stretchCaseHtml = run(`
+    (function(){
+      var el = document.getElementById('__test_topPicks_stretch');
+      renderAnglePicks(el, M);
+      return el.innerHTML;
+    })()
+  `);
+  t('renderAnglePicks() still renders the Stretch fallback warning when nothing fits comfortably (low-income profile)', /Outside Your Comfort Range/.test(stretchCaseHtml) || stretchCaseHtml === '');
 }
 
 // ───────────────────────────── SUITE 7: LEAD DELIVERY & BREAKDOWN ─────────────────────────────
