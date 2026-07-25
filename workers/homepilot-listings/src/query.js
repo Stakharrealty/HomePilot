@@ -36,11 +36,26 @@ export const API_BASE = "https://ddfapi.realtor.ca/odata/v1";
 //   entire /metadata document, all 64 enum types); a semi-detached house
 //   is StructureType=House with PropertyAttachedYN=true. See
 //   PROPERTY_TYPE_FILTERS in db.js for how condo/semi/detached use these.
+// - ListingURL, PublicRemarks, UnparsedAddress, InternetAddressDisplayYN,
+//   YearBuilt, LotSizeArea, LotSizeUnits: ADDED 2026-07-25, for real in-app
+//   listing detail (description, address, year built, lot size) instead
+//   of a bare card that redirects out. Confirmed via /metadata all seven
+//   exist on the Property entity.
+//   - ListingURL replaces a previously GUESSED url pattern
+//     (`realtor.ca/real-estate/${ListingKey}`) that was 404ing in
+//     production -- CREA gives us the real, correct link directly.
+//   - InternetAddressDisplayYN is a real seller-consent flag, not a data
+//     quality field: CREA's own description is "states the seller has
+//     allowed the listing address to be displayed on Internet sites."
+//     UnparsedAddress must NEVER be shown/stored-as-displayable unless
+//     this is true -- see the address handling in db.js.
 const SELECT_FIELDS = [
   "ListingKey", "ListPrice", "City", "PostalCode", "Latitude", "Longitude",
   "BedroomsTotal", "BathroomsTotalInteger", "ParkingTotal", "PropertySubType",
   "StructureType", "StandardStatus", "ModificationTimestamp", "Media",
   "ListOfficeKey", "CommonInterest", "PropertyAttachedYN",
+  "ListingURL", "PublicRemarks", "UnparsedAddress", "InternetAddressDisplayYN",
+  "YearBuilt", "LotSizeArea", "LotSizeUnits",
 ];
 
 // ListPrice gt 50000 (not just "ne null") -- added 2026-07-21 after finding

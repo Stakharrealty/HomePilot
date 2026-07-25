@@ -142,7 +142,28 @@ function renderListingCard(listing) {
   const bedsBaths = escapeHtml([beds, baths].filter(Boolean).join(" · "));
   const brokerage = escapeHtml(listing.brokerageName || "Brokerage not available");
   const cityEsc = escapeHtml(listing.city || "");
-  const listingUrl = safeUrl(listing.listingUrl) || "#";
+  const listingUrl = safeUrl(listing.listingUrl) || "";
+
+  // displayAddress is already consent-gated server-side (see
+  // consentGatedAddress() in db.js) -- truthy here means CREA explicitly
+  // confirmed the seller allowed it to be shown. Never fall back to
+  // postalCode or anything else if it's absent; absent means "don't show
+  // an address for this listing", not "show what we have instead".
+  const addressEsc = listing.displayAddress ? escapeHtml(listing.displayAddress) : null;
+
+  const remarksEsc = listing.publicRemarks ? escapeHtml(listing.publicRemarks) : null;
+  const REMARKS_PREVIEW_LEN = 160;
+  const remarksIsLong = remarksEsc && remarksEsc.length > REMARKS_PREVIEW_LEN;
+  const remarksPreview = remarksEsc ? remarksEsc.slice(0, REMARKS_PREVIEW_LEN) + (remarksIsLong ? "…" : "") : null;
+
+  const detailFacts = [];
+  if (listing.yearBuilt) detailFacts.push(`Built ${escapeHtml(String(listing.yearBuilt))}`);
+  if (listing.lotSizeArea) {
+    const unit = listing.lotSizeUnits ? escapeHtml(String(listing.lotSizeUnits)) : "";
+    detailFacts.push(`Lot ${escapeHtml(String(listing.lotSizeArea))}${unit ? " " + unit : ""}`);
+  }
+
+  const hasExpandableDetail = !!(remarksEsc || detailFacts.length);
 
   const card = document.createElement("div");
   card.className = "listing-card";
@@ -155,15 +176,46 @@ function renderListingCard(listing) {
     </div>
     <div class="listing-body">
       <div class="listing-price">${fmtPrice(listing.listPrice)}</div>
+      ${addressEsc ? `<div class="listing-address">${addressEsc}</div>` : ""}
       ${bedsBaths ? `<div class="listing-meta">${bedsBaths}</div>` : ""}
       <div class="listing-brokerage">Listed by ${brokerage}</div>
-      <a class="listing-realtor-badge" href="${listingUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()">
-        <img class="listing-realtor-badge-logo" src="src/assets/realtor-r.svg" alt="REALTOR® logo" width="16" height="18">
+      ${hasExpandableDetail ? `
+      <button type="button" class="listing-details-toggle" aria-expanded="false">
+        <span>View details</span><span class="listing-details-toggle-arrow">›</span>
+      </button>
+      <div class="listing-details-panel" hidden>
+        ${detailFacts.length ? `<div class="listing-detail-facts">${detailFacts.join(" · ")}</div>` : ""}
+        ${remarksEsc ? `<div class="listing-remarks" data-full="${remarksEsc.replace(/"/g, "&quot;")}" data-preview="${(remarksPreview || "").replace(/"/g, "&quot;")}">${remarksPreview}${remarksIsLong ? ` <button type="button" class="listing-remarks-more">Read more</button>` : ""}</div>` : ""}
+      </div>` : ""}
+      <a class="listing-realtor-badge" href="${listingUrl || "#"}" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="View this listing's official page on REALTOR.ca">
+        <img class="listing-realtor-badge-logo" src="src/assets/realtor-r.svg" alt="REALTOR® logo" width="14" height="16">
         <span class="listing-realtor-badge-mark">Powered by REALTOR.ca</span>
-        <span class="listing-realtor-badge-arrow">→</span>
       </a>
     </div>
   `;
+
+  if (hasExpandableDetail) {
+    const toggle = card.querySelector(".listing-details-toggle");
+    const panel = card.querySelector(".listing-details-panel");
+    toggle.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const isOpen = toggle.getAttribute("aria-expanded") === "true";
+      toggle.setAttribute("aria-expanded", String(!isOpen));
+      panel.hidden = isOpen;
+      toggle.querySelector("span:last-child").textContent = isOpen ? "›" : "‹";
+      toggle.querySelector("span:first-child").textContent = isOpen ? "View details" : "Hide details";
+    });
+    const moreBtn = card.querySelector(".listing-remarks-more");
+    if (moreBtn) {
+      moreBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const remarksEl = card.querySelector(".listing-remarks");
+        const isExpanded = moreBtn.textContent === "Show less";
+        remarksEl.firstChild.textContent = isExpanded ? remarksEl.dataset.preview : remarksEl.dataset.full;
+        moreBtn.textContent = isExpanded ? "Read more" : "Show less";
+      });
+    }
+  }
 
   observeForViewTracking(card, listing.listingKey);
   return card;

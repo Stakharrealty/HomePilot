@@ -35,6 +35,24 @@
 // property_attached is stored as 0/1/NULL (SQLite has no native boolean) --
 // NULL specifically preserved (not coerced to 0) since "we don't know" and
 // "confirmed not attached" are different things for filtering purposes.
+//
+// - listing_url, public_remarks, display_address, year_built, lot_size
+//   (added 2026-07-25, real in-app listing detail): listing_url now stores
+//   CREA's real ListingURL field -- the previous version GUESSED a URL
+//   pattern (realtor.ca/real-estate/${ListingKey}) that was 404ing in
+//   production, confirmed live. public_remarks is the real listing
+//   description text, stored as-is.
+//
+//   display_address is NOT simply r.UnparsedAddress -- it is gated by
+//   r.InternetAddressDisplayYN, a genuine seller-consent flag (CREA's own
+//   description: "states the seller has allowed the listing address to be
+//   displayed on Internet sites"). When that flag is anything other than
+//   true, display_address is stored as NULL, full stop -- there is no
+//   fallback to a partial/approximate address here, because we don't know
+//   what the seller actually consented to beyond "not the full address".
+//   This is a real privacy/compliance boundary, not a data-quality
+//   judgment call -- getListingsByCity() must never backfill this column
+//   from any other field.
 
 function extractPhotoUrls(media) {
   if (!Array.isArray(media) || media.length === 0) return [];
@@ -47,6 +65,13 @@ function toAttachedFlag(v) {
   if (v === true) return 1;
   if (v === false) return 0;
   return null; // unknown/not provided by CREA for this listing
+}
+
+// Only ever returns an address string when CREA explicitly says the seller
+// consented to it being shown -- see the module-level comment above.
+function consentGatedAddress(r) {
+  if (r.InternetAddressDisplayYN !== true) return null;
+  return r.UnparsedAddress || null;
 }
 
 // buildUpsertStatement / upsertListing split (added 2026-07-25, ingest
@@ -70,8 +95,9 @@ export function buildUpsertStatement(db, r, runStartedAt, brokerageName) {
       listing_key, list_price, city, postal_code, latitude, longitude,
       property_subtype, structure_type, bedrooms, bathrooms, parking_total,
       listing_url, brokerage_name, listing_status, last_updated, last_seen_at,
-      photos, common_interest, property_attached
-    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      photos, common_interest, property_attached,
+      public_remarks, display_address, year_built, lot_size_area, lot_size_units
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ON CONFLICT(listing_key) DO UPDATE SET
       list_price=excluded.list_price, city=excluded.city, postal_code=excluded.postal_code,
       latitude=excluded.latitude, longitude=excluded.longitude,
@@ -80,7 +106,10 @@ export function buildUpsertStatement(db, r, runStartedAt, brokerageName) {
       listing_status=excluded.listing_status, last_updated=excluded.last_updated,
       last_seen_at=excluded.last_seen_at, brokerage_name=excluded.brokerage_name,
       photos=excluded.photos, common_interest=excluded.common_interest,
-      property_attached=excluded.property_attached`
+      property_attached=excluded.property_attached, listing_url=excluded.listing_url,
+      public_remarks=excluded.public_remarks, display_address=excluded.display_address,
+      year_built=excluded.year_built, lot_size_area=excluded.lot_size_area,
+      lot_size_units=excluded.lot_size_units`
   ).bind(
     r.ListingKey,
     r.ListPrice || 0,
@@ -93,14 +122,19 @@ export function buildUpsertStatement(db, r, runStartedAt, brokerageName) {
     r.BedroomsTotal || null,
     r.BathroomsTotalInteger || null,
     r.ParkingTotal || null,
-    `https://www.realtor.ca/real-estate/${r.ListingKey}`,
+    r.ListingURL || null,
     brokerageName || null,
     r.StandardStatus || "",
     r.ModificationTimestamp || new Date().toISOString(),
     runStartedAt,
     JSON.stringify(photos),
     r.CommonInterest || null,
-    toAttachedFlag(r.PropertyAttachedYN)
+    toAttachedFlag(r.PropertyAttachedYN),
+    r.PublicRemarks || null,
+    consentGatedAddress(r),
+    r.YearBuilt || null,
+    r.LotSizeArea || null,
+    r.LotSizeUnits || null
   );
 }
 
@@ -168,7 +202,8 @@ export async function getListingsByCity(db, city, limit = 20, propertyType = nul
   const result = await db
     .prepare(
       `SELECT listing_key, list_price, city, postal_code, bedrooms, bathrooms,
-              parking_total, listing_url, brokerage_name, photos, last_updated
+              parking_total, listing_url, brokerage_name, photos, last_updated,
+              public_remarks, display_address, year_built, lot_size_area, lot_size_units
        FROM listings
        WHERE city = ?${typeClause}
        ORDER BY last_updated DESC
@@ -195,5 +230,15 @@ export async function getListingsByCity(db, city, limit = 20, propertyType = nul
       }
     })(),
     lastUpdated: row.last_updated,
+    // publicRemarks/displayAddress/yearBuilt/lotSize added 2026-07-25 for
+    // real in-app listing detail. displayAddress is already consent-gated
+    // at write time (see consentGatedAddress() above) -- it is either a
+    // real seller-approved address string or null, never a partial
+    // fallback, so the caller can treat "truthy" as "safe to show".
+    publicRemarks: row.public_remarks,
+    displayAddress: row.display_address,
+    yearBuilt: row.year_built,
+    lotSizeArea: row.lot_size_area,
+    lotSizeUnits: row.lot_size_units,
   }));
 }

@@ -25,6 +25,7 @@ on:
       - "tests/listings_office_lookup_failure_test.js"
       - "tests/listings_property_type_filter_test.js"
       - "tests/listings_standard_status_filter_test.js"
+      - "tests/listings_detail_fields_test.js"
 
 jobs:
   test-listings:
@@ -67,3 +68,6 @@ jobs:
 
       - name: StandardStatus $filter outage regression test (no network required)
         run: node tests/listings_standard_status_filter_test.js
+
+      - name: Real listing detail fields test -- URL fix, description, consent-gated address (no network required, fake D1)
+        run: node tests/listings_detail_fields_test.js
