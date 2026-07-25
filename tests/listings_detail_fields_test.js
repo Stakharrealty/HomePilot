@@ -126,6 +126,41 @@ async function main() {
     );
   }
 
+  // --- 3b. listing_url NOT NULL hardening (added after initial deploy --
+  // this was a real gap: the fix shipped 2026-07-25 without a dedicated
+  // test, caught and closed same session). The D1 listing_url column is
+  // NOT NULL. A missing ListingURL from CREA binding as null would throw a
+  // constraint violation on that row -- and since writes go through
+  // env.DB.batch() in chunks of 50 (see ingest.js), ONE bad row aborts the
+  // WHOLE chunk's transaction, silently losing up to 49 other real
+  // listings over a single missing field. Must fall back to "", never null.
+  {
+    const db = makeFakeDb();
+    await dbModule.buildUpsertStatement(db, { ...baseListing, ListingURL: undefined }, "2026-01-01", null).run();
+    const params = db.calls[0].params;
+    // listing_url is bind position 11 (0-indexed) in buildUpsertStatement --
+    // checked at that exact position, not via a whole-array scan, since
+    // OTHER fields in this minimal fixture (PostalCode, Latitude, etc.)
+    // are legitimately null and would make a blanket "no null anywhere"
+    // check false-fail.
+    const LISTING_URL_BIND_INDEX = 11;
+    check(
+      "missing ListingURL -> stored as empty string \"\" at its exact bind position, never null (D1 column is NOT NULL; null would abort the whole batch chunk this row is written in)",
+      params[LISTING_URL_BIND_INDEX] === "",
+      `got: ${JSON.stringify(params[LISTING_URL_BIND_INDEX])}`
+    );
+  }
+  {
+    const db = makeFakeDb();
+    await dbModule.buildUpsertStatement(db, { ...baseListing, ListingURL: "www.realtor.ca/real-estate/12345/real-listing" }, "2026-01-01", null).run();
+    const params = db.calls[0].params;
+    const LISTING_URL_BIND_INDEX = 11;
+    check(
+      "a real ListingURL is stored as-is at its exact bind position, unaffected by the empty-string fallback",
+      params[LISTING_URL_BIND_INDEX] === "www.realtor.ca/real-estate/12345/real-listing"
+    );
+  }
+
   // --- 4. getListingsByCity returns the new fields ---
   {
     const db = makeFakeDb();
