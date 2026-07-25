@@ -6,7 +6,7 @@
 // in this same folder.
 
 import { getAccessToken } from "./auth.js";
-import { buildQuery, API_BASE } from "./query.js";
+import { buildQuery, buildCityQuery, API_BASE } from "./query.js";
 import { runIngest } from "./ingest.js";
 import { getListingsByCity } from "./db.js";
 import { CITY_ALIASES, PUBLIC_CITY_NAMES } from "./cities.js";
@@ -33,6 +33,22 @@ export default {
     if (request.method === "OPTIONS") return new Response(null, { headers: corsHeaders(origin) });
 
     try {
+
+      // TEMPORARY DIAGNOSTIC (2026-07-24) -- /ingest still fails for all 49
+      // cities even though /test (buildQuery) now succeeds. This calls the
+      // exact buildCityQuery path fetchListingsForCity uses, without
+      // swallowing the error, to see what's actually different.
+      if (url.pathname === "/debug-city-query") {
+        const token = await getAccessToken(env);
+        const qs = buildCityQuery("Toronto", 200, 0);
+        const resp = await fetch(`${API_BASE}/Property?${qs.toString()}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const body = await resp.json();
+        return new Response(JSON.stringify({ url: `${API_BASE}/Property?${qs.toString()}`, status: resp.status, body }, null, 2), {
+          headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
+        });
+      }
 
       if (url.pathname === "/test") {
         const token = await getAccessToken(env);
