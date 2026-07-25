@@ -33,6 +33,36 @@ export default {
     if (request.method === "OPTIONS") return new Response(null, { headers: corsHeaders(origin) });
 
     try {
+      // TEMPORARY DIAGNOSTIC (added 2026-07-24, to be removed once root
+      // cause is found) -- isolates exactly which part of the $filter
+      // clause CREA is rejecting, instead of guessing. Tries each clause
+      // alone, then combinations, against the real live API.
+      if (url.pathname === "/debug-filter") {
+        const token = await getAccessToken(env);
+        const trials = {
+          "status_only": `StandardStatus eq 'Active'`,
+          "subtype_only": `PropertySubType eq 'Single Family'`,
+          "price_only": `ListPrice gt 50000`,
+          "province_only": `StateOrProvince eq 'Ontario'`,
+          "city_only": `City eq 'Toronto'`,
+          "status_and_province": `StateOrProvince eq 'Ontario' and StandardStatus eq 'Active'`,
+          "full_original": `StateOrProvince eq 'Ontario' and PropertySubType eq 'Single Family' and StandardStatus eq 'Active' and ListPrice gt 50000 and City eq 'Toronto'`,
+          "no_status": `StateOrProvince eq 'Ontario' and PropertySubType eq 'Single Family' and ListPrice gt 50000 and City eq 'Toronto'`,
+        };
+        const results = {};
+        for (const [label, filterClause] of Object.entries(trials)) {
+          const qs = new URLSearchParams({ "$top": "1", "$filter": filterClause, "$select": "ListingKey" });
+          const resp = await fetch(`${API_BASE}/Property?${qs.toString()}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          const body = await resp.json();
+          results[label] = { filter: filterClause, status: resp.status, ok: resp.ok, error: body.error?.details || null };
+        }
+        return new Response(JSON.stringify(results, null, 2), {
+          headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
+        });
+      }
+
       if (url.pathname === "/test") {
         const token = await getAccessToken(env);
         const listingsResp = await fetch(`${API_BASE}/Property?${buildQuery(20, 0).toString()}`, {
