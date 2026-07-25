@@ -63,6 +63,32 @@ export default {
         });
       }
 
+      // TEMPORARY DIAGNOSTIC (added 2026-07-24): checks what StandardStatus
+      // values actually show up in DDF data when we don't filter by status
+      // at all -- answers "does CREA's National Shared Pool even send
+      // non-Active listings, or is Active-only already guaranteed by the
+      // feed itself regardless of our query?"
+      if (url.pathname === "/debug-status-sample") {
+        const token = await getAccessToken(env);
+        const qs = new URLSearchParams({
+          "$top": "50",
+          "$filter": `StateOrProvince eq 'Ontario' and PropertySubType eq 'Single Family'`,
+          "$select": "ListingKey,StandardStatus,City",
+        });
+        const resp = await fetch(`${API_BASE}/Property?${qs.toString()}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await resp.json();
+        const rows = data.value || [];
+        const statusCounts = {};
+        for (const r of rows) {
+          statusCounts[r.StandardStatus || "(missing)"] = (statusCounts[r.StandardStatus || "(missing)"] || 0) + 1;
+        }
+        return new Response(JSON.stringify({ status: resp.status, sampleSize: rows.length, statusCounts }, null, 2), {
+          headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
+        });
+      }
+
       if (url.pathname === "/test") {
         const token = await getAccessToken(env);
         const listingsResp = await fetch(`${API_BASE}/Property?${buildQuery(20, 0).toString()}`, {
