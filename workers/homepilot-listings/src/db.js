@@ -49,10 +49,23 @@ function toAttachedFlag(v) {
   return null; // unknown/not provided by CREA for this listing
 }
 
-export async function upsertListing(db, r, runStartedAt, brokerageName) {
+// buildUpsertStatement / upsertListing split (added 2026-07-25, ingest
+// performance fix): upsertListing() used to run(). directly inside a loop
+// in ingest.js -- one awaited D1 round trip PER LISTING. With the artificial
+// per-city cap removed (2026-07-24), a full ingest run could be writing
+// thousands of rows this way, which was the real cause of Cloudflare
+// Error 1102 "Worker exceeded resource limits" -- confirmed via a live
+// /ingest run hitting it after the StandardStatus and PAGE_SIZE fixes were
+// both already in place, so it wasn't either of those.
+// buildUpsertStatement() returns a bound (not yet executed) D1 statement;
+// ingest.js now collects these and runs them via env.DB.batch([...]) in
+// chunks, so 100 listings = 1 D1 round trip instead of 100. upsertListing()
+// is kept as a thin single-row wrapper (build + immediately run) so
+// existing tests and any single-row caller don't need to change.
+export function buildUpsertStatement(db, r, runStartedAt, brokerageName) {
   const photos = extractPhotoUrls(r.Media);
 
-  await db.prepare(
+  return db.prepare(
     `INSERT INTO listings (
       listing_key, list_price, city, postal_code, latitude, longitude,
       property_subtype, structure_type, bedrooms, bathrooms, parking_total,
@@ -88,7 +101,11 @@ export async function upsertListing(db, r, runStartedAt, brokerageName) {
     JSON.stringify(photos),
     r.CommonInterest || null,
     toAttachedFlag(r.PropertyAttachedYN)
-  ).run();
+  );
+}
+
+export async function upsertListing(db, r, runStartedAt, brokerageName) {
+  await buildUpsertStatement(db, r, runStartedAt, brokerageName).run();
 }
 
 // Removes listings not touched by the current run -- i.e. CREA no longer

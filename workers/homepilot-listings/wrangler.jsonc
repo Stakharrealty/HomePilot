@@ -3,6 +3,18 @@
   "name": "homepilot-listings",
   "main": "src/index.js",
   "compatibility_date": "2025-01-01",
+  // limits.cpu_ms (added 2026-07-25): raises the CPU time budget for this
+  // Worker from Cloudflare's default. Added alongside batching the D1
+  // writes (see db.js/ingest.js), not instead of it -- batching is the
+  // real fix (fewer, faster round trips); this is a safety margin for a
+  // genuinely heavy day (many cities updating at once), not a substitute
+  // for writing efficient code. 30000ms (30s) is well under the 5-minute
+  // ceiling Cloudflare allows on Workers Paid for CPU-bound tasks -- not
+  // maxed out, just enough headroom that a busy ingest run doesn't get
+  // cut off by Error 1102 ("Worker exceeded resource limits").
+  "limits": {
+    "cpu_ms": 30000
+  },
   "d1_databases": [
     {
       "binding": "DB",

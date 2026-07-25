@@ -76,6 +76,18 @@ function makeFakeD1() {
         },
       };
     },
+    // batch() added 2026-07-25 to match ingest.js's real write path (D1
+    // batch API, replacing one-await-per-row). Real D1 batch() takes an
+    // array of already-bound statement objects and runs them together;
+    // this fake just runs each .run() and collects results, which is
+    // enough to exercise the same call shape ingest.js actually uses.
+    async batch(statements) {
+      const results = [];
+      for (const stmt of statements) {
+        results.push(await stmt.run());
+      }
+      return results;
+    },
   };
 }
 

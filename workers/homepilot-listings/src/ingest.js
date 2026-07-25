@@ -7,7 +7,7 @@
 import { getAccessToken } from "./auth.js";
 import { buildCityQuery, buildOfficeQuery, API_BASE } from "./query.js";
 import { HOMEPILOT_CITIES } from "./cities.js";
-import { upsertListing, deleteStaleListings } from "./db.js";
+import { buildUpsertStatement, deleteStaleListings } from "./db.js";
 
 // PAGE_SIZE / MAX_PAGES_PER_CITY (added 2026-07-24, replacing the old fixed
 // PER_CITY_LIMIT=25 cap): Sandeep's explicit direction -- a buyer should
@@ -167,12 +167,25 @@ export async function runIngest(env) {
     : { lookup: new Map(), failedBatches: 0, failedKeyCount: 0 };
   const officeNameLookup = officeLookupResult.lookup;
 
-  // Phase 3: write everything to D1
+  // Phase 3: write everything to D1, batched (fixed 2026-07-25 -- this was
+  // the real cause of Cloudflare Error 1102 "Worker exceeded resource
+  // limits" once the artificial per-city cap was removed: writing
+  // thousands of rows via one individually-awaited D1 call each. env.DB
+  // .batch() runs a chunk of statements in a single D1 round trip instead
+  // of one round trip per row. WRITE_BATCH_SIZE chunks the batch call
+  // itself (rather than one batch() call for all rows) as a conservative
+  // safety margin -- D1 doesn't publish a hard per-batch statement-count
+  // limit, so this isn't tuned against a documented ceiling, just picked
+  // to keep any single batch() call small and fast.
+  const WRITE_BATCH_SIZE = 50;
   let totalWritten = 0;
-  for (const r of allRows) {
-    const brokerageName = officeNameLookup.get(r.ListOfficeKey) || null;
-    await upsertListing(env.DB, r, runStartedAt, brokerageName);
-    totalWritten++;
+  const statements = allRows.map((r) =>
+    buildUpsertStatement(env.DB, r, runStartedAt, officeNameLookup.get(r.ListOfficeKey) || null)
+  );
+  for (let i = 0; i < statements.length; i += WRITE_BATCH_SIZE) {
+    const chunk = statements.slice(i, i + WRITE_BATCH_SIZE);
+    await env.DB.batch(chunk);
+    totalWritten += chunk.length;
   }
 
   // Mark-and-sweep: remove anything not touched by this run (sold,

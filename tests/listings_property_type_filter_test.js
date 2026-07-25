@@ -268,6 +268,26 @@ async function main() {
     console.error = originalConsoleError;
   }
 
+  {
+    // Batched D1 writes (added 2026-07-25, fixed Cloudflare Error 1102
+    // "Worker exceeded resource limits" once the per-city cap was removed
+    // and ingest could be writing thousands of rows one-await-at-a-time).
+    const ingestSrcForBatching = fs.readFileSync(path.join(SRC_DIR, "ingest.js"), "utf8");
+    const dbSrcForBatching = fs.readFileSync(path.join(SRC_DIR, "db.js"), "utf8");
+    check(
+      "db.js exports buildUpsertStatement (returns a bound-but-not-run statement, for batching)",
+      /export function buildUpsertStatement/.test(dbSrcForBatching)
+    );
+    check(
+      "ingest.js writes via env.DB.batch(...), not one upsertListing() per row in a loop",
+      /env\.DB\.batch\(/.test(ingestSrcForBatching)
+    );
+    check(
+      "ingest.js does NOT call upsertListing() in its write loop (that was the slow one-row-at-a-time path)",
+      !/for \(const r of allRows\)[\s\S]{0,80}upsertListing/.test(ingestSrcForBatching)
+    );
+  }
+
   console.log(`\n=== RESULT: ${passed} passed, ${failed} failed ===`);
   if (failed > 0) process.exit(1);
 }
