@@ -15,16 +15,23 @@ import { upsertListing, deleteStaleListings } from "./db.js";
 // never a CREA limit, it was a leftover from the 2026-07-22 fairness fix
 // (solved structurally by per-city queries; the 25 number itself was just
 // "covers most cities in one snapshot", not a real ceiling).
+// PAGE_SIZE corrected 200 -> 100 same day: CREA's real, confirmed $top
+// ceiling is 100 per request ("The limit of '100' for Top query has been
+// exceeded" -- live error, not documentation, so treated as authoritative).
+// 200 caused an immediate 400 on every single city query in /ingest --
+// this was NOT the StandardStatus issue, it surfaced only after that one
+// was fixed and masked this cleaner error underneath it. With PAGE_SIZE=100
+// and MAX_PAGES_PER_CITY=20, the safety ceiling is still 2,000/city.
 // This now paginates through a city's full result set via $skip, stopping
 // only when: (a) CREA returns fewer than PAGE_SIZE rows (no more results),
 // or (b) MAX_PAGES_PER_CITY is hit (a genuine safety bound against a City
 // filter somehow matching a huge unbounded result set and blowing past
 // Cloudflare Workers' execution-time limit for a single ingest run -- NOT
 // a realistic ceiling for any of the 49 Ontario cities HomePilot covers;
-// 10 * 200 = 2,000 listings/city is far beyond any single city's real
+// 20 * 100 = 2,000 listings/city is far beyond any single city's real
 // active Single Family inventory).
-const PAGE_SIZE = 200;
-const MAX_PAGES_PER_CITY = 10;
+const PAGE_SIZE = 100;
+const MAX_PAGES_PER_CITY = 20;
 
 // How many city queries to run concurrently. Sequential (1 at a time) for
 // 49 cities would be slow; unlimited concurrency risks hitting Cloudflare

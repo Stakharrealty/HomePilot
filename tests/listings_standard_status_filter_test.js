@@ -62,8 +62,8 @@ function main() {
     /ListPrice gt/.test(querySrc)
   );
   check(
-    "no leftover /debug-filter or /debug-status-sample diagnostic routes in the deployed worker",
-    !/debug-filter/.test(indexSrc) && !/debug-status-sample/.test(indexSrc)
+    "no leftover /debug-filter, /debug-status-sample, or /debug-city-query diagnostic routes in the deployed worker",
+    !/debug-filter/.test(indexSrc) && !/debug-status-sample/.test(indexSrc) && !/debug-city-query/.test(indexSrc)
   );
   // db.js should still read/store whatever status value CREA does send
   // (harmless, and useful if this ever needs re-investigating) -- this

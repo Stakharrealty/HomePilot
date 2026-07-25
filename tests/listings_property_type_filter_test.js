@@ -181,6 +181,21 @@ async function main() {
     "ingest.js paginates per city (loops using PAGE_SIZE/MAX_PAGES_PER_CITY, not a single fetch)",
     /MAX_PAGES_PER_CITY/.test(ingestSrcForPagination) && /PAGE_SIZE/.test(ingestSrcForPagination)
   );
+  {
+    // PAGE_SIZE must not exceed CREA's real, confirmed $top ceiling of 100
+    // -- confirmed via a live 400 error 2026-07-24 ("The limit of '100' for
+    // Top query has been exceeded"), not assumed from documentation. A
+    // value above 100 here means /ingest fails for ALL 49 cities
+    // simultaneously (a full outage, not a partial one) -- this guards
+    // against that exact regression happening silently again.
+    const pageSizeMatch = ingestSrcForPagination.match(/const PAGE_SIZE = (\d+);/);
+    const pageSizeValue = pageSizeMatch ? parseInt(pageSizeMatch[1], 10) : null;
+    check(
+      `PAGE_SIZE (${pageSizeValue}) does not exceed CREA's confirmed 100-row $top limit`,
+      pageSizeValue !== null && pageSizeValue <= 100,
+      `found PAGE_SIZE=${pageSizeValue} in ingest.js`
+    );
+  }
   check(
     "/listings route reads an offset param",
     /searchParams\.get\(["']offset["']\)/.test(indexSrc)
