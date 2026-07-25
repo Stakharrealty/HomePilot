@@ -2,12 +2,13 @@
 // Added 2026-07-22. Renders real CREA/DDF listings pulled from the
 // homepilot-listings Worker's D1 database, via GET /listings?city=X.
 //
-// INCOM WAS FULLY REMOVED 2026-07-22 (see utils.js). This is no longer an
-// additive/"Beta" option alongside INCOM -- every "View Available Homes"
-// button (render.js, render-support.js) now calls toggleLiveListings()
-// below directly, and is the only listings experience in the app. This
-// comment previously said otherwise; corrected 2026-07-23 to match reality
-// -- the code had already moved on, the comment hadn't.
+// INCOM WAS FULLY REMOVED 2026-07-22 (see utils.js). This is the only
+// listings experience in the app -- and as of 2026-07-25, it's no longer
+// an inline expand panel under each city card either (see
+// openListingsWindow() below and listings.html): "View Available Homes"
+// buttons now open a dedicated separate listings page/popup, per explicit
+// product direction that listings should support HomePilot's
+// recommendation, not become a browsing experience embedded in it.
 //
 // COMPLIANCE NOTE (CREA DDF Policy and Rules, section 6 -- confirmed via
 // the official PDF this session, not assumed): every rendered listing must
@@ -168,7 +169,8 @@ function renderListingCard(listing) {
   return card;
 }
 
-const TYPE_LABELS = { condo: "condo", town: "townhouse", semi: "semi-detached", detached: "detached home" };
+const TYPE_LABELS_PLURAL = { condo: "Condos", town: "Townhomes", semi: "Semi-Detached Homes", detached: "Detached Homes", all: "Homes" };
+const TYPE_LABELS_LOWER = { condo: "condo", town: "townhouse", semi: "semi-detached", detached: "detached home" };
 
 // Fetches the next page for an already-open listings container and appends
 // it to the existing grid, rather than re-rendering from scratch -- keeps
@@ -203,26 +205,43 @@ window.loadMoreListings = loadMoreListings;
 
 // --- Public entry point ---
 // Renders live DDF listings for a city (optionally filtered to one
-// property type) into the given container element. propertyType is one of
-// 'condo'/'town'/'semi'/'detached', or 'all'/omitted for no filter. Shows
-// every listing stored for that city/type via "Load more" pagination
-// (2026-07-24) -- no longer capped at a single fixed-size batch; per
-// Sandeep, a buyer should be able to see everything they qualify for.
+// property type) into the given container element -- called by
+// listings.html, the dedicated standalone listings page (2026-07-25
+// redesign; previously called from an inline expand panel under each city
+// card, now called once per page load on listings.html itself).
+//
+// Header framing is deliberate product language, not incidental copy:
+// "Available Condos Matching This Recommendation" (what this shows), never
+// "All Listings in Brampton" (what a generic portal would show) -- the
+// listings support HomePilot's recommendation, they aren't a separate
+// browsing experience. See the product brief this was built from.
 async function renderLiveListings(city, containerEl, propertyType) {
   const cityEsc = escapeHtml(city);
-  const typeLabel = TYPE_LABELS[propertyType];
-  const typePhrase = typeLabel ? `${typeLabel} listings` : "listings";
-  containerEl.innerHTML = `<div class="listings-loading">Loading live ${escapeHtml(typePhrase)} for ${cityEsc}…</div>`;
+  const typeLabelPlural = TYPE_LABELS_PLURAL[propertyType] || "Homes";
+  // typePhraseLower is only used as an adjective before "listings" -- when
+  // no propertyType is given (or it's not one of the 4 known types), this
+  // must be "" (producing plain "listings"), not a fallback word like
+  // "home" (which would read as "home listings", a real regression this
+  // was fixed from -- the exact phrase "No active listings" is also relied
+  // on by tests/listings_frontend_display_test.js).
+  const typePhraseLower = TYPE_LABELS_LOWER[propertyType] || "";
+  const loadingPhrase = typePhraseLower ? `${typePhraseLower} listings` : "listings";
+  const headerHtml = `
+    <div class="listings-page-header">
+      <div class="listings-page-title">Available ${escapeHtml(typeLabelPlural)} Matching This Recommendation</div>
+      <div class="listings-page-subtitle">${cityEsc} · HomePilot Affordability Pick</div>
+    </div>`;
+  containerEl.innerHTML = `${headerHtml}<div class="listings-loading">Loading live ${escapeHtml(loadingPhrase)} for ${cityEsc}…</div>`;
 
   try {
     const listings = await fetchListings(city, propertyType, 0);
 
     if (listings.length === 0) {
-      containerEl.innerHTML = `<div class="listings-empty">No active ${escapeHtml(typePhrase)} found in ${cityEsc} right now. Check back soon.</div>`;
+      containerEl.innerHTML = `${headerHtml}<div class="listings-empty">No active ${escapeHtml(loadingPhrase)} found in ${cityEsc} right now. Check back soon.</div>`;
       return;
     }
 
-    containerEl.innerHTML = "";
+    containerEl.innerHTML = headerHtml;
     const grid = document.createElement("div");
     grid.className = "listings-grid";
     for (const listing of listings) {
@@ -249,7 +268,9 @@ async function renderLiveListings(city, containerEl, propertyType) {
 
     // Trademark statement -- required on every page displaying DDF content
     // (CREA DDF Policy and Rules, section 6). Placed once per rendered
-    // listings section, not per-card.
+    // listings section, not per-card. This requirement is a hard
+    // compliance constraint, not a design choice -- it must be carried
+    // over exactly regardless of the surrounding page architecture.
     const trademark = document.createElement("div");
     trademark.className = "listings-trademark";
     // Exact CREA/REALTOR.ca trademark wording, not a paraphrase (per
@@ -260,36 +281,61 @@ async function renderLiveListings(city, containerEl, propertyType) {
       "The trademarks REALTOR®, REALTORS® and the REALTOR® logo are controlled by CREA and identify real estate professionals who are members of CREA.";
     containerEl.appendChild(trademark);
   } catch (err) {
-    containerEl.innerHTML = `<div class="listings-error">Couldn't load live listings right now. Please try again shortly.</div>`;
+    containerEl.innerHTML = `${headerHtml}<div class="listings-error">Couldn't load live listings right now. Please try again shortly.</div>`;
   }
 }
 
-// Exposed for render.js to call.
+// Exposed for listings.html to call once it loads.
 window.renderLiveListings = renderLiveListings;
 
-// Called by the "View Available Homes" button in render.js /
-// render-support.js. Finds the sibling .live-listings-container, toggles
-// it open/closed, and lazy-loads listings the first time it's opened for a
-// given propertyType (not on every toggle, to avoid re-fetching and
-// re-firing view-tracking events on repeat clicks). Re-fetches only when
-// propertyType actually changed since the last load for this container --
-// e.g. buyer expands "Condo", closes it, then expands "Townhouse" on the
-// same city card; those are different result sets, not a repeat click.
-function toggleLiveListings(buttonEl, city, propertyType) {
-  const container = buttonEl.nextElementSibling;
-  if (!container || !container.classList.contains("live-listings-container")) return;
+// --- Entry point from HomePilot's main recommendation cards ---
+// REDESIGNED 2026-07-25, replacing the old toggleLiveListings() inline
+// expand/collapse: per explicit product direction, listings must not be
+// embedded inside city cards or expand inline beneath a recommendation --
+// they open in a dedicated HomePilot listings experience (listings.html),
+// framed as "Available Condos Matching This Recommendation", not "All
+// Listings in Brampton". This keeps HomePilot's role as a decision engine
+// front and center; listings support that decision, they don't replace it.
+//
+// Desktop: a real, separate OS popup window (window.open()), per explicit
+// direction. Mobile: real URL navigation with a native back button (also
+// explicit direction) -- not a same-window in-app overlay, so the phone's
+// own back gesture/button works for free and the URL is shareable.
+//
+// DESKTOP_BREAKPOINT_PX matches the app's own existing @media(min-width:780px)
+// breakpoint in index.html's CSS, not a new arbitrary number.
+const DESKTOP_BREAKPOINT_PX = 780;
 
-  const isOpen = container.style.display !== "none";
-  if (isOpen) {
-    container.style.display = "none";
-    return;
-  }
+// CRITICAL popup-blocker constraint: window.open() must be the very FIRST
+// thing that happens in this function, called synchronously from the click
+// handler -- no fetch/await/anything before it. Browsers only allow
+// window.open() through if it happens inside the same synchronous tick as
+// the user's click; any async work first (even a fast API call) makes the
+// browser treat the eventual window.open() as an unrequested popup and
+// silently block it, no error, no visible failure. So this function opens
+// the window (or navigates, on mobile) IMMEDIATELY, pointed at a real URL
+// that does its own fetching once loaded -- it never fetches data itself
+// before opening/navigating.
+function openListingsWindow(city, propertyType) {
+  const params = new URLSearchParams({ city, type: propertyType || "all" });
+  const url = `listings.html?${params.toString()}`;
 
-  container.style.display = "block";
-  if (container.dataset.loadedType !== propertyType) {
-    container.dataset.loadedType = propertyType;
-    renderLiveListings(city, container, propertyType);
+  const isDesktop = window.matchMedia(`(min-width: ${DESKTOP_BREAKPOINT_PX}px)`).matches;
+
+  if (isDesktop) {
+    // Named target ("hp_listings") means clicking a second "View Available
+    // Homes" button re-focuses the same popup and navigates it to the new
+    // city/type, rather than piling up multiple popup windows.
+    const popup = window.open(url, "hp_listings", "width=1040,height=840,scrollbars=yes,resizable=yes,noopener");
+    if (popup) popup.focus();
+    // If popup is null, the browser blocked it despite the synchronous
+    // call (e.g. user has popups hard-disabled) -- fall back to a normal
+    // same-tab navigation rather than silently doing nothing.
+    else window.location.href = url;
+  } else {
+    // Mobile: real navigation, not an in-app overlay -- gives the phone's
+    // native back button and a shareable/bookmarkable URL for free.
+    window.location.href = url;
   }
 }
-
-window.toggleLiveListings = toggleLiveListings;
+window.openListingsWindow = openListingsWindow;

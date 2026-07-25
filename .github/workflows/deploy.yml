@@ -39,6 +39,9 @@ jobs:
       - name: DDF listing display frontend test (added 2026-07-22)
         run: npm run test:listings-frontend
 
+      - name: DDF listings popup/page redesign test (added 2026-07-25)
+        run: npm run test:listings-popup-redesign
+
       - name: Regression suite (245 tests)
         run: npm run test
 
@@ -58,6 +61,7 @@ jobs:
         run: |
           mkdir -p deploy
           cp index.html deploy/
+          cp listings.html deploy/
           cp -r src deploy/
           cat > deploy/wrangler.jsonc << 'EOF'
           {

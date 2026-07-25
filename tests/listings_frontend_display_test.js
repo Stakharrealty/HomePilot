@@ -110,7 +110,11 @@ const XSS_LISTINGS = {
   // --- 1. Functions exist as real globals (script-tag style, not modules --
   //     function declarations attach to window automatically) ---
   check("window.renderLiveListings exists", typeof win.renderLiveListings === "function");
-  check("window.toggleLiveListings exists", typeof win.toggleLiveListings === "function");
+  // openListingsWindow() replaced toggleLiveListings() 2026-07-25 -- listings
+  // no longer expand inline under a city card, they open a dedicated
+  // popup/page (listings.html). See openListingsWindow() in
+  // listings-display.js for the full reasoning.
+  check("window.openListingsWindow exists", typeof win.openListingsWindow === "function");
 
   // --- 2. Mock fetch, then actually call renderLiveListings with fake data
   //     and inspect the real rendered DOM -- never touches the real
