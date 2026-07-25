@@ -93,6 +93,23 @@ function toggle(id){
   }
 }
 
+function revealCalculator(){
+  // Desktop-only reveal: on mobile the calculator is already visible (no CSS
+  // rule hides it below the 900px breakpoint), and the hero CTA button itself
+  // is hidden on mobile, so this only ever fires from the desktop hero.
+  const sec=document.getElementById("calculatorSection");
+  if(!sec) return;
+  sec.classList.add("revealed");
+  requestAnimationFrame(function(){
+    requestAnimationFrame(function(){
+      sec.classList.add("animate-in");
+      sec.scrollIntoView({behavior:"smooth",block:"start"});
+      const inc=document.getElementById("inc");
+      if(inc) inc.focus();
+    });
+  });
+}
+
 function showTransparencyModal(){
   // Same required-field guard sub() already applies, checked here too so the modal
   // doesn't pop up for an incomplete form.
