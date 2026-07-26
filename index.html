@@ -213,6 +213,31 @@ body{
   .hero2-statsbar{grid-template-columns:repeat(4,1fr);max-width:900px;margin:40px auto 0}
 }
 
+/* ── HOW IT WORKS ────────────────────────────────────────────── */
+.hiw{margin-bottom:2.5rem}
+.hiw-head{max-width:640px;margin-bottom:28px}
+.hiw-eyebrow{font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--green-mid);margin-bottom:10px}
+.hiw-head h2{font-size:22px;font-weight:800;line-height:1.25;letter-spacing:-0.4px;color:var(--ink);margin-bottom:10px}
+.hiw-sub{font-size:14.5px;color:var(--ink-soft);line-height:1.6}
+.hiw-grid{display:grid;grid-template-columns:1fr;gap:16px}
+.hiw-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;display:flex;flex-direction:column;gap:12px;transition:border-color 0.15s,box-shadow 0.15s}
+.hiw-card:hover{border-color:var(--green);box-shadow:var(--shadow)}
+.hiw-card-top{display:flex;align-items:flex-start;justify-content:space-between}
+.hiw-icon{width:42px;height:42px;border-radius:12px;background:var(--navy);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.hiw-num{font-size:26px;font-weight:900;color:var(--border);line-height:1}
+.hiw-card h3{font-size:15px;font-weight:700;color:var(--ink);line-height:1.35}
+.hiw-card p{font-size:13.5px;color:var(--ink-soft);line-height:1.55}
+.hiw-detail{margin-top:auto;padding-top:10px;border-top:1px solid var(--border);font-size:11.5px;font-weight:600;color:var(--green-mid)}
+
+@media(min-width:780px){
+  .hiw-grid{grid-template-columns:1fr 1fr;gap:18px}
+}
+@media(min-width:1024px){
+  .hiw-head h2{font-size:30px}
+  .hiw-sub{font-size:15px}
+  .hiw-grid{grid-template-columns:repeat(4,1fr);gap:18px}
+}
+
 /* ── CALCULATOR SECTION REVEAL ──────────────────────────────── */
 .calculator-section{display:none;opacity:0;transform:translateY(16px);transition:opacity 0.35s ease,transform 0.35s ease}
 .calculator-section.revealed{display:block}
@@ -1088,6 +1113,52 @@ select{
       <div class="stat"><p class="val">9,900+</p><p class="lbl">Live MLS listings</p></div>
       <div class="stat"><p class="val">$0</p><p class="lbl">Free to use, always</p></div>
       <div class="stat"><p class="val">&lt;2 min</p><p class="lbl">Average analysis time</p></div>
+    </div>
+  </section>
+
+  <section class="hiw" id="how-it-works" aria-labelledby="hiwHeading">
+    <div class="hiw-head">
+      <p class="hiw-eyebrow">HOW HOMEPILOT WORKS</p>
+      <h2 id="hiwHeading">From your finances to your best cities — in under 5 minutes</h2>
+      <p class="hiw-sub">HomePilot is not a mortgage calculator. It's a full Ontario home affordability analysis that tells you exactly where you can buy and what it will cost.</p>
+    </div>
+    <div class="hiw-grid">
+      <div class="hiw-card">
+        <div class="hiw-card-top">
+          <span class="hiw-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="8" y2="10"/><line x1="12" y1="10" x2="12" y2="10"/><line x1="16" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="8" y2="14"/><line x1="12" y1="14" x2="12" y2="14"/><line x1="16" y1="14" x2="16" y2="14"/><line x1="8" y1="18" x2="8" y2="18"/><line x1="12" y1="18" x2="12" y2="18"/></svg></span>
+          <span class="hiw-num">01</span>
+        </div>
+        <h3>Tell us about your finances</h3>
+        <p>Enter your household income, existing debt, down payment savings, and target monthly budget. No bank login required.</p>
+        <div class="hiw-detail">Income · Down payment · Monthly comfort zone</div>
+      </div>
+      <div class="hiw-card">
+        <div class="hiw-card-top">
+          <span class="hiw-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><polygon points="1,6 1,22 8,18 16,22 23,18 23,2 16,6 8,2"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg></span>
+          <span class="hiw-num">02</span>
+        </div>
+        <h3>Set your commute preferences</h3>
+        <p>Enter your workplace address. HomePilot automatically filters Ontario cities by realistic commute time — GO train, highway, or hybrid.</p>
+        <div class="hiw-detail">Workplace · Max commute time · Transit or drive</div>
+      </div>
+      <div class="hiw-card">
+        <div class="hiw-card-top">
+          <span class="hiw-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><line x1="4" y1="20" x2="4" y2="12"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="20" y1="20" x2="20" y2="8"/></svg></span>
+          <span class="hiw-num">03</span>
+        </div>
+        <h3>Get your affordability range</h3>
+        <p>We calculate your true price ceiling using GDS/TDS ratios, current rates, property tax estimates, and real utility costs.</p>
+        <div class="hiw-detail">True home price ceiling · Monthly cost breakdown</div>
+      </div>
+      <div class="hiw-card">
+        <div class="hiw-card-top">
+          <span class="hiw-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg></span>
+          <span class="hiw-num">04</span>
+        </div>
+        <h3>Explore matching cities &amp; listings</h3>
+        <p>See a ranked list of Ontario cities within your budget. Browse real listings that match your parameters, organized by best fit.</p>
+        <div class="hiw-detail">55 Ontario cities · Real listing data</div>
+      </div>
     </div>
   </section>
 
