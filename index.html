@@ -240,6 +240,39 @@ body{
   .hiw-grid{grid-template-columns:repeat(4,1fr);gap:18px}
 }
 
+/* ── WHY IT'S DIFFERENT ──────────────────────────────────────── */
+.wd{background:var(--navy);margin:0 -1rem 2.5rem;padding:32px 1rem}
+.wd-head{max-width:640px;margin-bottom:24px}
+.wd-eyebrow{font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--green);margin-bottom:10px}
+.wd-head h2{font-size:20px;font-weight:800;line-height:1.3;letter-spacing:-0.3px;color:#fff;margin-bottom:10px}
+.wd-sub{font-size:14px;color:rgba(255,255,255,0.6);line-height:1.6}
+.wd-table{border-radius:var(--radius-lg);overflow:hidden;border:1px solid rgba(255,255,255,0.1)}
+.wd-row{display:grid;grid-template-columns:1fr;border-bottom:1px solid rgba(255,255,255,0.1)}
+.wd-row:last-child{border-bottom:none}
+.wd-row-head{background:rgba(255,255,255,0.05)}
+.wd-cell{padding:14px 16px;font-size:13px}
+.wd-row-head .wd-cell{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:rgba(255,255,255,0.4)}
+.wd-row-head .wd-cell-hl{color:var(--green)}
+.wd-topic{font-weight:700;color:rgba(255,255,255,0.7)}
+.wd-no,.wd-yes{display:flex;align-items:flex-start;gap:8px;line-height:1.5}
+.wd-no{color:rgba(255,255,255,0.5)}
+.wd-no svg{flex-shrink:0;margin-top:2px;color:rgba(255,255,255,0.35)}
+.wd-yes{color:rgba(255,255,255,0.9);font-weight:500}
+.wd-yes svg{flex-shrink:0;margin-top:2px}
+.wd-cell-hl{background:rgba(29,158,117,0.08)}
+
+@media(min-width:600px){
+  .wd-row{grid-template-columns:1fr 1fr 1fr}
+  .wd-cell{border-left:1px solid rgba(255,255,255,0.1)}
+  .wd-cell:first-child{border-left:none}
+}
+@media(min-width:1024px){
+  .wd{margin-left:0;margin-right:0;border-radius:var(--radius-lg);padding:48px 40px}
+  .wd-head h2{font-size:28px}
+  .wd-sub{font-size:15px}
+  .wd-cell{padding:16px 20px;font-size:13.5px}
+}
+
 /* ── CALCULATOR SECTION REVEAL ──────────────────────────────── */
 .calculator-section{display:none;opacity:0;transform:translateY(16px);transition:opacity 0.35s ease,transform 0.35s ease}
 .calculator-section.revealed{display:block}
@@ -1186,6 +1219,51 @@ select{
         <h3>Explore matching cities &amp; listings</h3>
         <p>See a ranked list of Ontario cities within your budget. Browse real listings that match your parameters, organized by best fit.</p>
         <div class="hiw-detail">55 Ontario cities · Real listing data</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="wd" id="why-different" aria-labelledby="wdHeading">
+    <div class="wd-head">
+      <p class="wd-eyebrow">WHY IT'S DIFFERENT</p>
+      <h2 id="wdHeading">Not a mortgage calculator. Not a real estate search. Something better.</h2>
+      <p class="wd-sub">HomePilot is an Ontario homebuying decision platform. Here's how it compares to the tools you've already tried.</p>
+    </div>
+    <div class="wd-table">
+      <div class="wd-row wd-row-head">
+        <div class="wd-cell">Feature</div>
+        <div class="wd-cell">Generic Calculators</div>
+        <div class="wd-cell wd-cell-hl">HomePilot</div>
+      </div>
+      <div class="wd-row">
+        <div class="wd-cell wd-topic">What you get</div>
+        <div class="wd-cell wd-no"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span>A monthly payment number based on a mortgage formula</span></div>
+        <div class="wd-cell wd-yes wd-cell-hl"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Full affordability picture: price, tax, utilities, commute</span></div>
+      </div>
+      <div class="wd-row">
+        <div class="wd-cell wd-topic">Geography</div>
+        <div class="wd-cell wd-no"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span>You pick the city, it crunches numbers</span></div>
+        <div class="wd-cell wd-yes wd-cell-hl"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>We recommend which Ontario cities fit your budget</span></div>
+      </div>
+      <div class="wd-row">
+        <div class="wd-cell wd-topic">Commute</div>
+        <div class="wd-cell wd-no"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span>Not considered at all</span></div>
+        <div class="wd-cell wd-yes wd-cell-hl"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Built into city rankings — GO train, highway, hybrid</span></div>
+      </div>
+      <div class="wd-row">
+        <div class="wd-cell wd-topic">Real costs</div>
+        <div class="wd-cell wd-no"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span>Principal + interest only</span></div>
+        <div class="wd-cell wd-yes wd-cell-hl"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Mortgage + property tax + utilities + insurance</span></div>
+      </div>
+      <div class="wd-row">
+        <div class="wd-cell wd-topic">Listings</div>
+        <div class="wd-cell wd-no"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span>None — just a number</span></div>
+        <div class="wd-cell wd-yes wd-cell-hl"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Real Ontario listings that match your affordability</span></div>
+      </div>
+      <div class="wd-row">
+        <div class="wd-cell wd-topic">Who it helps</div>
+        <div class="wd-cell wd-no"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span>People who already know what city and price they want</span></div>
+        <div class="wd-cell wd-yes wd-cell-hl"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>People who need to figure out where and what is realistic</span></div>
       </div>
     </div>
   </section>
