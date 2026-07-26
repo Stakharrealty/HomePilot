@@ -20,6 +20,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;bac
 .hero-checklist{display:none}
 .hero-stats{display:none}
 .hero-cta{display:none}
+.hdr-nav{display:none}
+.hero-eyebrow{display:none}
 @media(min-width:480px){
   .hero{text-align:center;margin-bottom:2.5rem}
   .hero h1{font-size:32px;white-space:normal;overflow:visible;text-overflow:clip;margin-bottom:14px;letter-spacing:-0.4px}
@@ -38,6 +40,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;bac
   .calculator-section{display:none;opacity:0;transform:translateY(16px);transition:opacity 0.4s ease,transform 0.4s ease}
   .calculator-section.revealed{display:block}
   .calculator-section.revealed.animate-in{opacity:1;transform:translateY(0)}
+  .hdr{background:#0B0E14;border-radius:16px;padding:16px 24px;margin-bottom:2rem;border-bottom:none}
+  .hdr .logo-text span:first-child{color:#F2F0E9}
+  .hdr .logo-tag{color:#1D9E75}
+  .hdr-nav{display:flex;align-items:center;gap:24px}
+  .hdr-nav-link{font-size:13px;color:#D8D4C8;cursor:default}
+  .hdr-nav-cta{font-size:13px;font-weight:600;padding:8px 18px;border-radius:20px;border:none;background:#B08D3D;color:#0B0E14;cursor:pointer}
+  .hdr-nav-cta:hover{background:#9c7a34}
+  .lang-sel{margin-left:8px}
+  .hero-eyebrow{display:block;font-size:12px;letter-spacing:1.5px;color:#B08D3D;font-weight:600;margin-bottom:12px}
 }
 .card{background:#fff;border:1px solid #e8e8e8;border-radius:12px;padding:1.25rem;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,0.04)}
 .lbl{font-size:13px;color:#666;margin-bottom:7px;display:block;font-weight:500}
@@ -384,7 +395,7 @@ input[type=text]:focus,input[type=email]:focus,input[type=tel]:focus{border-colo
 </head>
 <body>
 <div class="w">
-  <div class="hdr">
+  <div class="hdr" id="mainHdr">
     <div class="logo">
       <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
         <rect width="32" height="32" rx="8" fill="#1D9E75"/>
@@ -394,6 +405,11 @@ input[type=text]:focus,input[type=email]:focus,input[type=tel]:focus{border-colo
         <polygon points="16,10 14,14 18,14" fill="#1D9E75"/>
       </svg>
       <div class="logo-text"><span>HomePilot</span><span class="logo-tag">Live Comfortably</span></div>
+    </div>
+    <div class="hdr-nav" id="hdrNav">
+      <span class="hdr-nav-link">How it works</span>
+      <span class="hdr-nav-link">Cities</span>
+      <button type="button" class="hdr-nav-cta" id="hdrCtaBtn" onclick="revealCalculator()">Find your dream home</button>
     </div>
     <select class="lang-sel" onchange="setLang(this.value)">
       <option value="" disabled>🌐 Language</option>
@@ -407,6 +423,7 @@ input[type=text]:focus,input[type=email]:focus,input[type=tel]:focus{border-colo
   </div>
 
   <div class="hero">
+    <p class="hero-eyebrow" id="heroEyebrow">FOR ONTARIO HOMEBUYERS</p>
     <h1 id="ht">Find out how much home you can actually afford in Ontario</h1>
     <p id="hs">HomePilot is Ontario's smarter home affordability tool that shows you where you can buy based on your income, down payment, monthly budget, commute, and real housing costs.</p>
     <div class="hero-checklist" id="heroChecklist">
@@ -417,7 +434,7 @@ input[type=text]:focus,input[type=email]:focus,input[type=tel]:focus{border-colo
       <div class="hero-checklist-item"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="8" fill="#B08D3D"/><path d="M4.5 8.2L6.8 10.5L11.5 5.5" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Real homes currently available in your price range</span></div>
     </div>
     <button type="button" class="hero-cta" id="heroCtaBtn" onclick="revealCalculator()">
-      Find your dream home
+      Start your free home affordability analysis
       <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </button>
     <div class="hero-stats" id="heroStats">
