@@ -93,17 +93,6 @@ function toggle(id){
   }
 }
 
-function selectPreviewCity(el){
-  // Purely cosmetic: highlights which illustrative city row is "active" in
-  // the hero's example product-preview panel. This is demo content showing
-  // what a real result looks like — it does not read or write any real app
-  // state (results, buyPower, etc.) and has no effect on the actual
-  // calculator below.
-  const siblings = el.parentElement.querySelectorAll('.hero2-city');
-  siblings.forEach(s => s.classList.remove('active'));
-  el.classList.add('active');
-}
-
 function revealCalculator(){
   // Desktop-only reveal: on mobile the calculator is already visible (no CSS
   // rule hides it below the 900px breakpoint), and the hero CTA button itself
