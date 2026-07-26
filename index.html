@@ -4,268 +4,916 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>HomePilot — What does it really cost to own a home in Ontario?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
+/* ── RESET ─────────────────────────────────────────────────── */
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;background:#f5f5f5;color:#1a1a1a;min-height:100vh}
-.w{max-width:460px;margin:0 auto;padding:1.5rem 1rem 3rem}@media(min-width:600px){.w{max-width:580px}}@media(min-width:780px){.w{max-width:720px}}
-@media(min-width:1024px){
-  .w{max-width:960px}
+
+/* ── DESIGN TOKENS ─────────────────────────────────────────── */
+:root{
+  --green:#1D9E75;
+  --green-dark:#158a63;
+  --green-light:#E1F5EE;
+  --green-mid:#0F6E50;
+  --gold:#B08D3D;
+  --gold-light:#F5EDD3;
+  --navy:#0B0E14;
+  --navy-mid:#14213D;
+  --ink:#111318;
+  --ink-mid:#3D4555;
+  --ink-soft:#6B7280;
+  --ink-faint:#9CA3AF;
+  --surface:#F4F5F7;
+  --card:#FFFFFF;
+  --border:#E4E7EC;
+  --border-light:#F0F2F5;
+  --radius-sm:8px;
+  --radius:12px;
+  --radius-lg:16px;
+  --shadow-sm:0 1px 3px rgba(0,0,0,0.06),0 1px 2px rgba(0,0,0,0.04);
+  --shadow:0 4px 12px rgba(0,0,0,0.07),0 1px 3px rgba(0,0,0,0.05);
+  --shadow-md:0 8px 24px rgba(0,0,0,0.09),0 2px 6px rgba(0,0,0,0.05);
+  --shadow-green:0 4px 16px rgba(29,158,117,0.22);
+  --font:-apple-system,'Inter',BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
 }
-@media(min-width:1440px){
-  .w{max-width:1200px}
+
+/* ── BASE ───────────────────────────────────────────────────── */
+html{background:var(--surface)}
+body{
+  font-family:var(--font);
+  background:var(--surface);
+  color:var(--ink);
+  min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+  line-height:1.5;
 }
-.hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.75rem;padding-bottom:1rem;border-bottom:1px solid #f0f0f0;gap:16px}
-.logo{font-size:19px;font-weight:600;color:#1a1a1a;display:flex;align-items:center;gap:8px}
-.logo-text{display:flex;flex-direction:column;gap:1px}
-.logo-tag{font-size:10px;font-weight:500;color:#1D9E75;letter-spacing:0.04em;line-height:1}
-.logo-icon{width:28px;height:28px;background:#1D9E75;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px}
-.lang-sel{font-size:13px;padding:6px 10px;border-radius:8px;border:1px solid #e0e0e0;background:#fff;color:#1a1a1a;cursor:pointer}
+
+/* ── WRAPPER ────────────────────────────────────────────────── */
+.w{
+  max-width:480px;
+  margin:0 auto;
+  padding:1.25rem 1rem 3rem;
+}
+@media(min-width:600px){.w{max-width:600px;padding:1.5rem 1.25rem 3rem}}
+@media(min-width:780px){.w{max-width:740px}}
+@media(min-width:1024px){.w{max-width:980px;padding:1.75rem 1.5rem 3rem}}
+@media(min-width:1440px){.w{max-width:1200px}}
+
+/* ── HEADER ─────────────────────────────────────────────────── */
+.hdr{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  margin-bottom:2rem;
+  padding:0 0 1.25rem;
+  border-bottom:1px solid var(--border-light);
+}
+
+/* dark pill header at 480px+ */
+@media(min-width:480px){
+  .hdr{
+    background:var(--navy);
+    border-radius:var(--radius-lg);
+    padding:14px 22px;
+    margin-bottom:2.25rem;
+    border-bottom:none;
+    box-shadow:var(--shadow-md);
+  }
+}
+
+/* ── LOGO ───────────────────────────────────────────────────── */
+.logo{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  font-size:18px;
+  font-weight:700;
+  color:var(--ink);
+  text-decoration:none;
+}
+.logo-icon{
+  width:30px;height:30px;
+  background:var(--green);
+  border-radius:8px;
+  display:flex;align-items:center;justify-content:center;
+  color:#fff;
+  flex-shrink:0;
+  box-shadow:0 2px 8px rgba(29,158,117,0.35);
+}
+.logo-text{display:flex;flex-direction:column;gap:1px;line-height:1}
+.logo-text span:first-child{font-size:17px;font-weight:800;letter-spacing:-0.3px}
+.logo-tag{font-size:10px;font-weight:600;color:var(--green);letter-spacing:0.05em;text-transform:uppercase}
+
+@media(min-width:480px){
+  .logo-text span:first-child{color:#F2F0E9}
+  .logo-tag{color:var(--gold)}
+  .hdr .logo svg rect{fill:var(--gold)}
+  .hdr .logo svg circle{stroke:var(--navy)}
+  .hdr .logo svg line{stroke:var(--navy)}
+  .hdr .logo svg polygon:nth-of-type(2){fill:var(--navy)}
+}
+
+/* ── NAV ────────────────────────────────────────────────────── */
+.hdr-nav{display:none}
+@media(min-width:480px){
+  .hdr-nav{
+    display:flex;align-items:center;gap:20px;
+  }
+  .hdr-nav-link{
+    font-size:13px;font-weight:500;
+    color:rgba(240,238,230,0.6);
+    cursor:default;
+    transition:color 0.15s;
+  }
+  .hdr-nav-link:hover{color:#F2F0E9}
+  .hdr-nav-cta{
+    font-size:13px;font-weight:700;
+    padding:8px 18px;
+    border-radius:999px;
+    border:none;
+    background:var(--gold);
+    color:var(--navy);
+    cursor:pointer;
+    letter-spacing:0.01em;
+    transition:background 0.15s,box-shadow 0.15s;
+    box-shadow:0 2px 8px rgba(176,141,61,0.3);
+    white-space:nowrap;
+  }
+  .hdr-nav-cta:hover{background:#9c7a34;box-shadow:0 4px 12px rgba(176,141,61,0.4)}
+}
+
+/* ── LANGUAGE SELECTOR ──────────────────────────────────────── */
+.lang-sel{
+  font-size:12px;
+  padding:6px 10px;
+  border-radius:var(--radius-sm);
+  border:1px solid var(--border);
+  background:var(--card);
+  color:var(--ink);
+  cursor:pointer;
+  outline:none;
+  min-width:0;
+  flex-shrink:0;
+}
+@media(min-width:480px){
+  .lang-sel{
+    background:rgba(255,255,255,0.08);
+    border-color:rgba(255,255,255,0.15);
+    color:#D8D4C8;
+    font-size:12px;
+    padding:6px 9px;
+    max-width:110px;
+    margin-left:8px;
+  }
+}
+
+/* ── HERO ────────────────────────────────────────────────────── */
 .hero{margin-bottom:1.75rem}
-.hero h1{font-size:18px;font-weight:700;color:#1a1a1a;line-height:1.3;margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.hero p{font-size:14px;color:#666;line-height:1.7}
+.hero-eyebrow{display:none}
+.hero h1{
+  font-size:19px;font-weight:800;
+  color:var(--ink);line-height:1.25;
+  margin-bottom:8px;
+  letter-spacing:-0.3px;
+}
+.hero p{font-size:14px;color:var(--ink-soft);line-height:1.65}
 .hero-checklist{display:none}
 .hero-stats{display:none}
 .hero-cta{display:none}
-.hdr-nav{display:none}
-.hero-eyebrow{display:none}
+
 @media(min-width:480px){
   .hero{text-align:center;margin-bottom:2.5rem}
-  .hero h1{font-size:32px;white-space:normal;overflow:visible;text-overflow:clip;margin-bottom:14px;letter-spacing:-0.4px}
-  .hero p{font-size:15px;max-width:560px;margin:0 auto 24px;line-height:1.6}
-  .hero-checklist{display:block;max-width:420px;margin:0 auto 24px;text-align:left}
-  .hero-checklist-title{font-size:13px;font-weight:600;color:#1a1a1a;margin-bottom:12px}
-  .hero-checklist-item{display:flex;align-items:flex-start;gap:10px;margin-bottom:10px;font-size:14px;color:#666;line-height:1.4}
-  .hero-checklist-item svg{flex-shrink:0;margin-top:2px}
-  .hero-cta{display:inline-flex;align-items:center;gap:8px;padding:13px 28px;border-radius:8px;border:none;background:#1a1a1a;color:#fff;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:32px}
-  .hero-cta:hover{background:#333}
-  .hero-stats{display:flex;justify-content:center;gap:0;border-top:1px solid #eee;border-bottom:1px solid #eee;margin:0 auto 32px;max-width:560px}
+  .hero-eyebrow{
+    display:block;
+    font-size:11px;font-weight:700;
+    letter-spacing:0.12em;text-transform:uppercase;
+    color:var(--gold);
+    margin-bottom:14px;
+  }
+  .hero h1{
+    font-size:34px;font-weight:800;
+    letter-spacing:-0.6px;
+    line-height:1.15;
+    margin-bottom:16px;
+    color:var(--navy-mid);
+  }
+  .hero p{
+    font-size:15px;
+    max-width:580px;margin:0 auto 24px;
+    color:var(--ink-mid);line-height:1.65;
+  }
+  .hero-checklist{
+    display:block;
+    max-width:440px;margin:0 auto 26px;
+    text-align:left;
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:16px 18px;
+    box-shadow:var(--shadow-sm);
+  }
+  .hero-checklist-title{
+    font-size:12px;font-weight:700;
+    color:var(--ink-mid);
+    margin-bottom:12px;
+    text-transform:uppercase;letter-spacing:0.06em;
+  }
+  .hero-checklist-item{
+    display:flex;align-items:flex-start;gap:10px;
+    margin-bottom:9px;
+    font-size:13.5px;color:var(--ink-mid);line-height:1.45;
+  }
+  .hero-checklist-item:last-child{margin-bottom:0}
+  .hero-checklist-item svg{flex-shrink:0;margin-top:1px}
+  .hero-cta{
+    display:inline-flex;align-items:center;gap:8px;
+    padding:13px 30px;
+    border-radius:999px;border:none;
+    background:var(--navy);color:#fff;
+    font-size:14px;font-weight:700;
+    cursor:pointer;
+    margin-bottom:32px;
+    letter-spacing:0.01em;
+    box-shadow:0 4px 16px rgba(11,14,20,0.25);
+    transition:background 0.15s,box-shadow 0.15s,transform 0.1s;
+  }
+  .hero-cta:hover{background:#1e2535;transform:translateY(-1px);box-shadow:0 6px 20px rgba(11,14,20,0.3)}
+  .hero-stats{
+    display:flex;
+    justify-content:center;
+    gap:0;
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    margin:0 auto 32px;
+    max-width:560px;
+    background:var(--card);
+    overflow:hidden;
+    box-shadow:var(--shadow-sm);
+  }
   .hero-stat{flex:1;padding:16px 12px;text-align:center}
-  .hero-stat+.hero-stat{border-left:1px solid #eee}
-  .hero-stat-val{font-size:19px;font-weight:700;color:#1a1a1a}
-  .hero-stat-lbl{font-size:11px;color:#888;margin-top:3px}
-  .calculator-section{display:none;opacity:0;transform:translateY(16px);transition:opacity 0.4s ease,transform 0.4s ease}
-  .calculator-section.revealed{display:block}
-  .calculator-section.revealed.animate-in{opacity:1;transform:translateY(0)}
-  .hdr{background:#0B0E14;border-radius:16px;padding:16px 24px;margin-bottom:2rem;border-bottom:none}
-  .hdr .logo-text span:first-child{color:#F2F0E9}
-  .hdr .logo svg rect{fill:#B08D3D}
-  .hdr .logo svg circle{stroke:#0B0E14}
-  .hdr .logo svg line{stroke:#0B0E14}
-  .hdr .logo svg polygon:nth-of-type(2){fill:#0B0E14}
-  .hdr .logo-tag{color:#B08D3D}
-  .hdr-nav{display:flex;align-items:center;gap:24px}
-  .hdr-nav-link{font-size:13px;color:#D8D4C8;cursor:default}
-  .hdr-nav-cta{font-size:13px;font-weight:600;padding:8px 18px;border-radius:20px;border:none;background:#B08D3D;color:#0B0E14;cursor:pointer}
-  .hdr-nav-cta:hover{background:#9c7a34}
-  .lang-sel{width:auto;min-width:0;max-width:120px;font-size:12px;padding:6px 8px;margin-left:12px;flex-shrink:0}
-  .hero-eyebrow{display:block;font-size:12px;letter-spacing:1.5px;color:#B08D3D;font-weight:600;margin-bottom:12px}
+  .hero-stat+.hero-stat{border-left:1px solid var(--border)}
+  .hero-stat-val{font-size:20px;font-weight:800;color:var(--navy-mid);letter-spacing:-0.3px}
+  .hero-stat-lbl{font-size:11px;color:var(--ink-faint);margin-top:3px;font-weight:500}
 }
-.card{background:#fff;border:1px solid #e8e8e8;border-radius:12px;padding:1.25rem;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,0.04)}
+
+/* ── CALCULATOR SECTION REVEAL ──────────────────────────────── */
+.calculator-section{display:none;opacity:0;transform:translateY(16px);transition:opacity 0.35s ease,transform 0.35s ease}
+.calculator-section.revealed{display:block}
+.calculator-section.revealed.animate-in{opacity:1;transform:translateY(0)}
+
+/* ── CALCULATOR 2-COL GRID (1024px+) ────────────────────────── */
 @media(min-width:1024px){
   #calculatorSection{
     display:grid;
     grid-template-columns:1fr 1fr;
-    gap:12px;
+    gap:14px;
     align-items:start;
   }
-  #calculatorSection .card{
-    margin-bottom:0;
-  }
-  #workArrangementCard,
-  #goBtn,
-  #err{
-    grid-column:1/-1;
-  }
+  #calculatorSection .card{margin-bottom:0}
+  #workArrangementCard,#goBtn,#err{grid-column:1/-1}
   #list{
     display:grid;
     grid-template-columns:repeat(2,1fr);
-    gap:12px;
+    gap:14px;
     align-items:start;
   }
-  .city{
-    margin-bottom:0;
-  }
+  .city{margin-bottom:0}
 }
-.lbl{font-size:13px;color:#666;margin-bottom:7px;display:block;font-weight:500}
-input[type=number],select{width:100%;font-size:15px;padding:11px 13px;border-radius:8px;border:1px solid #e0e0e0;background:#fafafa;color:#1a1a1a;outline:none;transition:border-color 0.2s}
-input[type=number]:focus,select:focus{border-color:#1D9E75;background:#fff}
-input[type=text],input[type=email],input[type=tel]{width:100%;font-size:15px;padding:11px 13px;border-radius:8px;border:1px solid #e0e0e0;background:#fafafa;color:#1a1a1a;outline:none;transition:border-color 0.2s}
-input[type=text]:focus,input[type=email]:focus,input[type=tel]:focus{border-color:#1D9E75;background:#fff}
-.go-btn{width:100%;padding:15px;font-size:16px;font-weight:600;border-radius:10px;border:none;background:#1D9E75;color:#fff;cursor:pointer;margin-top:6px;display:flex;align-items:center;justify-content:center;gap:8px;transition:background 0.2s;box-shadow:0 2px 8px rgba(29,158,117,0.3)}
-.go-btn:hover{background:#178a65}
-.go-btn:disabled{opacity:0.6;pointer-events:none}
-.spin{width:18px;height:18px;border:2.5px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:sp 0.7s linear infinite}
+
+/* ── CARDS ──────────────────────────────────────────────────── */
+.card{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:18px 16px;
+  margin-bottom:12px;
+  box-shadow:var(--shadow-sm);
+  transition:box-shadow 0.15s;
+}
+.card:focus-within{box-shadow:var(--shadow),0 0 0 3px rgba(29,158,117,0.1)}
+
+/* ── LABELS ─────────────────────────────────────────────────── */
+.lbl{
+  font-size:12.5px;font-weight:600;
+  color:var(--ink-mid);
+  margin-bottom:8px;display:block;
+  letter-spacing:0.01em;
+}
+
+/* ── INPUTS ─────────────────────────────────────────────────── */
+input[type=number],select,input[type=text],input[type=email],input[type=tel]{
+  width:100%;
+  font-family:var(--font);
+  font-size:15px;
+  font-weight:500;
+  padding:11px 14px;
+  border-radius:var(--radius-sm);
+  border:1.5px solid var(--border);
+  background:#FAFBFC;
+  color:var(--ink);
+  outline:none;
+  transition:border-color 0.15s,background 0.15s,box-shadow 0.15s;
+  -webkit-appearance:none;
+}
+input[type=number]:focus,select:focus,
+input[type=text]:focus,input[type=email]:focus,input[type=tel]:focus{
+  border-color:var(--green);
+  background:#fff;
+  box-shadow:0 0 0 3px rgba(29,158,117,0.12);
+}
+select{
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236B7280' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;
+  background-position:right 12px center;
+  padding-right:36px;
+  cursor:pointer;
+}
+
+/* ── WORK LOCATION FIELDS ───────────────────────────────────── */
+.work-location-fields{margin-top:12px;display:flex;flex-direction:column;gap:10px}
+.work-location-fields input{
+  width:100%;font-size:15px;padding:11px 14px;
+  border-radius:var(--radius-sm);border:1.5px solid var(--border);
+  background:#FAFBFC;color:var(--ink);outline:none;
+  transition:border-color 0.15s,background 0.15s,box-shadow 0.15s;
+}
+.work-location-fields input:focus{
+  border-color:var(--green);background:#fff;
+  box-shadow:0 0 0 3px rgba(29,158,117,0.12);
+}
+
+/* ── MAIN CTA BUTTON ────────────────────────────────────────── */
+.go-btn{
+  width:100%;
+  padding:15px;
+  font-family:var(--font);
+  font-size:15px;font-weight:700;
+  letter-spacing:0.01em;
+  border-radius:var(--radius-sm);
+  border:none;
+  background:var(--green);color:#fff;
+  cursor:pointer;
+  margin-top:6px;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  transition:background 0.15s,box-shadow 0.15s,transform 0.1s;
+  box-shadow:var(--shadow-green);
+}
+.go-btn:hover{background:var(--green-dark);transform:translateY(-1px);box-shadow:0 6px 20px rgba(29,158,117,0.32)}
+.go-btn:active{transform:translateY(0)}
+.go-btn:disabled{opacity:0.55;pointer-events:none;transform:none}
+
+/* ── SPINNER ────────────────────────────────────────────────── */
+.spin{
+  width:18px;height:18px;
+  border:2.5px solid rgba(255,255,255,0.3);
+  border-top-color:#fff;
+  border-radius:50%;
+  animation:sp 0.7s linear infinite;
+}
 @keyframes sp{to{transform:rotate(360deg)}}
-.bp-box{background:linear-gradient(135deg,#1D9E75 0%,#0F6E56 100%);border-radius:12px;padding:1.5rem;margin-top:16px;margin-bottom:16px;display:none;color:#fff}
-.bp-lbl{font-size:11px;text-transform:uppercase;letter-spacing:0.07em;opacity:0.8;margin-bottom:6px;font-weight:600}
-.bp-val{font-size:28px;font-weight:700;margin-bottom:4px}
-.bp-row{display:flex;gap:16px;margin-top:10px}
-.bp-stat{flex:1;background:rgba(255,255,255,0.15);border-radius:8px;padding:10px 12px}
-.bp-stat-lbl{font-size:10px;text-transform:uppercase;letter-spacing:0.06em;opacity:0.8;margin-bottom:4px;font-weight:600}
-.bp-stat-val{font-size:17px;font-weight:700}
-.bp-sub{font-size:12px;opacity:0.75;line-height:1.5;margin-top:8px}
-.sec-title{font-size:12px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:0.07em;margin:20px 0 8px}
-.count{font-size:14px;color:#666;margin-bottom:12px}
-.count span{color:#1D9E75;font-weight:600}
-.filters{display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap;align-items:center}
-.filter-group{margin-bottom:14px}
-.filter-label{font-size:10px;font-weight:700;color:#bbb;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px}
-.fb{font-size:11px;padding:6px 11px;border-radius:999px;border:1.5px solid #e8e8e8;background:#fff;color:#555;cursor:pointer;font-weight:500;transition:all 0.18s cubic-bezier(0.4,0,0.2,1);box-shadow:0 1px 3px rgba(0,0,0,0.06),0 1px 2px rgba(0,0,0,0.04);white-space:nowrap;line-height:1;-webkit-tap-highlight-color:transparent;user-select:none;}
-.fb:hover{border-color:#1D9E75;color:#1D9E75;box-shadow:0 2px 8px rgba(29,158,117,0.12);}
-.fb.on{background:#1D9E75;color:#fff;border-color:#1D9E75;box-shadow:0 2px 10px rgba(29,158,117,0.30),0 1px 3px rgba(29,158,117,0.20);font-weight:600;}
-.fb.on:hover{background:#178a65;border-color:#178a65;}
-.city{background:#fff;border:1px solid #e8e8e8;border-radius:12px;padding:15px;margin-bottom:10px;cursor:pointer;transition:all 0.2s;box-shadow:0 1px 3px rgba(0,0,0,0.04)}
-.city:hover{border-color:#1D9E75;box-shadow:0 2px 8px rgba(29,158,117,0.15)}
-.city.open{border-color:#1D9E75;box-shadow:0 2px 12px rgba(29,158,117,0.2)}
+
+/* ── BUY POWER BOX ──────────────────────────────────────────── */
+.bp-box{
+  background:linear-gradient(135deg,var(--green) 0%,var(--green-mid) 100%);
+  border-radius:var(--radius-lg);
+  padding:22px 20px;
+  margin-top:20px;margin-bottom:16px;
+  display:none;color:#fff;
+  box-shadow:0 8px 28px rgba(29,158,117,0.28);
+}
+.bp-lbl{
+  font-size:11px;text-transform:uppercase;letter-spacing:0.09em;
+  opacity:0.8;margin-bottom:6px;font-weight:700;
+}
+.bp-val{font-size:32px;font-weight:800;margin-bottom:4px;letter-spacing:-0.5px}
+.bp-row{display:flex;gap:12px;margin-top:12px}
+.bp-stat{
+  flex:1;
+  background:rgba(255,255,255,0.15);
+  backdrop-filter:blur(4px);
+  border-radius:var(--radius-sm);
+  padding:12px 14px;
+  border:1px solid rgba(255,255,255,0.1);
+}
+.bp-stat-lbl{font-size:10px;text-transform:uppercase;letter-spacing:0.07em;opacity:0.75;margin-bottom:5px;font-weight:700}
+.bp-stat-val{font-size:18px;font-weight:800;letter-spacing:-0.2px}
+.bp-sub{font-size:12.5px;opacity:0.8;line-height:1.55;margin-top:10px}
+
+/* ── SECTION TITLE ──────────────────────────────────────────── */
+.sec-title{
+  font-size:11px;font-weight:700;
+  color:var(--ink-faint);
+  text-transform:uppercase;letter-spacing:0.09em;
+  margin:24px 0 10px;
+}
+
+/* ── COUNT ──────────────────────────────────────────────────── */
+.count{font-size:14px;color:var(--ink-soft);margin-bottom:14px;font-weight:500}
+.count span{color:var(--green);font-weight:700}
+
+/* ── FILTER PILLS ────────────────────────────────────────────── */
+.filters{display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap;align-items:center}
+.filter-group{margin-bottom:16px}
+.filter-label{font-size:10px;font-weight:700;color:var(--ink-faint);text-transform:uppercase;letter-spacing:0.09em;margin-bottom:8px}
+.fb{
+  font-size:12px;font-weight:500;
+  padding:6px 13px;
+  border-radius:999px;
+  border:1.5px solid var(--border);
+  background:var(--card);
+  color:var(--ink-mid);
+  cursor:pointer;
+  transition:all 0.15s;
+  box-shadow:var(--shadow-sm);
+  white-space:nowrap;line-height:1;
+  -webkit-tap-highlight-color:transparent;
+  user-select:none;
+}
+.fb:hover{border-color:var(--green);color:var(--green);background:var(--green-light)}
+.fb.on{
+  background:var(--green);color:#fff;
+  border-color:var(--green);
+  font-weight:600;
+  box-shadow:var(--shadow-green);
+}
+.fb.on:hover{background:var(--green-dark);border-color:var(--green-dark)}
+
+/* ── CITY CARDS ─────────────────────────────────────────────── */
+.city{
+  background:var(--card);
+  border:1.5px solid var(--border);
+  border-radius:var(--radius);
+  padding:16px;
+  margin-bottom:10px;
+  cursor:pointer;
+  transition:border-color 0.15s,box-shadow 0.15s,transform 0.1s;
+  box-shadow:var(--shadow-sm);
+}
+.city:hover{
+  border-color:rgba(29,158,117,0.4);
+  box-shadow:var(--shadow),0 0 0 1px rgba(29,158,117,0.1);
+  transform:translateY(-1px);
+}
+.city.open{
+  border-color:var(--green);
+  box-shadow:var(--shadow-md),0 0 0 2px rgba(29,158,117,0.1);
+}
 .ct{display:flex;justify-content:space-between;align-items:flex-start}
-.cn{font-size:15px;font-weight:600;color:#1a1a1a}
-.cv{font-size:17px;font-weight:800;color:#1D9E75;white-space:nowrap;margin-left:10px}
-.cd{font-size:12px;color:#888;margin-top:3px;line-height:1.4}
-.cm{display:flex;justify-content:space-between;align-items:center;margin-top:9px}
-.cr{font-size:12px;color:#aaa}
-.fit{display:inline-block;font-size:11px;padding:3px 9px;border-radius:20px;font-weight:600}
-.fg{background:#E1F5EE;color:#085041}
+.cn{font-size:15px;font-weight:700;color:var(--ink);letter-spacing:-0.1px}
+.cv{font-size:18px;font-weight:800;color:var(--green);white-space:nowrap;margin-left:12px;letter-spacing:-0.3px}
+.cd{font-size:12px;color:var(--ink-soft);margin-top:4px;line-height:1.45}
+.cm{display:flex;justify-content:space-between;align-items:center;margin-top:10px}
+.cr{font-size:11.5px;color:var(--ink-faint);font-weight:500}
+
+/* ── FIT BADGES ─────────────────────────────────────────────── */
+.fit{display:inline-block;font-size:11px;padding:3px 10px;border-radius:999px;font-weight:700;letter-spacing:0.02em}
+.fg{background:var(--green-light);color:#085041}
 .fo{background:#E6F1FB;color:#0C447C}
 .fs{background:#FAEEDA;color:#633806}
-.hint{font-size:11px;color:#bbb;margin-top:8px;display:flex;align-items:center;gap:4px}
-.bk{display:none;margin-top:14px;border-top:1px solid #f0f0f0;padding-top:14px}
+
+/* ── INFO / HINT ────────────────────────────────────────────── */
+.hint{font-size:11px;color:var(--ink-faint);margin-top:8px;display:flex;align-items:center;gap:4px}
+
+/* ── BREAKDOWN ──────────────────────────────────────────────── */
+.bk{display:none;margin-top:14px;border-top:1px solid var(--border-light);padding-top:14px}
 .city.open .bk{display:block}
-.brow{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f5f5f5}
+.brow{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:8px 0;border-bottom:1px solid var(--border-light);
+}
 .brow:last-child{border-bottom:none}
-.blbl{font-size:13px;color:#666;display:flex;align-items:center;gap:8px}
-.bico{width:20px;height:20px;background:#f5f5f5;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px}
-.bval{font-size:13px;color:#1a1a1a;font-weight:600}
-.btlbl{font-size:13px;font-weight:600;color:#555}
-.btval{font-size:16px;font-weight:700;color:#1D9E75}
-.cap{background:#fff;border:1px solid #e8e8e8;border-radius:12px;padding:1.5rem;display:none;margin-top:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
-.cap h3{font-size:18px;font-weight:700;color:#1a1a1a;margin-bottom:6px}
-.cap p{font-size:14px;color:#666;margin-bottom:1.25rem;line-height:1.6}
-.fld{margin-bottom:12px}
-.sub-btn{width:100%;padding:14px;font-size:15px;font-weight:600;border-radius:10px;border:none;background:#1D9E75;color:#fff;cursor:pointer;margin-top:6px;transition:background 0.2s;box-shadow:0 2px 8px rgba(29,158,117,0.3)}
-.sub-btn:hover{background:#178a65}
-.done{text-align:center;padding:2.5rem 1rem;display:none;background:#fff;border-radius:12px;margin-top:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
-.done-icon{width:56px;height:56px;background:#E1F5EE;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:28px}
-.done h3{font-size:18px;font-weight:700;color:#1a1a1a;margin-bottom:8px}
-.done p{font-size:14px;color:#666;line-height:1.7}
-.done .phone{display:inline-block;margin-top:12px;font-size:16px;font-weight:700;color:#1D9E75;text-decoration:none}
-.note{font-size:11px;color:#bbb;margin-top:16px;line-height:1.7;padding:12px;border-radius:8px;background:#fafafa;border:1px solid #f0f0f0}
-.pw{text-align:center;font-size:11px;color:#ccc;margin-top:24px}
-.info-btn{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#e8e8e8;color:#666;font-size:11px;cursor:pointer;font-style:normal;flex-shrink:0;transition:background 0.2s;border:none;padding:0;margin:0;font-family:inherit;line-height:normal}
-.info-btn:hover{background:#1D9E75;color:#fff}
-.tooltip-box{display:none;font-size:12px;color:#666;line-height:1.6;background:#f9f9f9;border-radius:8px;padding:10px 12px;margin-bottom:10px;border-left:3px solid #1D9E75}
-.err{font-size:13px;color:#c0392b;margin-top:8px;display:none;padding:10px 12px;background:#fdf0ee;border-radius:8px}
-.results-section{display:none}
-.cmp-cb{display:flex;align-items:center;gap:7px;margin-top:10px;padding-top:10px;border-top:1px solid #f0f0f0;cursor:pointer;user-select:none}
-.cmp-cb input[type=checkbox]{width:16px;height:16px;accent-color:#1D9E75;cursor:pointer;flex-shrink:0}
-.cmp-cb-lbl{font-size:12px;color:#999;font-weight:500}
-.city.cmp-on{border-color:#1D9E75;box-shadow:0 0 0 2px rgba(29,158,117,0.2)}
-.cmp-btn{font-size:13px;padding:9px 18px;border-radius:8px;border:none;background:#1D9E75;color:#fff;cursor:pointer;font-weight:600;transition:background 0.2s;margin-bottom:16px;display:none}
-.cmp-btn:hover{background:#178a65}
-.cmp-table{width:100%;border-radius:12px;overflow:hidden;border:1px solid #e8e8e8;background:#fff;margin-bottom:8px}
-.cmp-head{display:grid;background:#f7f7f7;border-bottom:1px solid #e8e8e8}
-.cmp-head-cell{font-size:12px;font-weight:700;color:#1a1a1a;padding:10px 12px;text-align:center}
-.cmp-head-cell:first-child{text-align:left;color:#999;font-weight:600}
-.cmp-row{display:grid;border-bottom:1px solid #f5f5f5}
+.blbl{font-size:13px;color:var(--ink-soft);display:flex;align-items:center;gap:8px}
+.bico{
+  width:22px;height:22px;
+  background:var(--surface);
+  border-radius:6px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;
+  border:1px solid var(--border-light);
+}
+.bval{font-size:13px;color:var(--ink);font-weight:600}
+.btlbl{font-size:13px;font-weight:700;color:var(--ink-mid)}
+.btval{font-size:17px;font-weight:800;color:var(--green);letter-spacing:-0.2px}
+
+/* ── COMPARISON TABLE ───────────────────────────────────────── */
+.cmp-cb{display:flex;align-items:center;gap:7px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border-light);cursor:pointer;user-select:none}
+.cmp-cb input[type=checkbox]{width:16px;height:16px;accent-color:var(--green);cursor:pointer;flex-shrink:0}
+.cmp-cb-lbl{font-size:12px;color:var(--ink-faint);font-weight:500}
+.city.cmp-on{border-color:var(--green);box-shadow:0 0 0 3px rgba(29,158,117,0.15)}
+.cmp-btn{
+  font-size:13px;font-weight:700;
+  padding:10px 20px;border-radius:var(--radius-sm);border:none;
+  background:var(--green);color:#fff;cursor:pointer;
+  transition:background 0.15s;margin-bottom:16px;display:none;
+  box-shadow:var(--shadow-green);
+}
+.cmp-btn:hover{background:var(--green-dark)}
+.cmp-table{width:100%;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border);background:var(--card);margin-bottom:8px;box-shadow:var(--shadow-sm)}
+.cmp-head{display:grid;background:var(--surface);border-bottom:1px solid var(--border)}
+.cmp-head-cell{font-size:12px;font-weight:700;color:var(--ink);padding:10px 12px;text-align:center}
+.cmp-head-cell:first-child{text-align:left;color:var(--ink-faint);font-weight:600}
+.cmp-row{display:grid;border-bottom:1px solid var(--border-light)}
 .cmp-row:last-child{border-bottom:none}
-.cmp-cell{font-size:13px;color:#1a1a1a;padding:10px 12px;text-align:center;display:flex;align-items:center;justify-content:center}
-.cmp-cell:first-child{text-align:left;justify-content:flex-start;color:#666;font-size:12px;font-weight:500}
-.cmp-cell.best{color:#1D9E75;font-weight:700}
+.cmp-cell{font-size:13px;color:var(--ink);padding:10px 12px;text-align:center;display:flex;align-items:center;justify-content:center}
+.cmp-cell:first-child{text-align:left;justify-content:flex-start;color:var(--ink-soft);font-size:12px;font-weight:500}
+.cmp-cell.best{color:var(--green);font-weight:700}
 .cmp-cell.mid{color:#b8860b;font-weight:600}
 .cmp-cell.worst{color:#c0392b;font-weight:600}
-.cmp-fit{display:inline-block;font-size:10px;padding:2px 7px;border-radius:20px;font-weight:600}
-.cmp-hint{font-size:11px;color:#bbb;margin-top:6px;text-align:center}
-.tp-toggle{display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,#f0fdf8,#e6f9f2);border:1.5px solid #b6e8d4;border-radius:12px;padding:13px 16px;cursor:pointer;margin-bottom:14px;transition:all 0.2s;user-select:none;-webkit-tap-highlight-color:transparent}
-.tp-toggle:hover{background:linear-gradient(135deg,#e6f9f2,#d4f3e8);border-color:#1D9E75}
+.cmp-fit{display:inline-block;font-size:10px;padding:2px 7px;border-radius:999px;font-weight:700}
+.cmp-hint{font-size:11px;color:var(--ink-faint);margin-top:6px;text-align:center}
+
+/* ── STICKY COMPARE BAR ──────────────────────────────────────── */
+.cmp-sticky{
+  position:fixed;bottom:0;left:0;right:0;
+  background:var(--navy);
+  padding:14px 20px;
+  display:none;align-items:center;justify-content:space-between;
+  z-index:9999;
+  box-shadow:0 -4px 20px rgba(0,0,0,0.2);
+  animation:slideUp 0.2s ease;
+}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.cmp-sticky-left{font-size:13px;font-weight:700;color:#fff}
+.cmp-sticky-sub{font-size:11px;color:rgba(255,255,255,0.55);margin-top:2px}
+.cmp-sticky-btn{
+  font-size:13px;font-weight:700;
+  color:var(--navy);background:#fff;
+  border:none;padding:10px 20px;border-radius:999px;cursor:pointer;
+  white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.15);
+  transition:background 0.15s;
+}
+.cmp-sticky-btn:hover{background:#F2F0E9}
+
+/* ── TOP PICKS TOGGLE ───────────────────────────────────────── */
+.tp-toggle{
+  display:flex;align-items:center;justify-content:space-between;
+  background:var(--green-light);
+  border:1.5px solid #A7E8CE;
+  border-radius:var(--radius);
+  padding:13px 16px;cursor:pointer;
+  margin-bottom:14px;
+  transition:all 0.15s;user-select:none;
+  -webkit-tap-highlight-color:transparent;
+}
+.tp-toggle:hover{background:#CBF0E1;border-color:var(--green)}
 .tp-toggle-left{display:flex;align-items:center;gap:10px}
-.tp-toggle-dot{width:8px;height:8px;background:#1D9E75;border-radius:50%;flex-shrink:0}
-.tp-toggle-title{font-size:13px;font-weight:700;color:#1D9E75}
-.tp-toggle-sub{font-size:11px;color:#5cb89a;margin-top:1px}
-.tp-toggle-arrow{font-size:14px;color:#1D9E75;transition:transform 0.2s;font-weight:700}
+.tp-toggle-dot{width:8px;height:8px;background:var(--green);border-radius:50%;flex-shrink:0}
+.tp-toggle-title{font-size:13px;font-weight:700;color:var(--green)}
+.tp-toggle-sub{font-size:11px;color:#4BAD89;margin-top:1px}
+.tp-toggle-arrow{font-size:14px;color:var(--green);transition:transform 0.2s;font-weight:700}
 .tp-toggle.open .tp-toggle-arrow{transform:rotate(90deg)}
 .tp-cards{display:none;margin-bottom:14px}
 .tp-cards.open{display:block}
-.tp-badge{display:inline-block;font-size:10px;font-weight:700;color:#1D9E75;background:#E1F5EE;padding:2px 8px;border-radius:20px;margin-left:8px;vertical-align:middle}
-.cc-section{margin-top:14px;border-top:1px solid #f0f0f0;padding-top:14px}
-.cc-toggle{font-size:12px;font-weight:600;color:#1D9E75;cursor:pointer;display:flex;align-items:center;gap:6px;margin-bottom:0;user-select:none}
+.tp-badge{display:inline-block;font-size:10px;font-weight:700;color:var(--green);background:var(--green-light);padding:2px 8px;border-radius:999px;margin-left:8px;vertical-align:middle}
+
+/* ── CLOSING COSTS ──────────────────────────────────────────── */
+.cc-section{margin-top:14px;border-top:1px solid var(--border-light);padding-top:14px}
+.cc-toggle{font-size:12px;font-weight:600;color:var(--green);cursor:pointer;display:flex;align-items:center;gap:6px;user-select:none}
 .cc-toggle:after{content:'›';font-size:14px;transition:transform 0.2s}
 .cc-toggle.open:after{transform:rotate(90deg)}
 .cc-body{display:none;margin-top:10px}
 .cc-body.open{display:block}
-.cc-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f8f8f8;font-size:12px}
+.cc-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border-light);font-size:12px}
 .cc-row:last-child{border-bottom:none}
-.cc-lbl{color:#888}
-.cc-val{color:#1a1a1a;font-weight:600}
-.cc-total-row{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:#f0fdf8;border-radius:8px;margin-top:8px}
-.cc-total-lbl{font-size:13px;font-weight:700;color:#1a1a1a}
-.cc-total-val{font-size:15px;font-weight:800;color:#1D9E75}
-.cc-rebate{font-size:11px;color:#1D9E75;font-weight:600;margin-top:4px}
-.cc-note{font-size:10px;color:#bbb;margin-top:6px;line-height:1.5}
+.cc-lbl{color:var(--ink-soft)}
+.cc-val{color:var(--ink);font-weight:600}
+.cc-total-row{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--green-light);border-radius:var(--radius-sm);margin-top:8px}
+.cc-total-lbl{font-size:13px;font-weight:700;color:var(--ink)}
+.cc-total-val{font-size:15px;font-weight:800;color:var(--green)}
+.cc-rebate{font-size:11px;color:var(--green);font-weight:600;margin-top:4px}
+.cc-note{font-size:10px;color:var(--ink-faint);margin-top:6px;line-height:1.5}
+
+/* ── COL TOGGLE ──────────────────────────────────────────────── */
+.col-toggle{font-size:12px;font-weight:600;color:var(--ink-mid);cursor:pointer;display:flex;align-items:center;gap:6px;margin-top:10px;user-select:none}
+.col-toggle:after{content:'›';font-size:14px;transition:transform 0.2s;color:var(--ink-faint)}
+.col-toggle.open:after{transform:rotate(90deg)}
+.col-body{display:none;margin-top:10px;background:var(--surface);border-radius:var(--radius-sm);padding:12px}
+.col-body.open{display:block}
+.col-row{display:flex;justify-content:space-between;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--border-light)}
+.col-row:last-child{border-bottom:none}
+.col-lbl{font-size:12px;color:var(--ink-soft);flex:1}
+.col-val{font-size:12px;font-weight:600;color:var(--ink);text-align:right}
+
+/* ── AI INSIGHTS ─────────────────────────────────────────────── */
 .ai-insights{margin-top:16px;display:flex;flex-direction:column;gap:10px}
-.ai-section{border-radius:10px;overflow:hidden;border:0.5px solid #e8e8e8}
-.ai-section-header{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;padding:8px 12px;display:flex;align-items:center;gap:6px}
+.ai-section{border-radius:var(--radius-sm);overflow:hidden;border:1px solid var(--border)}
+.ai-section-header{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.09em;padding:8px 12px;display:flex;align-items:center;gap:6px}
 .ai-section-body{font-size:13px;line-height:1.65;padding:10px 12px;color:#444;background:#fff}
 .ai-positive .ai-section-header{background:#E1F5EE;color:#0F6E56}
 .ai-negative .ai-section-header{background:#FAEEDA;color:#854F0B}
 .ai-commute .ai-section-header{background:#E6F1FB;color:#185FA5}
 .ai-growth .ai-section-header{background:#EAF3DE;color:#3B6D11}
 .ai-family .ai-section-header{background:#FBEAF0;color:#993556}
-.ai-loading{display:flex;align-items:center;gap:8px;padding:14px 12px;font-size:13px;color:#888;background:#fafafa;border-radius:10px;border:0.5px solid #e8e8e8}
-.ai-loading-dot{width:6px;height:6px;border-radius:50%;background:#1D9E75;animation:pulse 1.2s ease-in-out infinite}
+.ai-loading{display:flex;align-items:center;gap:8px;padding:14px 12px;font-size:13px;color:var(--ink-soft);background:var(--surface);border-radius:var(--radius-sm);border:1px solid var(--border)}
+.ai-loading-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 1.2s ease-in-out infinite}
 .ai-loading-dot:nth-child(2){animation-delay:0.2s}
 .ai-loading-dot:nth-child(3){animation-delay:0.4s}
 @keyframes pulse{0%,80%,100%{opacity:0.2}40%{opacity:1}}
-.cmp-sticky{position:fixed;bottom:0;left:0;right:0;background:#1D9E75;padding:14px 20px;display:none;align-items:center;justify-content:space-between;z-index:9999;box-shadow:0 -4px 20px rgba(0,0,0,0.15);animation:slideUp 0.2s ease;}
-@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
-.cmp-sticky-left{font-size:13px;font-weight:600;color:#fff}
-.cmp-sticky-sub{font-size:11px;color:rgba(255,255,255,0.75);margin-top:2px}
-.cmp-sticky-btn{font-size:13px;font-weight:700;color:#1D9E75;background:#fff;border:none;padding:10px 20px;border-radius:999px;cursor:pointer;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.15)}
-.col-toggle{font-size:12px;font-weight:600;color:#555;cursor:pointer;display:flex;align-items:center;gap:6px;margin-top:10px;user-select:none}
-.col-toggle:after{content:'›';font-size:14px;transition:transform 0.2s;color:#999}
-.col-toggle.open:after{transform:rotate(90deg)}
-.col-body{display:none;margin-top:10px;background:#fafafa;border-radius:10px;padding:12px}
-.col-body.open{display:block}
-.col-row{display:flex;justify-content:space-between;align-items:flex-start;padding:8px 0;border-bottom:1px solid #f0f0f0}
-.col-row:last-child{border-bottom:none}
-.col-lbl{font-size:12px;color:#888;flex:1}
-.col-val{font-size:12px;font-weight:600;color:#1a1a1a;text-align:right}
-.view-btn{display:block;width:100%;padding:13px;margin-top:14px;background:#1D9E75;color:#fff;border-radius:10px;text-align:center;font-size:14px;font-weight:600;text-decoration:none;box-sizing:border-box;}
-.commute-badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:#185FA5;background:#E6F1FB;padding:3px 9px;border-radius:20px;margin-top:4px;}
-.commute-badge.access-excellent{color:#085041;background:#E1F5EE;}
-.commute-badge.access-good{color:#185FA5;background:#E6F1FB;}
-.commute-badge.access-moderate{color:#8A5A00;background:#FFF4E5;}
-.commute-badge.access-limited{color:#8C2F2F;background:#FBE7E7;}
-.work-location-fields{margin-top:10px;display:flex;flex-direction:column;gap:10px;}
-.work-location-fields input{width:100%;font-size:15px;padding:11px 13px;border-radius:8px;border:1px solid #e0e0e0;background:#fafafa;color:#1a1a1a;outline:none;transition:border-color 0.2s;}
-.work-location-fields input:focus{border-color:#1D9E75;background:#fff;}
-.br-tick.active{color:#1D9E75!important;font-weight:700!important;}
 
-/* DDF listing display (added 2026-07-22) -- matches existing .card/.city
-   design tokens: white bg, #e8e8e8 border, 12px radius, #1D9E75 accent */
-.live-listings-toggle{width:100%;padding:12px;font-size:14px;font-weight:600;border-radius:10px;border:1.5px solid #1D9E75;background:#fff;color:#1D9E75;cursor:pointer;margin-top:8px;transition:all 0.2s;display:flex;align-items:center;justify-content:center;gap:6px;}
-.live-listings-toggle:hover{background:#E1F5EE;}
-.live-listings-toggle .beta-tag{font-size:10px;font-weight:700;background:#5B3A7E;color:#fff;padding:2px 6px;border-radius:999px;letter-spacing:0.3px;}
-.listings-loading,.listings-empty,.listings-error{padding:1.5rem;text-align:center;color:#555;font-size:14px;background:#fafafa;border-radius:12px;margin-top:10px;}
-.listings-error{color:#c0392b;background:#FAEEDA;}
-.listings-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-top:12px;}
-.listing-card{background:#FAF8F4;border:1px solid #ECE7DC;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.04);transition:box-shadow 0.2s;}
-.listing-card:hover{box-shadow:0 2px 10px rgba(29,158,117,0.15);}
-.listing-photo-wrap{position:relative;width:100%;aspect-ratio:4/3;background:#f0f0f0;}
-.listing-photo{width:100%;height:100%;object-fit:cover;display:block;}
-.listing-photo-empty{width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#999;font-size:12px;background:#f0f0f0;}
-.listing-verified-seal{position:absolute;top:8px;left:8px;background:rgba(20,33,61,0.82);color:#E8CE8F;font-size:9px;font-weight:700;letter-spacing:0.04em;padding:3px 7px;border-radius:5px;border:1px solid rgba(176,141,61,0.6);}
-.listing-body{padding:12px;}
-.listing-price{font-size:19px;font-weight:700;color:#14213D;font-variant-numeric:tabular-nums;letter-spacing:-0.01em;}
-.listing-meta{font-size:13px;color:#555;margin-top:2px;}
-.listing-brokerage{font-size:11px;color:#888;margin-top:6px;font-weight:500;}
-.listing-realtor-badge{display:flex;align-items:center;gap:6px;justify-content:space-between;margin-top:10px;padding:6px 10px;background:#f5f5f5;border-radius:8px;text-decoration:none;font-size:11px;font-weight:600;color:#1a1a1a;min-width:90px;transition:background 0.2s;}
-.listing-realtor-badge-logo{flex-shrink:0;display:block;}
-.listing-realtor-badge-mark{flex:1;}
-.listing-realtor-badge:hover{background:#E6F1FB;}
-.listing-realtor-badge-arrow{color:#1D9E75;}
-.listings-load-more{display:block;width:100%;margin-top:14px;padding:11px;font-size:13px;font-weight:600;border-radius:10px;border:1.5px solid #1D9E75;background:#fff;color:#1D9E75;cursor:pointer;transition:background 0.2s;}
-.listings-load-more:hover{background:#E1F5EE;}
-.listings-load-more:disabled{opacity:0.6;cursor:default;}
-.listings-trademark{font-size:10px;color:#999;margin-top:16px;padding-top:12px;border-top:1px solid #e8e8e8;line-height:1.5;}
+/* ── COMMUTE BADGE ───────────────────────────────────────────── */
+.commute-badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:#185FA5;background:#E6F1FB;padding:3px 9px;border-radius:999px;margin-top:4px}
+.commute-badge.access-excellent{color:#085041;background:var(--green-light)}
+.commute-badge.access-good{color:#185FA5;background:#E6F1FB}
+.commute-badge.access-moderate{color:#8A5A00;background:#FFF4E5}
+.commute-badge.access-limited{color:#8C2F2F;background:#FBE7E7}
+
+/* ── VIEW BUTTON ─────────────────────────────────────────────── */
+.view-btn{
+  display:block;width:100%;
+  padding:12px;margin-top:14px;
+  background:var(--green);color:#fff;
+  border-radius:var(--radius-sm);
+  text-align:center;
+  font-size:14px;font-weight:700;
+  text-decoration:none;box-sizing:border-box;
+  transition:background 0.15s,box-shadow 0.15s;
+  box-shadow:var(--shadow-green);
+}
+.view-btn:hover{background:var(--green-dark)}
+
+/* ── RATE BAR ────────────────────────────────────────────────── */
+#rateBar{
+  display:none;
+  margin:0 0 14px;
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:16px;
+  box-shadow:var(--shadow-sm);
+}
+#rateInput{
+  width:76px;font-size:15px;font-weight:800;
+  color:var(--green);
+  border:1.5px solid var(--border);
+  border-radius:var(--radius-sm);
+  padding:5px 8px;text-align:center;outline:none;
+  font-family:var(--font);
+}
+#rateSlider{width:100%;accent-color:var(--green);cursor:pointer;margin-top:4px}
+
+/* ── SHARE / SCENARIO BAR ────────────────────────────────────── */
+#shareBar{display:none;margin:0 0 10px 0;gap:8px}
+#scenarioBtn,#shareBtn{
+  flex:1;
+  background:var(--card);color:var(--green);
+  border:1.5px solid var(--green);
+  border-radius:var(--radius-sm);
+  padding:10px 8px;
+  font-family:var(--font);
+  font-size:12px;font-weight:700;cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;gap:5px;
+  white-space:nowrap;
+  transition:background 0.15s,box-shadow 0.15s;
+}
+#shareBar button{
+  flex:1;
+  background:var(--card);color:var(--green);
+  border:1.5px solid var(--green);
+  border-radius:var(--radius-sm);
+  padding:10px 8px;
+  font-family:var(--font);
+  font-size:12px;font-weight:700;cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;gap:5px;
+  white-space:nowrap;
+  transition:background 0.15s;
+}
+#shareBar button:hover{background:var(--green-light)}
+
+/* ── SCENARIO PANEL ──────────────────────────────────────────── */
+#scenarioPanel{
+  display:none;
+  margin:0 0 16px;
+  background:#FAF8FE;
+  border:1.5px solid #D9C9F0;
+  border-radius:var(--radius-lg);
+  padding:18px;
+  box-shadow:var(--shadow-sm);
+}
+.scn-wa-btn{
+  flex:1;background:#fff;color:#5B3A7E;
+  border:1.5px solid #D9C9F0;border-radius:var(--radius-sm);
+  padding:8px;font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;
+  transition:background 0.15s,border-color 0.15s;
+}
+.scn-wa-btn:hover{background:#F3EEF9;border-color:#B8A0DC}
+.scn-wa-btn.on{background:#5B3A7E;color:#fff;border-color:#5B3A7E}
+
+/* ── LEAD CAPTURE ────────────────────────────────────────────── */
+.cap{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  padding:24px 20px;
+  display:none;margin-top:24px;
+  box-shadow:var(--shadow-md);
+}
+.cap h3{font-size:20px;font-weight:800;color:var(--ink);margin-bottom:8px;letter-spacing:-0.3px}
+.cap p{font-size:14px;color:var(--ink-soft);margin-bottom:20px;line-height:1.6}
+.fld{margin-bottom:14px}
+.sub-btn{
+  width:100%;padding:14px;
+  font-family:var(--font);
+  font-size:15px;font-weight:700;
+  border-radius:var(--radius-sm);
+  border:none;background:var(--green);color:#fff;
+  cursor:pointer;margin-top:8px;
+  transition:background 0.15s,box-shadow 0.15s,transform 0.1s;
+  box-shadow:var(--shadow-green);
+  letter-spacing:0.01em;
+}
+.sub-btn:hover{background:var(--green-dark);transform:translateY(-1px);box-shadow:0 6px 20px rgba(29,158,117,0.32)}
+.sub-btn:active{transform:translateY(0)}
+
+/* ── DONE STATE ──────────────────────────────────────────────── */
+.done{
+  text-align:center;padding:2.5rem 1.5rem;display:none;
+  background:var(--card);border-radius:var(--radius-lg);
+  margin-top:24px;box-shadow:var(--shadow-md);
+  border:1px solid var(--border);
+}
+.done-icon{
+  width:60px;height:60px;
+  background:var(--green-light);border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  margin:0 auto 18px;font-size:28px;
+}
+.done h3{font-size:20px;font-weight:800;color:var(--ink);margin-bottom:8px;letter-spacing:-0.3px}
+.done p{font-size:14px;color:var(--ink-soft);line-height:1.7}
+.done .phone{
+  display:inline-block;margin-top:14px;
+  font-size:17px;font-weight:800;
+  color:var(--green);text-decoration:none;
+  letter-spacing:-0.2px;
+}
+
+/* ── TOOLTIP / INFO BTN ──────────────────────────────────────── */
+.info-btn{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:18px;height:18px;
+  border-radius:50%;
+  background:var(--surface);
+  color:var(--ink-soft);
+  font-size:11px;cursor:pointer;
+  font-style:normal;flex-shrink:0;
+  transition:background 0.15s,color 0.15s;
+  border:1px solid var(--border);
+  padding:0;margin:0;
+  font-family:var(--font);line-height:normal;
+}
+.info-btn:hover{background:var(--green);color:#fff;border-color:var(--green)}
+.tooltip-box{
+  display:none;font-size:12.5px;color:var(--ink-mid);line-height:1.6;
+  background:#F8FFFE;border-radius:var(--radius-sm);
+  padding:10px 14px;margin-bottom:10px;
+  border-left:3px solid var(--green);
+  border:1px solid #C8EFE0;border-left:3px solid var(--green);
+}
+
+/* ── ERROR STATE ─────────────────────────────────────────────── */
+.err{
+  font-size:13px;color:#b91c1c;
+  margin-top:8px;display:none;
+  padding:10px 14px;
+  background:#FFF1F1;border-radius:var(--radius-sm);
+  border:1px solid #FCCACA;
+  font-weight:500;
+}
+.results-section{display:none}
+
+/* ── DEBT WARNING ────────────────────────────────────────────── */
+#dbt-warning{
+  display:none;margin-top:6px;
+  font-size:12px;color:#92400E;
+  background:#FFFBEB;border:1px solid #FDE68A;
+  border-radius:var(--radius-sm);padding:9px 12px;line-height:1.5;
+}
+
+/* ── FOOTER NOTES ────────────────────────────────────────────── */
+.note{
+  font-size:11px;color:var(--ink-faint);
+  margin-top:18px;line-height:1.75;
+  padding:14px 16px;
+  border-radius:var(--radius-sm);
+  background:var(--card);
+  border:1px solid var(--border-light);
+}
+.pw{
+  text-align:center;font-size:11px;
+  color:var(--ink-faint);margin-top:24px;
+  font-weight:500;
+}
+
+/* ── FTB TOGGLE BUTTONS ──────────────────────────────────────── */
+#ftb-yes,#ftb-no{
+  flex:1;padding:10px;
+  border-radius:999px;
+  font-family:var(--font);
+  font-size:13px;font-weight:600;
+  cursor:pointer;
+  transition:all 0.15s;
+}
+
+/* ── DDF LISTINGS ────────────────────────────────────────────── */
+.live-listings-toggle{
+  width:100%;padding:12px;
+  font-family:var(--font);
+  font-size:14px;font-weight:700;
+  border-radius:var(--radius-sm);
+  border:1.5px solid var(--green);
+  background:var(--card);color:var(--green);
+  cursor:pointer;margin-top:8px;
+  transition:all 0.15s;
+  display:flex;align-items:center;justify-content:center;gap:6px;
+}
+.live-listings-toggle:hover{background:var(--green-light)}
+.live-listings-toggle .beta-tag{
+  font-size:10px;font-weight:700;
+  background:#5B3A7E;color:#fff;
+  padding:2px 7px;border-radius:999px;letter-spacing:0.3px;
+}
+.listings-loading,.listings-empty,.listings-error{
+  padding:1.5rem;text-align:center;
+  color:var(--ink-mid);font-size:14px;
+  background:var(--surface);border-radius:var(--radius);margin-top:10px;
+}
+.listings-error{color:#b91c1c;background:#FFF1F1}
+.listings-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
+  gap:12px;margin-top:12px;
+}
+.listing-card{
+  background:#FAF8F4;border:1px solid #ECE7DC;
+  border-radius:var(--radius);overflow:hidden;
+  box-shadow:var(--shadow-sm);
+  transition:box-shadow 0.2s,transform 0.1s;
+}
+.listing-card:hover{box-shadow:var(--shadow),0 0 0 1px rgba(29,158,117,0.1);transform:translateY(-1px)}
+.listing-photo-wrap{position:relative;width:100%;aspect-ratio:4/3;background:var(--surface)}
+.listing-photo{width:100%;height:100%;object-fit:cover;display:block}
+.listing-photo-empty{width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--ink-faint);font-size:12px;background:var(--surface)}
+.listing-verified-seal{
+  position:absolute;top:8px;left:8px;
+  background:rgba(20,33,61,0.82);color:#E8CE8F;
+  font-size:9px;font-weight:700;letter-spacing:0.04em;
+  padding:3px 7px;border-radius:5px;
+  border:1px solid rgba(176,141,61,0.6);
+}
+.listing-body{padding:12px}
+.listing-price{font-size:19px;font-weight:800;color:var(--navy-mid);font-variant-numeric:tabular-nums;letter-spacing:-0.2px}
+.listing-meta{font-size:13px;color:var(--ink-mid);margin-top:2px}
+.listing-brokerage{font-size:11px;color:var(--ink-soft);margin-top:6px;font-weight:500}
+.listing-realtor-badge{
+  display:flex;align-items:center;gap:6px;justify-content:space-between;
+  margin-top:10px;padding:6px 10px;
+  background:var(--surface);border-radius:var(--radius-sm);
+  text-decoration:none;font-size:11px;font-weight:600;
+  color:var(--ink);min-width:90px;
+  transition:background 0.15s;
+}
+.listing-realtor-badge:hover{background:#E6F1FB}
+.listing-realtor-badge-logo{flex-shrink:0;display:block}
+.listing-realtor-badge-mark{flex:1}
+.listing-realtor-badge-arrow{color:var(--green)}
+.listings-load-more{
+  display:block;width:100%;margin-top:14px;padding:11px;
+  font-family:var(--font);
+  font-size:13px;font-weight:700;
+  border-radius:var(--radius-sm);
+  border:1.5px solid var(--green);
+  background:var(--card);color:var(--green);cursor:pointer;
+  transition:background 0.15s;
+}
+.listings-load-more:hover{background:var(--green-light)}
+.listings-load-more:disabled{opacity:0.55;cursor:default}
+.listings-trademark{
+  font-size:10px;color:var(--ink-faint);
+  margin-top:16px;padding-top:12px;
+  border-top:1px solid var(--border);line-height:1.5;
+}
+
+/* ── BR TICK ─────────────────────────────────────────────────── */
+.br-tick.active{color:var(--green)!important;font-weight:700!important}
+
+/* ── TRANSPARENCY MODAL ──────────────────────────────────────── */
+#transparencyModalOverlay{
+  display:none;position:fixed;inset:0;
+  background:rgba(0,0,0,0.55);
+  z-index:10000;
+  align-items:center;justify-content:center;padding:20px;
+}
+#transparencyModalOverlay > div{
+  background:var(--card);
+  border-radius:var(--radius-lg);
+  max-width:400px;width:100%;
+  padding:28px 24px 24px;
+  box-shadow:0 24px 64px rgba(0,0,0,0.35);
+}
+
+/* ── PRINT STYLES ────────────────────────────────────────────── */
 </style>
 
 <style id="printStyles">
@@ -424,8 +1072,6 @@ input[type=text]:focus,input[type=email]:focus,input[type=tel]:focus{border-colo
 .pr-agent-name { font-size: 15px; font-weight: 800; color: #1D9E75; }
 .pr-agent-sub  { font-size: 11px; color: #555; margin-top: 2px; }
 .pr-agent-contact { text-align: right; font-size: 11px; color: #555; }
-.scn-wa-btn{flex:1;background:#fff;color:#5B3A7E;border:1.5px solid #D9C9F0;border-radius:8px;padding:8px;font-size:12px;font-weight:700;cursor:pointer}
-.scn-wa-btn.on{background:#5B3A7E;color:#fff;border-color:#5B3A7E}
 </style>
 </head>
 <body>
@@ -514,7 +1160,7 @@ input[type=text]:focus,input[type=email]:focus,input[type=tel]:focus{border-colo
       <div style="margin-top:6px;color:#1D9E75;font-weight:600" id="l3_zero">No existing debts? Leave it as Zero</div>
     </div>
     <input type="number" id="dbt" placeholder="0" min="0" value="0" oninput="checkDebtSanity()">
-    <div id="dbt-warning" style="display:none;margin-top:6px;font-size:12px;color:#B8860B;background:#FFF8E1;border:1px solid #F0E0A0;border-radius:6px;padding:8px 10px;line-height:1.4">
+    <div id="dbt-warning" style="display:none;margin-top:6px;font-size:12px;color:#92400E;background:#FFFBEB;border:1px solid #FDE68A;border-radius:6px;padding:8px 10px;line-height:1.4">
       ⚠ That looks high for a <em>monthly</em> payment. Please enter your monthly debt payment (e.g. $400), not your total loan balance — a large number here will incorrectly reduce how much home you qualify for.
     </div>
   </div>
@@ -536,7 +1182,7 @@ input[type=text]:focus,input[type=email]:focus,input[type=tel]:focus{border-colo
         <input type="text" id="workPostal" placeholder="e.g. L6Y 0A1" maxlength="7" style="text-transform:uppercase;">
       </div>
     </div>
-    <div style="font-size:11px;color:#bbb;margin-top:8px;" id="wa_hint">Remote workers get recommendations ranked purely by affordability.</div>
+    <div style="font-size:11px;color:#9CA3AF;margin-top:8px;" id="wa_hint">Remote workers get recommendations ranked purely by affordability.</div>
   </div>
   <div class="card">
     <label class="lbl" style="display:flex;align-items:center;gap:6px;">
@@ -562,10 +1208,10 @@ input[type=text]:focus,input[type=email]:focus,input[type=tel]:focus{border-colo
   <div class="card">
     <div class="lbl" id="ftb_lbl">Are you a first-time home buyer?</div>
     <div style="display:flex;gap:10px;margin-top:8px">
-      <button id="ftb-yes" onclick="setFTB(true)" style="flex:1;padding:10px;border-radius:999px;border:1.5px solid #e8e8e8;background:#fff;color:#555;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.18s">Yes</button>
-      <button id="ftb-no" onclick="setFTB(false)" style="flex:1;padding:10px;border-radius:999px;border:1.5px solid #1D9E75;background:#1D9E75;color:#fff;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.18s">No</button>
+      <button id="ftb-yes" onclick="setFTB(true)" style="flex:1;padding:10px;border-radius:999px;border:1.5px solid #E4E7EC;background:#fff;color:#3D4555;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;font-family:var(--font)">Yes</button>
+      <button id="ftb-no" onclick="setFTB(false)" style="flex:1;padding:10px;border-radius:999px;border:1.5px solid #1D9E75;background:#1D9E75;color:#fff;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;font-family:var(--font)">No</button>
     </div>
-    <div style="font-size:11px;color:#bbb;margin-top:6px">First-time buyers may qualify for land transfer tax rebates</div>
+    <div style="font-size:11px;color:#9CA3AF;margin-top:6px">First-time buyers may qualify for land transfer tax rebates</div>
   </div>
   <div class="card">
     <label class="lbl" style="display:flex;align-items:center;gap:6px;">
@@ -595,7 +1241,7 @@ input[type=text]:focus,input[type=email]:focus,input[type=tel]:focus{border-colo
     <div class="bp-val" id="bpV"></div>
     <div class="bp-sub" id="bpSub" style="font-size:13px;line-height:1.5"></div>
     <div class="bp-sub" id="bp_sub_txt" style="margin-top:6px;opacity:0.7">This is the maximum home price you can qualify for. Tap any city below to see the full monthly cost breakdown.</div>
-    <div id="rateNote" style="font-size:11px;color:#bbb;margin-top:6px;line-height:1.5">Based on 4.19% mortgage rate · Stress tested at 6.19% · Educational estimate only — not a mortgage pre-approval.</div>
+    <div id="rateNote" style="font-size:11px;color:rgba(255,255,255,0.6);margin-top:6px;line-height:1.5">Based on 4.19% mortgage rate · Stress tested at 6.19% · Educational estimate only — not a mortgage pre-approval.</div>
   </div>
 
   <div class="results-section" id="res">
@@ -615,12 +1261,12 @@ input[type=text]:focus,input[type=email]:focus,input[type=tel]:focus{border-colo
     <div id="topPicks"></div>
     <div id="printReport"></div>
 
-    <div id="rateBar" style="display:none;margin:0 0 12px 0;background:#fff;border:1px solid #e8e8e8;border-radius:12px;padding:14px 16px">
+    <div id="rateBar" style="display:none;margin:0 0 14px 0;background:#fff;border:1px solid #E4E7EC;border-radius:12px;padding:16px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#555;display:flex;align-items:center;gap:4px">Mortgage Rate<button type="button" class="info-btn" onclick="toggleTooltip(event,'rate-tooltip')" aria-label="Mortgage rate info">ⓘ</button></div>
+        <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#3D4555;display:flex;align-items:center;gap:4px">Mortgage Rate<button type="button" class="info-btn" onclick="toggleTooltip(event,'rate-tooltip')" aria-label="Mortgage rate info">ⓘ</button></div>
         <div style="display:flex;align-items:center;gap:6px">
           <input id="rateInput" type="number" min="1" max="15" step="0.05"
-            style="width:72px;font-size:15px;font-weight:800;color:#1D9E75;border:1.5px solid #e0e0e0;border-radius:8px;padding:4px 8px;text-align:center;outline:none"
+            style="width:72px;font-size:15px;font-weight:800;color:#1D9E75;border:1.5px solid #E4E7EC;border-radius:8px;padding:4px 8px;text-align:center;outline:none;font-family:var(--font)"
             oninput="syncRate(this.value,'input')" />
           <span style="font-size:14px;font-weight:700;color:#1D9E75">%</span>
         </div>
@@ -630,39 +1276,39 @@ input[type=text]:focus,input[type=email]:focus,input[type=tel]:focus{border-colo
         style="width:100%;accent-color:#1D9E75;cursor:pointer"
         oninput="syncRate(this.value,'slider')" />
       <div style="display:flex;justify-content:space-between;margin-top:4px">
-        <span style="font-size:10px;color:#bbb">1%</span>
-        <span id="rateHint" style="font-size:10px;color:#999;font-style:italic"></span>
-        <span style="font-size:10px;color:#bbb">15%</span>
+        <span style="font-size:10px;color:#9CA3AF">1%</span>
+        <span id="rateHint" style="font-size:10px;color:#6B7280;font-style:italic"></span>
+        <span style="font-size:10px;color:#9CA3AF">15%</span>
       </div>
     </div>
     <div id="shareBar" style="display:none;margin:0 0 10px 0;gap:8px">
       <button id="scenarioBtn" onclick="openScenarioSandbox()"
-        style="flex:1;background:#fff;color:#1D9E75;border:1.5px solid #1D9E75;border-radius:8px;padding:10px 8px;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap">
+        style="flex:1;background:#fff;color:#1D9E75;border:1.5px solid #1D9E75;border-radius:8px;padding:10px 8px;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap;font-family:var(--font)">
         <span>Scenarios</span>
       </button>
       <button id="shareBtn" onclick="shareScenario()"
-        style="flex:1;background:#fff;color:#1D9E75;border:1.5px solid #1D9E75;border-radius:8px;padding:10px 8px;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap">
+        style="flex:1;background:#fff;color:#1D9E75;border:1.5px solid #1D9E75;border-radius:8px;padding:10px 8px;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap;font-family:var(--font)">
         <span id="shareBtnLbl">Share</span>
       </button>
       <button onclick="downloadReport()"
-        style="flex:1;background:#fff;color:#1D9E75;border:1.5px solid #1D9E75;border-radius:8px;padding:10px 8px;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap">
+        style="flex:1;background:#fff;color:#1D9E75;border:1.5px solid #1D9E75;border-radius:8px;padding:10px 8px;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap;font-family:var(--font)">
         <span>Download Report</span>
       </button>
     </div>
-    <div id="scenarioPanel" style="display:none;margin:0 0 16px 0;background:#FAF8FE;border:1.5px solid #D9C9F0;border-radius:14px;padding:16px 18px">
+    <div id="scenarioPanel" style="display:none;margin:0 0 16px 0;background:#FAF8FE;border:1.5px solid #D9C9F0;border-radius:14px;padding:18px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
         <div style="font-size:13px;font-weight:800;color:#5B3A7E">🔮 What If...</div>
-        <button onclick="closeScenarioSandbox()" style="background:none;border:none;color:#8B6CA8;font-size:13px;font-weight:700;cursor:pointer">Close</button>
+        <button onclick="closeScenarioSandbox()" style="background:none;border:none;color:#8B6CA8;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font)">Close</button>
       </div>
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
         <div>
           <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#8B6CA8;margin-bottom:4px">Income</div>
-          <input id="scnInc" type="number" style="width:100%;font-size:14px;font-weight:700;color:#5B3A7E;border:1.5px solid #D9C9F0;border-radius:8px;padding:7px 10px;outline:none" oninput="scenarioPreview()" />
+          <input id="scnInc" type="number" style="width:100%;font-size:14px;font-weight:700;color:#5B3A7E;border:1.5px solid #D9C9F0;border-radius:8px;padding:7px 10px;outline:none;font-family:var(--font)" oninput="scenarioPreview()" />
         </div>
         <div>
           <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#8B6CA8;margin-bottom:4px">Down Payment</div>
-          <input id="scnDn" type="number" style="width:100%;font-size:14px;font-weight:700;color:#5B3A7E;border:1.5px solid #D9C9F0;border-radius:8px;padding:7px 10px;outline:none" oninput="scenarioPreview()" />
+          <input id="scnDn" type="number" style="width:100%;font-size:14px;font-weight:700;color:#5B3A7E;border:1.5px solid #D9C9F0;border-radius:8px;padding:7px 10px;outline:none;font-family:var(--font)" oninput="scenarioPreview()" />
         </div>
       </div>
 
@@ -675,18 +1321,16 @@ input[type=text]:focus,input[type=email]:focus,input[type=tel]:focus{border-colo
         </div>
       </div>
 
-      <button onclick="runScenarioComparison()" style="width:100%;background:#5B3A7E;color:#fff;border:none;border-radius:10px;padding:11px;font-size:14px;font-weight:700;cursor:pointer">Compare</button>
+      <button onclick="runScenarioComparison()" style="width:100%;background:#5B3A7E;color:#fff;border:none;border-radius:10px;padding:11px;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--font)">Compare</button>
 
       <div id="scenarioResults" style="margin-top:16px"></div>
     </div>
     <div id="list"></div>
     <div class="note" id="footerRateNote">Estimates based on 4.19% mortgage rate, stress tested at 6.19%. Qualification estimates are educational only and do not represent mortgage approval — final qualification depends on lender underwriting, credit, property taxes, condo fees, heating costs, and program eligibility. Sandeep Takhar is a RE/MAX agent covering Bolton, Caledon, Orangeville and surrounding areas. English · Français · 中文 · Punjabi · Hindi · Urdu · 416-725-8087</div>
+    <div class="note" id="siteWideDisclaimer" style="margin-top:6px">HomePilot estimates are for informational purposes only and do not constitute financial or mortgage advice.</div>
 
-    <!-- CREA DDF® compliance block — required on every page per DDF® Rules Section 6.
-         Added July 16, 2026 ahead of the National Shared Pool feed going live, so the
-         site is never non-compliant even for a moment once real listings appear. -->
-    <div class="note" id="creaComplianceFooter" style="margin-top:10px;padding-top:10px;border-top:1px solid #eee">
-      <img src="data:image/png;base64,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auTXowC1JfAulC4+nYGd52pVUhaijlTnoLbyS1DNsDs61gPQ1J3zSvahdBrYB9GQxG+jWvDno9d/HbUBX4CaAB5Hn/MuwFGollzan6Otzn7+CQXPs1GTwPUow7E1KiQ8j66n0t7Yv0AB+RS0mtsqFETHogJHPD47D/x3dA5+CfwOTewRoMzg21AtvNYMauutoVp/s5V2Qxdl2vbDEKWQH0n5unKLUWl0/4yvn4Q+hxlkT9FVswrdIBqdzKAdeA/pV5LpRe3k9WYDAgWVo0k+dOcm1E6WZG7uvdBMP0PhQnSTa7U16HxNbMG2f4smEGnmYhlLou01Mq92B+qhewMqgKXRib5fP0Wp2L3Q+TsYBYp5KPCVNml0o1TsjVSfOe656O/T0BSch6He0YvRTFF/otjLuR3YGNV+4/1fggrJ26P26YdQwLouev5h6NrdF3XguhB9Nkui1wfo3vESCnyV5KP3fIribHwHoe/z36LtTUC12cej1/SjguQV0T49QDEzsC+qJcff6xUoqK+NtvsWNPf9JOCPqDCR9vNaLwz3hPzNsBuazSVLAL6Q5nSW2QI4nmJPxzQC1E7WgS7YZnXIyqF2qZ/QeE2mA3g/SgMmrakHqADwU2r3wIxNiN5jVoL3yKGaTNIUaTz7UVIButnFx5D0M4kLdXeleK+sxqJe+Fun2L8kx92HCk0PtmCfJ6LPeGOyZ3wCFDSuyfC6Nopju+OOR+3oM17B4POYix5JFqwPUOFxPApEyxg8dCveh0KF42+L9mVtyXvF12FXtK1lDO5pHFCs/SYZKtYRHXcbar+NCxZtFMe+1zIB+CSaYOMkBvZfCVD7dXe0reU0f352M1sPlKcLbWTw59J6HShjUO0cz0A1Xq9x3iB3wjKrrHRGJhs5/Lm03lGog1i1Jspl0WPCcO/oaOcAbGZmpXKofXxGlb9vCWzEyB5ZYWZmNupsiIZO/YLi0oUB6newG5rB73xaM9f5esXtKGZmVm42Gha1LepEuRSNFd4UTRDyVZJ1rrQaHIDNzKySCWh41OvREKnFqHf8o6jnuJmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZnZyPP/AQaqAnzxeBNVAAAAAElFTkSuQmCC" alt="RE/MAX Realty Specialists Inc., Brokerage" style="height:32px;width:auto;display:block;margin-bottom:8px" />
+    <!-- CREA DDF® compliance block -->
+    <div class="note" id="creaComplianceFooter" style="margin-top:10px;padding-top:10px;border-top:1px solid #E4E7EC">
       <img src="src/assets/crea-logo.png" alt="The Canadian Real Estate Association" style="height:32px;width:auto;display:block;margin-bottom:8px" />
       This site is operated by <strong>Sandeep Takhar</strong>, a REALTOR® with <strong>RE/MAX Realty Specialists Inc., Brokerage</strong>.
       REALTOR®, REALTORS®, and the REALTOR® logo are certification marks owned by REALTOR® Canada Inc. and licensed exclusively to The Canadian Real Estate Association (CREA). These certification marks identify real estate professionals who are members of CREA and who must abide by CREA's By-Laws, Rules, and the REALTOR® Code. The MLS® trademark and the MLS® logo are owned by CREA and identify the quality of services provided by real estate professionals who are members of CREA.
@@ -734,7 +1378,7 @@ input[type=text]:focus,input[type=email]:focus,input[type=tel]:focus{border-colo
       </select>
     </div>
     <button class="sub-btn" id="subBtn" onclick="showTransparencyModal()"><span id="st">Send me homes in my budget</span></button>
-    <p id="leadErr" style="display:none;color:#c0392b;font-size:13px;margin-top:10px;text-align:center;">Something went wrong sending your info. Please try again, or reach out directly.</p>
+    <p id="leadErr" style="display:none;color:#b91c1c;font-size:13px;margin-top:10px;text-align:center;">Something went wrong sending your info. Please try again, or reach out directly.</p>
   </div>
 
   <div class="done" id="done">
@@ -747,14 +1391,14 @@ input[type=text]:focus,input[type=email]:focus,input[type=tel]:focus{border-colo
   <div class="pw">Powered by HomePilot · Built for Ontario home buyers</div>
 </div>
 
-<div id="transparencyModalOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10000;align-items:center;justify-content:center;padding:20px">
-  <div style="background:#fff;border-radius:16px;max-width:400px;width:100%;padding:28px 24px 24px;box-shadow:0 20px 60px rgba(0,0,0,0.3)">
+<div id="transparencyModalOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:10000;align-items:center;justify-content:center;padding:20px">
+  <div style="background:#fff;border-radius:16px;max-width:400px;width:100%;padding:28px 24px 24px;box-shadow:0 24px 64px rgba(0,0,0,0.35)">
     <div style="font-size:32px;margin-bottom:10px">👋</div>
-    <div style="font-size:15px;font-weight:700;color:#1a1a1a;margin-bottom:8px">In the spirit of transparency</div>
-    <div style="font-size:14px;color:#555;line-height:1.55;margin-bottom:20px">This information goes directly to <strong>Sandeep Takhar</strong>, a licensed RE/MAX real estate agent. No call centers, no lead marketplaces — just honest advice and help understanding your options.</div>
+    <div style="font-size:15px;font-weight:700;color:#111318;margin-bottom:8px">In the spirit of transparency</div>
+    <div style="font-size:14px;color:#3D4555;line-height:1.55;margin-bottom:20px">This information goes directly to <strong>Sandeep Takhar</strong>, a licensed RE/MAX real estate agent. No call centers, no lead marketplaces — just honest advice and help understanding your options.</div>
     <div style="display:flex;gap:10px">
-      <button onclick="closeTransparencyModal()" style="flex:1;padding:12px;border-radius:10px;border:1.5px solid #e0e0e0;background:#fff;color:#555;font-size:14px;font-weight:600;cursor:pointer">Cancel</button>
-      <button onclick="confirmSendLead()" style="flex:1.4;padding:12px;border-radius:10px;border:none;background:#1D9E75;color:#fff;font-size:14px;font-weight:700;cursor:pointer">Got it — send it</button>
+      <button onclick="closeTransparencyModal()" style="flex:1;padding:12px;border-radius:10px;border:1.5px solid #E4E7EC;background:#fff;color:#3D4555;font-size:14px;font-weight:600;cursor:pointer;font-family:var(--font)">Cancel</button>
+      <button onclick="confirmSendLead()" style="flex:1.4;padding:12px;border-radius:10px;border:none;background:#1D9E75;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--font)">Got it — send it</button>
     </div>
   </div>
 </div>
@@ -781,41 +1425,6 @@ input[type=text]:focus,input[type=email]:focus,input[type=tel]:focus{border-colo
 <script src="src/render.js"></script>
 <script src="src/listings-display.js"></script>
 <script>
-// T (translation strings, 6 languages) now lives in src/i18n.js — loaded via <script src>.
-
-// ── CITY DATA: tx = municipal residential property tax rate (decimal, e.g. 0.01757 = 1.757%) ──
-// Verified July 6, 2026, tier 1 — official municipal by-laws or WOWA.ca published final rates
-// (51 of 55 cities): Welland, Fort Erie, Belleville, Oshawa, Hamilton, Peterborough, Barrie,
-// Kingston, St. Catharines, Niagara Falls, Midland, Cobourg, Ottawa, Wasaga Beach, Cambridge,
-// Kitchener, Waterloo, Georgina, Innisfil, Centre Wellington, Clarington, Scugog, Guelph, Orangeville,
-// Whitby, Ajax, Bradford, Newmarket, Pickering, Acton/Georgetown/Halton Hills, Mississauga,
-// Brampton, all Toronto zones, Milton, Bolton/Caledon, Aurora, Vaughan, Markham, Richmond Hill,
-// Burlington, Oakville, King City.
-// Verified July 6, 2026, tier 2 — estimated via documented proxy method, not a direct municipal
-// source (4 cities): Shelburne, Grand Valley, Mono (scaled from a 2015 comparative Dufferin
-// County dataset using the ratio of Orangeville's verified 2025 rate to its 2015 rate); Erin
-// (set equal to neighbouring Centre Wellington's verified rate — same County of Wellington
-// upper-tier rate, nearly identical town/county/education revenue split). Lower confidence than
-// tier 1 — re-verify against each town's own by-law when time allows.
-// tax used in calcCosts() as: annual tax = price × tx (see calcCosts()).
-// DEFAULT_MORTGAGE_RATE_PCT now lives in src/config.js (loaded via <script src> before this
-// block) — single source of truth for the default/market mortgage rate, unchanged behavior.
-
-// M (city metadata array) now lives in src/cities.js — loaded via <script src>.
-
-// RF, and core global state (lang, results, buyPower, comfortBuyPower, fam_selected, dn_selected, grossMonthlyIncome, netMonthlyIncome, customMortgageRate, firstTimeBuyer, existingDebt) now live in src/main.js — loaded via <script src>.
-
-// DATA_FRESHNESS and daysSince() now live in src/config.js (loaded via <script src> before
-// this block) — unchanged behavior, same object shape, same Dev-Mode-only usage below.
-
-// DESIRABILITY, getBuyerTier(), TIER_WEIGHTS, getScoringDriveMinutes(),
-// getHomePilotScore(), getCityScoreReasons(), homePilotSort() now live in
-// src/homepilot-score.js — loaded via <script src>. Still actively used —
-// homePilotSort() drives the final result ordering inside go().
-
-// setLang now lives in src/ui-helpers.js — loaded via <script src>.
-
-// toggleTooltip now lives in src/ui-helpers.js — loaded via <script src>.
 document.addEventListener('keydown',function(e){
   if(e.shiftKey&&e.key==='D'){
     devMode=!devMode;
@@ -823,21 +1432,18 @@ document.addEventListener('keydown',function(e){
     if(!ind){
       ind=document.createElement('div');
       ind.id='dev-mode-indicator';
-      ind.style.cssText='position:fixed;bottom:16px;right:16px;background:#1a1a1a;color:#1D9E75;font-size:11px;font-weight:700;padding:6px 12px;border-radius:20px;z-index:9999;font-family:monospace;box-shadow:0 2px 8px rgba(0,0,0,0.3)';
+      ind.style.cssText='position:fixed;bottom:16px;right:16px;background:#111318;color:#1D9E75;font-size:11px;font-weight:700;padding:6px 12px;border-radius:20px;z-index:9999;font-family:monospace;box-shadow:0 2px 8px rgba(0,0,0,0.3)';
       document.body.appendChild(ind);
     }
     ind.textContent=devMode?'⚙ DEV MODE ON':'⚙ DEV MODE OFF';
     ind.style.color=devMode?'#1D9E75':'#888';
     setTimeout(()=>{if(!devMode&&ind)ind.style.opacity='0.3';else if(ind)ind.style.opacity='1';},2000);
-
-    // Data freshness readout — dev-only, never buyer-facing. Flags the OLDEST tracked
-    // item so a glance tells you if anything needs a refresh (>120 days = stale warning).
     let fresh=document.getElementById('data-freshness-indicator');
     if(devMode){
       if(!fresh){
         fresh=document.createElement('div');
         fresh.id='data-freshness-indicator';
-        fresh.style.cssText='position:fixed;bottom:52px;right:16px;background:#1a1a1a;color:#888;font-size:10px;font-weight:600;padding:6px 12px;border-radius:20px;z-index:9999;font-family:monospace;box-shadow:0 2px 8px rgba(0,0,0,0.3);max-width:260px;line-height:1.5';
+        fresh.style.cssText='position:fixed;bottom:52px;right:16px;background:#111318;color:#888;font-size:10px;font-weight:600;padding:6px 12px;border-radius:20px;z-index:9999;font-family:monospace;box-shadow:0 2px 8px rgba(0,0,0,0.3);max-width:260px;line-height:1.5';
         document.body.appendChild(fresh);
       }
       const items=Object.entries(DATA_FRESHNESS).map(([k,v])=>({k,days:daysSince(v.lastUpdated)}));
@@ -852,183 +1458,6 @@ document.addEventListener('keydown',function(e){
     render();
   }
 });
-
-// CITY_GEO, INCOM_PROP, buildIncomUrl removed entirely 2026-07-22 -- INCOM
-// replaced by real DDF/CREA listings (see src/listings-display.js).
-
-// fc now lives in src/utils.js — loaded via <script src>.
-
-// Stress test — OSFI rule: higher of the 5.25% qualifying floor or (contract rate + 2%).
-// Was previously hardcoded to a stale 7.25%; now tracks the actual selected rate.
-// getStressRate() now lives in src/mortgage.js — loaded via <script src>.
-
-// calcBP() now lives in src/mortgage.js — loaded via <script src>.
-
-// Full per-property qualification check — used to gate whether a specific city+type
-// combination actually qualifies, using real inputs instead of calcBP()'s generalized
-// estimate: the CITY'S ACTUAL tax rate, 50% of the condo fee (lenders include half of
-// condo fees in GDS/TDS), the dynamic stress rate, and amortization based on the real
-// down-payment ratio for this specific price. This is the accurate check; calcBP() above
-// is a fast general-purpose ceiling shown before a city/property is chosen.
-// qualifiesForProperty() now lives in src/mortgage.js — loaded via <script src>.
-
-
-
-// ── UTILITIES by property type and family size (monthly $) ──
-// Condos: utilities often partially covered by fees — shown separately, net of typical inclusion
-// UTIL_BY_TYPE() now lives in src/mortgage.js — loaded via <script src>.
-
-// calcCosts() now lives in src/mortgage.js — loaded via <script src>.
-
-// getFit() now lives in src/explainability.js — loaded via <script src>.
-
-// activeProp, activeFit, devMode now live in src/main.js — loaded via <script src>.
-
-
-// ── TYPICAL ENTRY PRICES (40th–50th percentile of active listings, 2025) ──
-// null = this property type does not realistically exist in this city at
-// buyer-accessible prices. The filter suppresses it entirely.
-// These are NOT floor prices. They represent what a typical buyer actually needs
-// to spend to enter this market for a liveable, representative property.
-// PT (typical entry prices table) now lives in src/cities.js — loaded via <script src>.
-
-// ── MONTHLY CONDO FEES by city (approximate average for a typical unit) ──
-// These are NOT included in mortgage or tax — they are a real additional cost.
-// Source: average maintenance fees from MPAC/MLS 2024–25 data
-// CONDO_FEES now lives in src/cities.js — loaded via <script src>.
-
-// ── DEPRECATED as of July 2026: no longer used by calcCosts() ──
-// This flat-dollar table didn't scale with price (same tax shown for a $700K and $1.1M
-// home in the same city/type). Replaced with city-level rate × price (see m.tx per city
-// in the city data table above, and calcCosts()). Kept here for reference only.
-const PROP_TAX_ANNUAL={
-  "Bolton":           {condo:null,   town:7400,  semi:8000,  detached:9800 },
-  "Caledon":          {condo:null,   town:7800,  semi:8600,  detached:10500},
-  "Orangeville":      {condo:3900,   town:5400,  semi:6000,  detached:7200 },
-  "Shelburne":        {condo:null,   town:4800,  semi:5400,  detached:6500 },
-  "Grand Valley":     {condo:null,   town:null,  semi:null,  detached:5800 },
-  "Mono":             {condo:null,   town:null,  semi:null,  detached:8200 },
-  "Erin":             {condo:null,   town:null,  semi:null,  detached:7800 },
-  "Centre Wellington":{condo:null,   town:5200,  semi:null,  detached:7000 },
-  "Georgetown":       {condo:null,   town:6200,  semi:6900,  detached:8400 },
-  "Halton Hills":     {condo:null,   town:6000,  semi:6700,  detached:8200 },
-  "Acton":            {condo:null,   town:5600,  semi:6200,  detached:7600 },
-  "Milton":           {condo:4400,   town:5800,  semi:6600,  detached:8100 },
-  "Burlington":       {condo:4600,   town:6200,  semi:7100,  detached:9200 },
-  "Oakville":         {condo:4800,   town:6800,  semi:8300,  detached:11200},
-  "Brampton":         {condo:4300,   town:5900,  semi:6700,  detached:8300 },
-  "Mississauga":      {condo:4000,   town:5500,  semi:6400,  detached:8800 },
-  "Toronto - Downtown":     {condo:4200, town:null,  semi:8500, detached:11000},
-  "Toronto - West End":     {condo:4000, town:null,  semi:8000, detached:10500},
-  "Toronto - East End":     {condo:3900, town:null,  semi:7500, detached:10000},
-  "Toronto - North York":   {condo:4000, town:5200,  semi:7500, detached:9500 },
-  "Toronto - Etobicoke":    {condo:3900, town:5000,  semi:7200, detached:9000 },
-  "Toronto - Scarborough":  {condo:3600, town:4800,  semi:6200, detached:7800 },
-  "Vaughan":          {condo:4400,   town:6200,  semi:7200,  detached:9600 },
-  "Richmond Hill":    {condo:4300,   town:6400,  semi:7500,  detached:10000},
-  "Markham":          {condo:4100,   town:6000,  semi:7000,  detached:9400 },
-  "Aurora":           {condo:4200,   town:5900,  semi:6900,  detached:8900 },
-  "Newmarket":        {condo:4000,   town:5600,  semi:6500,  detached:8300 },
-  "King City":        {condo:null,   town:null,  semi:null,  detached:10800},
-  "Bradford":         {condo:null,   town:5400,  semi:6200,  detached:7900 },
-  "Georgina":         {condo:null,   town:4800,  semi:5500,  detached:7200 },
-  "Pickering":        {condo:4200,   town:5700,  semi:6400,  detached:8000 },
-  "Ajax":             {condo:4100,   town:5500,  semi:6200,  detached:7800 },
-  "Whitby":           {condo:4000,   town:5400,  semi:6100,  detached:7700 },
-  "Oshawa":           {condo:3500,   town:4700,  semi:5300,  detached:6700 },
-  "Clarington":       {condo:null,   town:4900,  semi:5600,  detached:7100 },
-  "Scugog":           {condo:null,   town:null,  semi:null,  detached:6800 },
-  "Barrie":           {condo:3400,   town:4700,  semi:5400,  detached:6800 },
-  "Innisfil":         {condo:null,   town:4500,  semi:5100,  detached:6600 },
-  "Collingwood":      {condo:4000,   town:5300,  semi:null,  detached:7100 },
-  "Wasaga Beach":     {condo:null,   town:4700,  semi:null,  detached:6500 },
-  "Midland":          {condo:null,   town:null,  semi:null,  detached:5900 },
-  "Kitchener":        {condo:3700,   town:5000,  semi:5500,  detached:7000 },
-  "Waterloo":         {condo:3900,   town:5200,  semi:5800,  detached:7400 },
-  "Cambridge":        {condo:3500,   town:4800,  semi:5200,  detached:6600 },
-  "Guelph":           {condo:4100,   town:5500,  semi:6100,  detached:7800 },
-  "Hamilton":         {condo:3800,   town:5200,  semi:5900,  detached:7600 },
-  "St. Catharines":   {condo:3400,   town:4700,  semi:5200,  detached:6700 },
-  "Niagara Falls":    {condo:3300,   town:4500,  semi:5000,  detached:6500 },
-  "Welland":          {condo:3600,   town:4200,  semi:4800,  detached:6100 },
-  "Fort Erie":        {condo:3400,   town:4100,  semi:4700,  detached:5900 },
-  "Peterborough":     {condo:3500,   town:4800,  semi:5300,  detached:6800 },
-  "Cobourg":          {condo:null,   town:4600,  semi:null,  detached:6600 },
-  "Belleville":       {condo:3300,   town:4500,  semi:5000,  detached:6300 },
-  "Kingston":         {condo:3800,   town:5100,  semi:5700,  detached:7200 },
-  "Ottawa":           {condo:3800,   town:5300,  semi:6000,  detached:7600 },
-};
-// PROP_LABELS now lives in src/utils.js — loaded via <script src>.
-
-// getPriceForType now lives in src/utils.js — loaded via <script src>.
-// meetsMinDownPayment() now lives in src/mortgage.js — loaded via <script src>.
-// getPriceForTypeStrict now lives in src/ranking.js — loaded via <script src>.
-// filtProp(), filtFit(), filt(), updateCardCosts() now live in src/ui-helpers.js — loaded via <script src>.
-
-// downloadReport(), _downloadReportInner() now live in src/report.js —
-// loaded via <script src>.
-
-// _scnWA, _beforeSnapshot, openScenarioSandbox(), closeScenarioSandbox(),
-// setScenarioWA(), scenarioPreview(), _getAngleSnapshot(),
-// runScenarioComparison(), syncRate() now live in src/scenario-sandbox.js —
-// loaded via <script src>.
-
-// render(), selectPropType() now live in src/render.js — loaded via <script src>.
-
-// toggle() now live in src/ui-helpers.js — loaded via <script src>.
-
-// toggleAiInsights(), fetchCityInsights() now live in src/ai.js — loaded via <script src>.
-
-// ─── COMMUTE INTELLIGENCE ──────────────────────────────────────────────────
-
-// Configurable ranking weights
-// Daily commuters: commute is the binding constraint — weight it more heavily
-// Hybrid: balanced but affordability still matters more
-// Remote: pure affordability
-// RANKING_WEIGHTS now lives in src/ranking.js — loaded via <script src>.
-
-// workArrangement, workZone, setWorkArrangement() now live in src/main.js — loaded via <script src>.
-
-// ─── RESEARCHED DRIVE TIME TABLE ───────────────────────────────────────────
-// All times in minutes, normal conditions (no rush hour, no winter)
-// Based on actual Ontario road networks — highway access, county roads,
-// suburban arterial congestion. Not calculated. Known.
-//
-// Work zones:
-// brampton, mississauga, toronto_west, toronto_downtown, toronto_north,
-// toronto_east, vaughan, markham, richmond_hill, oakville, burlington,
-// hamilton, ajax_whitby, newmarket_aurora, barrie, kitchener, guelph
-
-// DRIVE_TABLE, FSA_TO_WORK_ZONE, CITY_TO_WORK_ZONE, getWorkZone(), SUBZONE_ADJUST,
-// calcCommuteMinutes(), getCommuteScore(), ACCESS_TIERS, getAccessTier() now live in
-// src/commute.js — loaded via <script src>.
-
-// buildDevPanel(), buildWhyRanked(), PROPERTY_TIER, COMMUTE_BAND_MINUTES, getHousingOpportunityPenalty() now live in src/render-support.js — loaded via <script src>.
-
-// go() now live in src/main.js — loaded via <script src>.
-
-// getLeadSummaryForCity() now live in src/render-support.js — loaded via <script src>.
-
-// showTransparencyModal(), closeTransparencyModal() now live in src/ui-helpers.js — loaded via <script src>.
-// confirmSendLead(), sub() now live in src/leadform.js — loaded via <script src>.
-
-const DRIVE_TO_TORONTO={"Toronto - Downtown":5,"Toronto - West End":15,"Toronto - East End":20,"Toronto - North York":25,"Toronto - Etobicoke":20,"Toronto - Scarborough":30,"Mississauga":35,"Brampton":45,"Vaughan":40,"Markham":40,"Richmond Hill":45,"Oakville":45,"Burlington":55,"Milton":55,"Ajax":45,"Whitby":55,"Pickering":40,"Oshawa":65,"Aurora":50,"Newmarket":60,"Bradford":65,"Innisfil":75,"Barrie":90,"Georgetown":55,"Halton Hills":60,"Acton":65,"Guelph":75,"Kitchener":90,"Waterloo":95,"Cambridge":85,"Hamilton":70,"Bolton":55,"Caledon":65,"King City":50,"Orangeville":80,"Shelburne":95,"Grand Valley":100,"Mono":90,"Erin":80,"Collingwood":120,"Wasaga Beach":115,"Midland":130,"Georgina":75,"Clarington":80,"Scugog":85,"Centre Wellington":90,"St. Catharines":100,"Niagara Falls":110,"Welland":115,"Fort Erie":120,"Cobourg":100,"Belleville":135,"Kingston":165,"Peterborough":120,"Ottawa":450,"Brock":90};
-
-// cmpSelected, initCompare(), toggleCmpCity(), buildCompare() now live in
-// src/compare.js — loaded via <script src>.
-
-// ── 4-ANGLE PICKS — replaces getTopPicks ────────────────────────
-// getAnglePicks now lives in src/ranking.js — loaded via <script src>.
-
-// renderAnglePicks() now live in src/render-support.js — loaded via <script src>.
-
-
-
-// checkDebtSanity(), setFTB(), calcLTT(), calcClosingCosts(), toggleCC() now
-// live in src/closingcosts.js — loaded via <script src>.
-
-// estimateOntarioNetAnnual now lives in src/utils.js — loaded via <script src>.
-loadScenarioFromURL();
 </script>
 
 <!-- Floating WhatsApp Button -->
