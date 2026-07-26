@@ -354,9 +354,10 @@ window.renderLiveListings = renderLiveListings;
 // explicit direction) -- not a same-window in-app overlay, so the phone's
 // own back gesture/button works for free and the URL is shareable.
 //
-// DESKTOP_BREAKPOINT_PX matches the app's own existing @media(min-width:780px)
-// breakpoint in index.html's CSS, not a new arbitrary number.
-const DESKTOP_BREAKPOINT_PX = 780;
+// DESKTOP_BREAKPOINT_PX matches the app's own existing @media(min-width:1024px)
+// breakpoint in index.html's CSS (the true desktop grid-layout tier), not a
+// new arbitrary number.
+const DESKTOP_BREAKPOINT_PX = 1024;
 
 // CRITICAL popup-blocker constraint: window.open() must be the very FIRST
 // thing that happens in this function, called synchronously from the click
