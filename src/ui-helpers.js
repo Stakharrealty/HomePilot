@@ -122,3 +122,20 @@ function closeTransparencyModal(){
   const ov=document.getElementById('transparencyModalOverlay');
   if(ov){ ov.style.display='none'; }
 }
+
+// Desktop header scroll behavior: transparent-over-hero until the user
+// scrolls past 12px, then white/blurred with a border — matches v0's
+// navbar.tsx scroll threshold exactly. Only relevant at >=1024px (where the
+// header becomes position:fixed via CSS); harmless no-op below that width
+// since the class has no effect on the mobile in-flow header.
+(function(){
+  function updateHeaderScrollState(){
+    const hdr = document.getElementById('mainHdr');
+    if(!hdr) return;
+    if(window.scrollY > 12){ hdr.classList.add('scrolled'); }
+    else { hdr.classList.remove('scrolled'); }
+  }
+  window.addEventListener('scroll', updateHeaderScrollState, { passive: true });
+  document.addEventListener('DOMContentLoaded', updateHeaderScrollState);
+  updateHeaderScrollState();
+})();

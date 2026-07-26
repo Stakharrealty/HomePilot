@@ -72,17 +72,25 @@ body{
   border-bottom:1px solid var(--border-light);
 }
 
-/* light header pill at 480px+, matching the v0 navbar style */
-@media(min-width:480px){
+/* Desktop: fixed top bar, transparent until scrolled — matches v0's navbar.tsx exactly */
+@media(min-width:1024px){
   .hdr{
-    background:var(--card);
-    border:1px solid var(--border);
-    border-radius:var(--radius-lg);
-    padding:14px 22px;
-    margin-bottom:2.25rem;
-    border-bottom:none;
+    position:fixed;top:0;left:0;right:0;z-index:100;
+    background:transparent;
+    border:none;border-radius:0;box-shadow:none;
+    padding:16px 40px;
+    margin-bottom:0;
+    transition:background 0.3s ease,box-shadow 0.3s ease,border-color 0.3s ease;
+  }
+  .hdr.scrolled{
+    background:rgba(255,255,255,0.95);
+    -webkit-backdrop-filter:blur(8px);
+    backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--border);
     box-shadow:var(--shadow-sm);
   }
+  /* header is fixed/overlaid at this width, so the page needs room at the top */
+  .w{padding-top:5.5rem}
 }
 
 /* ── LOGO ───────────────────────────────────────────────────── */
@@ -108,8 +116,8 @@ body{
 .logo-text span:first-child{font-size:17px;font-weight:800;letter-spacing:-0.3px}
 .logo-tag{font-size:10px;font-weight:600;color:var(--green);letter-spacing:0.05em;text-transform:uppercase}
 
-@media(min-width:480px){
-  .logo-tag{color:var(--ink-faint)}
+@media(min-width:1024px){
+  .logo-tag{display:none}
   .hdr .logo svg rect{fill:var(--navy)}
   .hdr .logo svg circle{stroke:#fff}
   .hdr .logo svg line{stroke:#fff}
@@ -119,35 +127,36 @@ body{
 /* ── NAV ────────────────────────────────────────────────────── */
 .hdr-nav{display:none}
 .hdr-right{display:contents}
-@media(min-width:480px){
+@media(min-width:1024px){
   .hdr-right{
     display:flex;align-items:center;gap:16px;
     margin-left:auto;
   }
   .hdr-nav{
-    display:flex;align-items:center;gap:20px;
+    display:flex;align-items:center;gap:4px;
   }
   .hdr-nav-link{
-    font-size:13px;font-weight:500;
+    font-size:14px;font-weight:500;
     color:var(--ink-soft);
-    cursor:default;
-    transition:color 0.15s;
+    cursor:pointer;
+    text-decoration:none;
+    padding:8px 14px;
+    border-radius:8px;
+    transition:color 0.15s,background 0.15s;
   }
-  .hdr-nav-link:hover{color:var(--ink)}
+  .hdr-nav-link:hover{color:var(--ink);background:var(--surface)}
   .hdr-nav-cta{
-    font-size:13px;font-weight:700;
-    padding:8px 18px;
-    border-radius:999px;
+    font-size:14px;font-weight:600;
+    padding:9px 18px;
+    border-radius:8px;
     border:none;
     background:var(--green);
     color:#fff;
     cursor:pointer;
-    letter-spacing:0.01em;
-    transition:opacity 0.15s,box-shadow 0.15s;
-    box-shadow:0 2px 8px rgba(29,158,117,0.3);
+    transition:opacity 0.15s;
     white-space:nowrap;
   }
-  .hdr-nav-cta:hover{opacity:0.9;box-shadow:0 4px 12px rgba(29,158,117,0.4)}
+  .hdr-nav-cta:hover{opacity:0.9}
 }
 
 /* ── LANGUAGE SELECTOR ──────────────────────────────────────── */
@@ -1033,9 +1042,11 @@ select{
     </div>
     <div class="hdr-right">
       <div class="hdr-nav" id="hdrNav">
-        <span class="hdr-nav-link">How it works</span>
-        <span class="hdr-nav-link">Cities</span>
-        <button type="button" class="hdr-nav-cta" id="hdrCtaBtn" onclick="revealCalculator()">Find your dream home</button>
+        <a class="hdr-nav-link" href="#how-it-works">How It Works</a>
+        <a class="hdr-nav-link" href="#cities">Cities</a>
+        <a class="hdr-nav-link" href="#listings">Listings</a>
+        <a class="hdr-nav-link" href="#faq">FAQ</a>
+        <button type="button" class="hdr-nav-cta" id="hdrCtaBtn" onclick="revealCalculator()">Start Free Analysis</button>
       </div>
       <select class="lang-sel" onchange="setLang(this.value)">
         <option value="" disabled>🌐 Language</option>
