@@ -72,15 +72,16 @@ body{
   border-bottom:1px solid var(--border-light);
 }
 
-/* dark pill header at 480px+ */
+/* light header pill at 480px+, matching the v0 navbar style */
 @media(min-width:480px){
   .hdr{
-    background:var(--navy);
+    background:var(--card);
+    border:1px solid var(--border);
     border-radius:var(--radius-lg);
     padding:14px 22px;
     margin-bottom:2.25rem;
     border-bottom:none;
-    box-shadow:var(--shadow-md);
+    box-shadow:var(--shadow-sm);
   }
 }
 
@@ -108,41 +109,45 @@ body{
 .logo-tag{font-size:10px;font-weight:600;color:var(--green);letter-spacing:0.05em;text-transform:uppercase}
 
 @media(min-width:480px){
-  .logo-text span:first-child{color:#F2F0E9}
-  .logo-tag{color:var(--gold)}
-  .hdr .logo svg rect{fill:var(--gold)}
-  .hdr .logo svg circle{stroke:var(--navy)}
-  .hdr .logo svg line{stroke:var(--navy)}
-  .hdr .logo svg polygon:nth-of-type(2){fill:var(--navy)}
+  .logo-tag{color:var(--ink-faint)}
+  .hdr .logo svg rect{fill:var(--navy)}
+  .hdr .logo svg circle{stroke:#fff}
+  .hdr .logo svg line{stroke:#fff}
+  .hdr .logo svg polygon:nth-of-type(2){fill:#fff}
 }
 
 /* ── NAV ────────────────────────────────────────────────────── */
 .hdr-nav{display:none}
+.hdr-right{display:contents}
 @media(min-width:480px){
+  .hdr-right{
+    display:flex;align-items:center;gap:16px;
+    margin-left:auto;
+  }
   .hdr-nav{
     display:flex;align-items:center;gap:20px;
   }
   .hdr-nav-link{
     font-size:13px;font-weight:500;
-    color:rgba(240,238,230,0.6);
+    color:var(--ink-soft);
     cursor:default;
     transition:color 0.15s;
   }
-  .hdr-nav-link:hover{color:#F2F0E9}
+  .hdr-nav-link:hover{color:var(--ink)}
   .hdr-nav-cta{
     font-size:13px;font-weight:700;
     padding:8px 18px;
     border-radius:999px;
     border:none;
-    background:var(--gold);
-    color:var(--navy);
+    background:var(--green);
+    color:#fff;
     cursor:pointer;
     letter-spacing:0.01em;
-    transition:background 0.15s,box-shadow 0.15s;
-    box-shadow:0 2px 8px rgba(176,141,61,0.3);
+    transition:opacity 0.15s,box-shadow 0.15s;
+    box-shadow:0 2px 8px rgba(29,158,117,0.3);
     white-space:nowrap;
   }
-  .hdr-nav-cta:hover{background:#9c7a34;box-shadow:0 4px 12px rgba(176,141,61,0.4)}
+  .hdr-nav-cta:hover{opacity:0.9;box-shadow:0 4px 12px rgba(29,158,117,0.4)}
 }
 
 /* ── LANGUAGE SELECTOR ──────────────────────────────────────── */
@@ -160,13 +165,13 @@ body{
 }
 @media(min-width:480px){
   .lang-sel{
-    background:rgba(255,255,255,0.08);
-    border-color:rgba(255,255,255,0.15);
-    color:#D8D4C8;
+    background:var(--surface);
+    border-color:var(--border);
+    color:var(--ink);
     font-size:12px;
     padding:6px 9px;
     max-width:110px;
-    margin-left:8px;
+    margin-left:0;
   }
 }
 
@@ -1026,20 +1031,22 @@ select{
       </svg>
       <div class="logo-text"><span>HomePilot</span><span class="logo-tag">Live Comfortably</span></div>
     </div>
-    <div class="hdr-nav" id="hdrNav">
-      <span class="hdr-nav-link">How it works</span>
-      <span class="hdr-nav-link">Cities</span>
-      <button type="button" class="hdr-nav-cta" id="hdrCtaBtn" onclick="revealCalculator()">Find your dream home</button>
+    <div class="hdr-right">
+      <div class="hdr-nav" id="hdrNav">
+        <span class="hdr-nav-link">How it works</span>
+        <span class="hdr-nav-link">Cities</span>
+        <button type="button" class="hdr-nav-cta" id="hdrCtaBtn" onclick="revealCalculator()">Find your dream home</button>
+      </div>
+      <select class="lang-sel" onchange="setLang(this.value)">
+        <option value="" disabled>🌐 Language</option>
+        <option value="en" selected>English</option>
+        <option value="fr">Français</option>
+        <option value="zh">中文</option>
+        <option value="pa">ਪੰਜਾਬੀ</option>
+        <option value="hi">हिंदी</option>
+        <option value="ur">اردو</option>
+      </select>
     </div>
-    <select class="lang-sel" onchange="setLang(this.value)">
-      <option value="" disabled>🌐 Language</option>
-      <option value="en" selected>English</option>
-      <option value="fr">Français</option>
-      <option value="zh">中文</option>
-      <option value="pa">ਪੰਜਾਬੀ</option>
-      <option value="hi">हिंदी</option>
-      <option value="ur">اردو</option>
-    </select>
   </div>
 
   <section class="hero2" id="hero" aria-labelledby="heroHeading">
