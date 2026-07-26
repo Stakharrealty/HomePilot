@@ -284,6 +284,33 @@ body{
   .wd-cell{padding:16px 20px;font-size:13.5px}
 }
 
+/* ── FAQ ─────────────────────────────────────────────────────── */
+.faq{margin-bottom:2.5rem}
+.faq-eyebrow{font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--green-mid);margin-bottom:10px}
+.faq-left h2{font-size:22px;font-weight:800;line-height:1.25;letter-spacing:-0.4px;color:var(--ink);margin-bottom:10px}
+.faq-sub{font-size:14px;color:var(--ink-soft);line-height:1.6;margin-bottom:18px}
+.faq-cta-box{background:var(--green-light);border:1px solid rgba(29,158,117,0.25);border-radius:var(--radius);padding:14px 16px}
+.faq-cta-title{font-size:12.5px;font-weight:700;color:var(--green-mid);margin-bottom:4px}
+.faq-cta-sub{font-size:12.5px;color:var(--ink-soft);line-height:1.5}
+.faq-right{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:0 18px;margin-top:24px}
+.faq-item{border-bottom:1px solid var(--border)}
+.faq-item:last-child{border-bottom:none}
+.faq-q{width:100%;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:16px 0;background:none;border:none;text-align:left;cursor:pointer}
+.faq-q span{font-size:13.5px;font-weight:700;color:var(--ink);line-height:1.4}
+.faq-q svg{flex-shrink:0;margin-top:2px;color:var(--ink-faint);transition:transform 0.2s}
+.faq-item.open .faq-q svg{transform:rotate(180deg)}
+.faq-a{max-height:0;overflow:hidden;transition:max-height 0.3s ease}
+.faq-a p{font-size:13px;color:var(--ink-soft);line-height:1.6;padding-bottom:16px}
+.faq-item.open .faq-a{max-height:280px}
+
+@media(min-width:1024px){
+  .faq-grid{display:grid;grid-template-columns:340px 1fr;gap:56px}
+  .faq-left h2{font-size:28px}
+  .faq-sub{font-size:15px}
+  .faq-right{margin-top:0;padding:0 24px}
+  .faq-q span{font-size:14px}
+}
+
 /* ── CALCULATOR SECTION REVEAL ──────────────────────────────── */
 .calculator-section{display:none;opacity:0;transform:translateY(16px);transition:opacity 0.35s ease,transform 0.35s ease}
 .calculator-section.revealed{display:block}
@@ -1299,6 +1326,78 @@ select{
         <div class="wd-cell wd-topic">Who it helps</div>
         <div class="wd-cell wd-no"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span>People who already know what city and price they want</span></div>
         <div class="wd-cell wd-yes wd-cell-hl"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>People who need to figure out where and what is realistic</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="faq" id="faq" aria-labelledby="faqHeading">
+    <div class="faq-grid">
+      <div class="faq-left">
+        <p class="faq-eyebrow">FAQ</p>
+        <h2 id="faqHeading">Common questions about HomePilot</h2>
+        <p class="faq-sub">Everything you need to know about Ontario home affordability analysis, how it works, and what HomePilot is (and is not).</p>
+        <div class="faq-cta-box">
+          <p class="faq-cta-title">Still have questions?</p>
+          <p class="faq-cta-sub">Message us on WhatsApp — the button is at the bottom right of your screen.</p>
+        </div>
+      </div>
+      <div class="faq-right">
+        <div class="faq-item open">
+          <button type="button" class="faq-q" onclick="toggleFaq(this)">
+            <span>How is HomePilot different from a mortgage calculator?</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-a"><p>A mortgage calculator takes a home price you already know and tells you the monthly payment. HomePilot works the opposite way — it starts from your income, debt, down payment, and budget, then tells you how much home you can afford and which Ontario cities have homes in that range. It also factors in property tax, utilities, and commute time.</p></div>
+        </div>
+        <div class="faq-item">
+          <button type="button" class="faq-q" onclick="toggleFaq(this)">
+            <span>Is HomePilot a mortgage broker or financial advisor?</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-a"><p>No. HomePilot is an Ontario homebuying decision and affordability platform. We do not originate loans, provide mortgage pre-approvals, or give financial advice. All estimates are for informational purposes to help you understand your options before speaking with a licensed professional.</p></div>
+        </div>
+        <div class="faq-item">
+          <button type="button" class="faq-q" onclick="toggleFaq(this)">
+            <span>How accurate is the affordability analysis?</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-a"><p>HomePilot uses current benchmark interest rates, average Ontario property tax rates by municipality, regional utility cost estimates, and GDS/TDS ratio guidelines used by Canadian lenders. Results are estimates — your actual approved amount may vary based on your credit score, lender policies, and other factors.</p></div>
+        </div>
+        <div class="faq-item">
+          <button type="button" class="faq-q" onclick="toggleFaq(this)">
+            <span>Does HomePilot require my banking or credit information?</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-a"><p>No. HomePilot never asks for your bank login, SIN, or credit report. You simply enter your gross income, existing monthly debt obligations, target down payment, and monthly budget comfort zone. No sensitive data is required.</p></div>
+        </div>
+        <div class="faq-item">
+          <button type="button" class="faq-q" onclick="toggleFaq(this)">
+            <span>Which Ontario cities does HomePilot cover?</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-a"><p>HomePilot covers 55 Ontario cities and municipalities, with a focus on commutable distance from major employment hubs like Toronto, Mississauga, Ottawa, and Hamilton. Cities include the GTA, Hamilton, Kitchener-Waterloo, London, Barrie, Guelph, Oshawa, St. Catharines, and more.</p></div>
+        </div>
+        <div class="faq-item">
+          <button type="button" class="faq-q" onclick="toggleFaq(this)">
+            <span>How does the commute filter work?</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-a"><p>You enter your workplace address and a maximum acceptable commute time. HomePilot filters Ontario cities to show only those within your commute tolerance, using real GO Transit schedules and estimated highway drive times. You can toggle between GO train, drive, and hybrid options.</p></div>
+        </div>
+        <div class="faq-item">
+          <button type="button" class="faq-q" onclick="toggleFaq(this)">
+            <span>Are the property listings real?</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-a"><p>Yes. HomePilot integrates real Ontario listing data, filtered to your affordability range and preferred cities. Listings are updated daily. Note that HomePilot is not a real estate brokerage and does not facilitate offers or purchases.</p></div>
+        </div>
+        <div class="faq-item">
+          <button type="button" class="faq-q" onclick="toggleFaq(this)">
+            <span>Is HomePilot free to use?</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-a"><p>Yes. The core affordability analysis, city discovery, and listing results are completely free. HomePilot does not charge users, and does not require account creation to run your first analysis.</p></div>
+        </div>
       </div>
     </div>
   </section>

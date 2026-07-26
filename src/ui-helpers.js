@@ -93,6 +93,21 @@ function toggle(id){
   }
 }
 
+function toggleFaq(btn){
+  // Accordion: clicking an open question closes it; clicking a closed one
+  // opens it and closes any other currently-open item (matches v0's
+  // single-open-index behavior). Purely presentational — no app state.
+  const item = btn.closest('.faq-item');
+  if(!item) return;
+  const wasOpen = item.classList.contains('open');
+  document.querySelectorAll('.faq-item.open').forEach(function(el){
+    el.classList.remove('open');
+  });
+  if(!wasOpen){
+    item.classList.add('open');
+  }
+}
+
 function revealCalculator(){
   // Desktop-only reveal: on mobile the calculator is already visible (no CSS
   // rule hides it below the 900px breakpoint), and the hero CTA button itself
