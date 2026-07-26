@@ -311,6 +311,47 @@ body{
   .faq-q span{font-size:14px}
 }
 
+/* ── FINAL CTA ───────────────────────────────────────────────── */
+.fcta{background:#041f3f;border-radius:var(--radius-lg);padding:44px 24px;margin:0 0 0;text-align:center}
+.fcta-eyebrow{font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--green);margin-bottom:14px}
+.fcta h2{font-size:24px;font-weight:800;line-height:1.25;letter-spacing:-0.4px;color:#fff;max-width:640px;margin:0 auto 16px}
+.fcta-sub{font-size:14px;color:rgba(255,255,255,0.6);line-height:1.65;max-width:560px;margin:0 auto 26px}
+.fcta-btn{display:inline-flex;align-items:center;gap:8px;padding:15px 30px;border-radius:10px;border:none;background:var(--green);color:#fff;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 8px 24px rgba(29,158,117,0.3);transition:opacity 0.15s}
+.fcta-btn:hover{opacity:0.9}
+.fcta-trust{display:flex;flex-wrap:wrap;justify-content:center;gap:10px 20px;margin-top:26px}
+.fcta-trust span{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:rgba(255,255,255,0.7)}
+.fcta-trust svg{color:var(--green);flex-shrink:0}
+
+/* ── FOOTER ──────────────────────────────────────────────────── */
+.mainFooter{background:#09111b;border-radius:var(--radius-lg);margin-top:24px;padding:36px 24px 24px;color:#fff}
+.ft-top{display:grid;grid-template-columns:1fr 1fr;gap:28px;padding-bottom:28px;border-bottom:1px solid rgba(255,255,255,0.1)}
+.ft-brand{grid-column:1/-1}
+.ft-brand-row{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.ft-brand-icon{width:32px;height:32px;border-radius:8px;background:rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:center}
+.ft-brand-name{font-size:17px;font-weight:700;color:#fff;letter-spacing:-0.2px}
+.ft-brand-desc{font-size:13px;color:rgba(255,255,255,0.5);line-height:1.6;max-width:220px}
+.ft-brand-loc{font-size:11px;color:rgba(255,255,255,0.3);margin-top:10px}
+.ft-col-title{font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.4);margin-bottom:14px}
+.ft-col ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:9px}
+.ft-col a{font-size:13px;color:rgba(255,255,255,0.6);text-decoration:none;transition:color 0.15s}
+.ft-col a:hover{color:#fff}
+.ft-bottom{padding-top:20px;display:flex;flex-direction:column;gap:12px}
+.ft-copyright{font-size:11px;color:rgba(255,255,255,0.3)}
+.ft-disclaimer{font-size:11px;color:rgba(255,255,255,0.3);line-height:1.6;max-width:560px}
+
+@media(min-width:600px){
+  .ft-top{grid-template-columns:1fr 1fr 1fr 1fr}
+  .ft-brand{grid-column:auto}
+}
+@media(min-width:1024px){
+  .fcta{padding:64px 40px}
+  .fcta h2{font-size:38px}
+  .fcta-sub{font-size:16px}
+  .mainFooter{padding:52px 40px 28px}
+  .ft-top{gap:40px}
+  .ft-bottom{flex-direction:row;align-items:center;justify-content:space-between}
+}
+
 /* ── CALCULATOR SECTION REVEAL ──────────────────────────────── */
 .calculator-section{display:none;opacity:0;transform:translateY(16px);transition:opacity 0.35s ease,transform 0.35s ease}
 .calculator-section.revealed{display:block}
@@ -1667,6 +1708,67 @@ select{
   </div>
 
   <div class="pw">Powered by HomePilot · Built for Ontario home buyers</div>
+
+  <section class="fcta" aria-labelledby="fctaHeading">
+    <p class="fcta-eyebrow">START YOUR ANALYSIS</p>
+    <h2 id="fctaHeading">Find out where you can afford to live in Ontario — right now.</h2>
+    <p class="fcta-sub">Stop guessing. Stop searching random cities. Get a data-driven Ontario home affordability analysis based on your real numbers — income, down payment, budget, and commute — in under 5 minutes.</p>
+    <button type="button" class="fcta-btn" onclick="revealCalculator()">
+      Start My Home Analysis
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 6 15 12 9 18"/></svg>
+    </button>
+    <div class="fcta-trust">
+      <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg>Free to use, no account required</span>
+      <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg>No mortgage broker, no pressure</span>
+      <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg>Ontario-specific data</span>
+      <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg>55 cities analyzed</span>
+    </div>
+  </section>
+
+  <footer class="mainFooter">
+    <div class="ft-top">
+      <div class="ft-brand">
+        <div class="ft-brand-row">
+          <span class="ft-brand-icon"><svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 2L2 8v8h5v-5h4v5h5V8L9 2z" fill="white"/></svg></span>
+          <span class="ft-brand-name">HomePilot</span>
+        </div>
+        <p class="ft-brand-desc">Ontario home affordability and homebuying decision platform.</p>
+        <p class="ft-brand-loc">Based in Ontario, Canada</p>
+      </div>
+      <div class="ft-col">
+        <p class="ft-col-title">Platform</p>
+        <ul>
+          <li><a href="#how-it-works">How It Works</a></li>
+          <li><a href="#cities">City Discovery</a></li>
+          <li><a href="#listings">Listings</a></li>
+          <li><a href="#faq">FAQ</a></li>
+        </ul>
+      </div>
+      <div class="ft-col">
+        <p class="ft-col-title">Ontario Cities</p>
+        <ul>
+          <li><a href="#cities">Hamilton</a></li>
+          <li><a href="#cities">Kitchener</a></li>
+          <li><a href="#cities">Barrie</a></li>
+          <li><a href="#cities">London</a></li>
+          <li><a href="#cities">Oshawa</a></li>
+          <li><a href="#cities">Guelph</a></li>
+        </ul>
+      </div>
+      <div class="ft-col">
+        <p class="ft-col-title">Legal</p>
+        <ul>
+          <li><a href="#">Privacy Policy</a></li>
+          <li><a href="#">Terms of Use</a></li>
+          <li><a href="#">Disclaimer</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="ft-bottom">
+      <p class="ft-copyright">© 2026 HomePilot. All rights reserved.</p>
+      <p class="ft-disclaimer">HomePilot estimates are for informational purposes only and do not constitute financial or mortgage advice. Consult a licensed mortgage professional before making any homebuying decisions.</p>
+    </div>
+  </footer>
 </div>
 
 <div id="transparencyModalOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:10000;align-items:center;justify-content:center;padding:20px">
