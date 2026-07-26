@@ -203,12 +203,22 @@ body{
 .hero2-statsbar .stat .val{font-size:19px;font-weight:800;color:var(--navy-mid)}
 .hero2-statsbar .stat .lbl{font-size:11px;color:var(--ink-faint);margin-top:2px}
 
+.hero2-example{display:none}
+
 @media(min-width:1024px){
-  .hero2-grid{max-width:760px;margin:0 auto;text-align:center}
-  .hero2-left{display:flex;flex-direction:column;align-items:center}
-  .hero2-left h1{font-size:44px}
-  .hero2-sub{max-width:600px;text-align:center}
-  .hero2-benefits{max-width:520px;margin-left:auto;margin-right:auto;text-align:left}
+  .hero2-grid{display:grid;grid-template-columns:1.1fr 1fr;gap:56px;align-items:center;max-width:1100px;margin:0 auto}
+  .hero2-left{text-align:left}
+  .hero2-left h1{font-size:42px}
+  .hero2-sub{max-width:520px;text-align:left}
+  .hero2-benefits{max-width:none;margin-left:0;margin-right:0;text-align:left}
+  .hero2-example{
+    display:block;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius-lg);
+    padding:20px;
+  }
+  .hero2-example-lbl{font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:12px}
   .hero2-statsbar{grid-template-columns:repeat(4,1fr);max-width:900px;margin:40px auto 0}
 }
 
@@ -1104,6 +1114,32 @@ select{
           <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
         <p class="hero2-note">Free to use · No mortgage broker · No financial advice</p>
+      </div>
+
+      <div class="hero2-example">
+        <p class="hero2-example-lbl">EXAMPLE RESULTS</p>
+        <div class="bp-box" style="display:block">
+          <div class="bp-lbl">Your Buying Power</div>
+          <div class="bp-val">$620,000 – $780,000</div>
+          <div class="bp-row">
+            <div class="bp-stat"><div class="bp-stat-lbl">Est. Monthly</div><div class="bp-stat-val">$3,240</div></div>
+            <div class="bp-stat"><div class="bp-stat-lbl">Cities Matched</div><div class="bp-stat-val">14 of 55</div></div>
+          </div>
+        </div>
+        <div class="city" style="cursor:default">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+            <span style="font-size:15px;font-weight:700;color:var(--ink)">Barrie</span>
+            <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;background:#E1F5EE;color:#085041">Great Fit</span>
+          </div>
+          <p style="font-size:13px;color:var(--ink-soft)">Detached · $681K · $3,590/mo</p>
+        </div>
+        <div class="city" style="cursor:default;margin-bottom:0">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+            <span style="font-size:15px;font-weight:700;color:var(--ink)">Oshawa</span>
+            <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;background:#E6F1FB;color:#0C447C">Good Fit</span>
+          </div>
+          <p style="font-size:13px;color:var(--ink-soft)">Semi-Detached · $622K · $3,280/mo</p>
+        </div>
       </div>
     </div>
 
