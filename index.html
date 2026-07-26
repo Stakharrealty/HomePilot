@@ -171,92 +171,68 @@ body{
 }
 
 /* ── HERO ────────────────────────────────────────────────────── */
-.hero{margin-bottom:1.75rem}
-.hero-eyebrow{display:none}
-.hero h1{
-  font-size:19px;font-weight:800;
-  color:var(--ink);line-height:1.25;
-  margin-bottom:8px;
-  letter-spacing:-0.3px;
-}
-.hero p{font-size:14px;color:var(--ink-soft);line-height:1.65}
-.hero-checklist{display:none}
-.hero-stats{display:none}
-.hero-cta{display:none}
+/* ===== Hero v2 — fintech-style two-column hero (mobile-first, desktop grid at 1024px) ===== */
+.hero2{margin-bottom:2rem}
+.hero2-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;background:var(--green-light);border:1px solid var(--green);margin-bottom:14px}
+.hero2-badge span{font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--green-mid)}
+.hero2-left h1{font-size:26px;font-weight:800;line-height:1.15;letter-spacing:-0.5px;color:var(--ink);margin-bottom:14px}
+.hero2-left h1 .accent{color:var(--green-mid)}
+.hero2-sub{font-size:15px;color:var(--ink-soft);line-height:1.6;max-width:480px;margin-bottom:20px}
+.hero2-benefits{list-style:none;margin:0 0 22px;padding:0;display:flex;flex-direction:column;gap:10px}
+.hero2-benefits li{display:flex;align-items:flex-start;gap:9px;font-size:13.5px;color:var(--ink-mid);line-height:1.5}
+.hero2-benefits li svg{flex-shrink:0;margin-top:2px}
+.hero2-cta{display:inline-flex;align-items:center;gap:8px;padding:14px 26px;border-radius:var(--radius-sm);border:none;background:var(--green);color:#fff;font-size:14.5px;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(29,158,117,0.25);transition:opacity 0.15s,transform 0.1s}
+.hero2-cta:hover{opacity:0.92;transform:translateY(-1px)}
+.hero2-note{font-size:12px;color:var(--ink-faint);margin-top:12px}
+.hero2-right{margin-top:28px}
+.hero2-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow);overflow:hidden}
+.hero2-card-header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:var(--navy)}
+.hero2-card-header .htitle{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:#fff}
+.hero2-card-header .hicon{width:22px;height:22px;border-radius:6px;background:rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center}
+.hero2-card-header .hlive{font-size:10px;color:rgba(255,255,255,0.6);background:rgba(255,255,255,0.1);padding:3px 8px;border-radius:999px}
+.hero2-card-body{padding:18px;display:flex;flex-direction:column;gap:16px}
+.hero2-range{background:var(--navy);border-radius:var(--radius);padding:14px;color:#fff}
+.hero2-range .lbl{font-size:11px;color:rgba(255,255,255,0.55);margin-bottom:3px}
+.hero2-range .val{font-size:22px;font-weight:800;letter-spacing:-0.3px}
+.hero2-range .bar{margin-top:10px;height:6px;border-radius:999px;background:rgba(255,255,255,0.12);overflow:hidden}
+.hero2-range .bar .fill{height:100%;width:62%;border-radius:999px;background:var(--green)}
+.hero2-range .hint{font-size:11px;color:rgba(255,255,255,0.55);margin-top:6px}
+.hero2-2col{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.hero2-metric{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px}
+.hero2-metric .lbl{font-size:11px;color:var(--ink-soft);margin-bottom:3px}
+.hero2-metric .val{font-size:18px;font-weight:800;color:var(--ink)}
+.hero2-metric .hint{font-size:11px;color:var(--ink-faint);margin-top:2px}
+.hero2-cities-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px}
+.hero2-cities-head span:first-child{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink)}
+.hero2-cities-head span:last-child{font-size:11px;color:var(--ink-faint)}
+.hero2-city{display:block;width:100%;text-align:left;border-radius:var(--radius-sm);border:1px solid var(--border);background:none;padding:10px 12px;margin-bottom:8px;cursor:pointer;transition:border-color 0.15s,background 0.15s}
+.hero2-city:last-child{margin-bottom:0}
+.hero2-city:hover{border-color:var(--green);background:var(--green-light)}
+.hero2-city.active{border-color:var(--green);background:var(--green-light)}
+.hero2-city-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.hero2-city-name{font-size:13.5px;font-weight:700;color:var(--ink)}
+.hero2-city-meta{font-size:11px;color:var(--ink-faint)}
+.hero2-city-bar{height:5px;border-radius:999px;background:var(--border);overflow:hidden}
+.hero2-city-bar .fill{height:100%;border-radius:999px;background:var(--green)}
+.hero2-commute{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:11px 12px}
+.hero2-commute .cicon{width:28px;height:28px;border-radius:8px;background:var(--green-light);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.hero2-commute .ctitle{font-size:12px;font-weight:700;color:var(--ink)}
+.hero2-commute .csub{font-size:11px;color:var(--ink-faint)}
+.hero2-trust{display:none}
+.hero2-statsbar{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:24px;padding-top:20px;border-top:1px solid var(--border)}
+.hero2-statsbar .stat{text-align:center}
+.hero2-statsbar .stat .val{font-size:19px;font-weight:800;color:var(--navy-mid)}
+.hero2-statsbar .stat .lbl{font-size:11px;color:var(--ink-faint);margin-top:2px}
 
-@media(min-width:480px){
-  .hero{text-align:center;margin-bottom:2.5rem}
-  .hero-eyebrow{
-    display:block;
-    font-size:11px;font-weight:700;
-    letter-spacing:0.12em;text-transform:uppercase;
-    color:var(--gold);
-    margin-bottom:14px;
-  }
-  .hero h1{
-    font-size:34px;font-weight:800;
-    letter-spacing:-0.6px;
-    line-height:1.15;
-    margin-bottom:16px;
-    color:var(--navy-mid);
-  }
-  .hero p{
-    font-size:15px;
-    max-width:580px;margin:0 auto 24px;
-    color:var(--ink-mid);line-height:1.65;
-  }
-  .hero-checklist{
-    display:block;
-    max-width:440px;margin:0 auto 26px;
-    text-align:left;
-    background:var(--card);
-    border:1px solid var(--border);
-    border-radius:var(--radius);
-    padding:16px 18px;
-    box-shadow:var(--shadow-sm);
-  }
-  .hero-checklist-title{
-    font-size:12px;font-weight:700;
-    color:var(--ink-mid);
-    margin-bottom:12px;
-    text-transform:uppercase;letter-spacing:0.06em;
-  }
-  .hero-checklist-item{
-    display:flex;align-items:flex-start;gap:10px;
-    margin-bottom:9px;
-    font-size:13.5px;color:var(--ink-mid);line-height:1.45;
-  }
-  .hero-checklist-item:last-child{margin-bottom:0}
-  .hero-checklist-item svg{flex-shrink:0;margin-top:1px}
-  .hero-cta{
-    display:inline-flex;align-items:center;gap:8px;
-    padding:13px 30px;
-    border-radius:999px;border:none;
-    background:var(--navy);color:#fff;
-    font-size:14px;font-weight:700;
-    cursor:pointer;
-    margin-bottom:32px;
-    letter-spacing:0.01em;
-    box-shadow:0 4px 16px rgba(11,14,20,0.25);
-    transition:background 0.15s,box-shadow 0.15s,transform 0.1s;
-  }
-  .hero-cta:hover{background:#1e2535;transform:translateY(-1px);box-shadow:0 6px 20px rgba(11,14,20,0.3)}
-  .hero-stats{
-    display:flex;
-    justify-content:center;
-    gap:0;
-    border:1px solid var(--border);
-    border-radius:var(--radius);
-    margin:0 auto 32px;
-    max-width:560px;
-    background:var(--card);
-    overflow:hidden;
-    box-shadow:var(--shadow-sm);
-  }
-  .hero-stat{flex:1;padding:16px 12px;text-align:center}
-  .hero-stat+.hero-stat{border-left:1px solid var(--border)}
-  .hero-stat-val{font-size:20px;font-weight:800;color:var(--navy-mid);letter-spacing:-0.3px}
-  .hero-stat-lbl{font-size:11px;color:var(--ink-faint);margin-top:3px;font-weight:500}
+@media(min-width:1024px){
+  .hero2-grid{display:grid;grid-template-columns:1fr 1fr;gap:56px;align-items:center}
+  .hero2-left h1{font-size:42px}
+  .hero2-right{margin-top:0;position:relative}
+  .hero2-trust{display:flex;align-items:center;gap:10px;position:absolute;bottom:-18px;left:-18px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:11px 14px;box-shadow:var(--shadow)}
+  .hero2-trust .ticon{width:26px;height:26px;border-radius:999px;background:var(--green-light);display:flex;align-items:center;justify-content:center}
+  .hero2-trust .ttitle{font-size:12px;font-weight:700;color:var(--ink);line-height:1.2}
+  .hero2-trust .tsub{font-size:11px;color:var(--ink-faint)}
+  .hero2-statsbar{grid-template-columns:repeat(4,1fr);max-width:900px;margin:40px auto 0}
 }
 
 /* ── CALCULATOR SECTION REVEAL ──────────────────────────────── */
@@ -1103,27 +1079,87 @@ select{
     </select>
   </div>
 
-  <div class="hero">
-    <p class="hero-eyebrow" id="heroEyebrow">FOR ONTARIO HOMEBUYERS</p>
-    <h1 id="ht">Find out how much home you can actually afford in Ontario</h1>
-    <p id="hs">HomePilot is Ontario's smarter home affordability tool that shows you where you can buy based on your income, down payment, monthly budget, commute, and real housing costs.</p>
-    <div class="hero-checklist" id="heroChecklist">
-      <div class="hero-checklist-title">Unlike a traditional mortgage calculator, HomePilot helps you discover:</div>
-      <div class="hero-checklist-item"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="8" fill="#B08D3D"/><path d="M4.5 8.2L6.8 10.5L11.5 5.5" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span>How much home you can realistically afford</span></div>
-      <div class="hero-checklist-item"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="8" fill="#B08D3D"/><path d="M4.5 8.2L6.8 10.5L11.5 5.5" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Which Ontario cities fit your budget</span></div>
-      <div class="hero-checklist-item"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="8" fill="#B08D3D"/><path d="M4.5 8.2L6.8 10.5L11.5 5.5" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Your estimated monthly ownership costs</span></div>
-      <div class="hero-checklist-item"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="8" fill="#B08D3D"/><path d="M4.5 8.2L6.8 10.5L11.5 5.5" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Real homes currently available in your price range</span></div>
+  <section class="hero2" id="hero" aria-labelledby="heroHeading">
+    <div class="hero2-grid">
+      <div class="hero2-left">
+        <div class="hero2-badge">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--green-mid)"><path d="M12 2C8 2 5 5.5 5 9.5c0 5.5 7 12.5 7 12.5s7-7 7-12.5C19 5.5 16 2 12 2z"/><circle cx="12" cy="9.5" r="2.5"/></svg>
+          <span>Ontario Homebuyers</span>
+        </div>
+        <h1 id="heroHeading">Find out how much home you can <span class="accent">actually afford</span> in Ontario.</h1>
+        <p class="hero2-sub" id="hs">HomePilot helps you understand your true homebuying options by analyzing income, down payment, monthly budget, commute, and real housing costs.</p>
+        <ul class="hero2-benefits">
+          <li><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="8" fill="var(--green)"/><path d="M4.5 8.2L6.8 10.5L11.5 5.5" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Based on your real income and debt — not estimates</span></li>
+          <li><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="8" fill="var(--green)"/><path d="M4.5 8.2L6.8 10.5L11.5 5.5" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Compares 55 Ontario cities by affordability</span></li>
+          <li><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="8" fill="var(--green)"/><path d="M4.5 8.2L6.8 10.5L11.5 5.5" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Shows full monthly costs: mortgage, tax, utilities</span></li>
+          <li><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="8" fill="var(--green)"/><path d="M4.5 8.2L6.8 10.5L11.5 5.5" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Filters by commute time from your workplace</span></li>
+        </ul>
+        <button type="button" class="hero2-cta" id="heroCtaBtn" onclick="revealCalculator()">
+          Start My Home Analysis
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <p class="hero2-note">Free to use · No mortgage broker · No financial advice</p>
+      </div>
+
+      <div class="hero2-right">
+        <div class="hero2-card">
+          <div class="hero2-card-header">
+            <div class="htitle">
+              <span class="hicon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg></span>
+              Your Affordability Report
+            </div>
+            <span class="hlive">Live Preview</span>
+          </div>
+          <div class="hero2-card-body">
+            <div class="hero2-range">
+              <p class="lbl">Affordability Range</p>
+              <p class="val">$540K – $820K</p>
+              <div class="bar"><div class="fill"></div></div>
+              <p class="hint">Based on your inputs</p>
+            </div>
+            <div class="hero2-2col">
+              <div class="hero2-metric"><p class="lbl">Est. Monthly Payment</p><p class="val">$3,420</p><p class="hint">Mortgage + tax + utils</p></div>
+              <div class="hero2-metric"><p class="lbl">Matching Listings</p><p class="val">247</p><p class="hint">Active in Ontario</p></div>
+            </div>
+            <div>
+              <div class="hero2-cities-head"><span>Top Matching Cities</span><span>Affordability fit</span></div>
+              <button type="button" class="hero2-city active" onclick="selectPreviewCity(this)">
+                <div class="hero2-city-row"><span class="hero2-city-name">Hamilton</span><span class="hero2-city-meta">$649K&nbsp;&middot;&nbsp;$3,420/mo</span></div>
+                <div class="hero2-city-bar"><div class="fill" style="width:98%"></div></div>
+              </button>
+              <button type="button" class="hero2-city" onclick="selectPreviewCity(this)">
+                <div class="hero2-city-row"><span class="hero2-city-name">Kitchener</span><span class="hero2-city-meta">$712K&nbsp;&middot;&nbsp;$3,760/mo</span></div>
+                <div class="hero2-city-bar"><div class="fill" style="width:94%"></div></div>
+              </button>
+              <button type="button" class="hero2-city" onclick="selectPreviewCity(this)">
+                <div class="hero2-city-row"><span class="hero2-city-name">Barrie</span><span class="hero2-city-meta">$681K&nbsp;&middot;&nbsp;$3,590/mo</span></div>
+                <div class="hero2-city-bar"><div class="fill" style="width:91%"></div></div>
+              </button>
+              <button type="button" class="hero2-city" onclick="selectPreviewCity(this)">
+                <div class="hero2-city-row"><span class="hero2-city-name">London</span><span class="hero2-city-meta">$598K&nbsp;&middot;&nbsp;$3,160/mo</span></div>
+                <div class="hero2-city-bar"><div class="fill" style="width:87%"></div></div>
+              </button>
+            </div>
+            <div class="hero2-commute">
+              <span class="cicon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green-mid)" stroke-width="2"><rect x="4" y="3" width="16" height="14" rx="2"/><path d="M4 11h16M8 17v2M16 17v2"/></svg></span>
+              <div><p class="ctitle">Commute-adjusted results</p><p class="csub">Hamilton → Downtown Toronto: 68 min GO train</p></div>
+            </div>
+          </div>
+        </div>
+        <div class="hero2-trust">
+          <span class="ticon"><svg width="13" height="13" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="8" fill="var(--green)"/><path d="M4.5 8.2L6.8 10.5L11.5 5.5" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          <div><p class="ttitle">No broker required</p><p class="tsub">100% free analysis</p></div>
+        </div>
+      </div>
     </div>
-    <button type="button" class="hero-cta" id="heroCtaBtn" onclick="revealCalculator()">
-      Start your free home affordability analysis
-      <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    </button>
-    <div class="hero-stats" id="heroStats">
-      <div class="hero-stat"><div class="hero-stat-val">55</div><div class="hero-stat-lbl">Ontario cities ranked</div></div>
-      <div class="hero-stat"><div class="hero-stat-val">9,900+</div><div class="hero-stat-lbl">Live MLS listings</div></div>
-      <div class="hero-stat"><div class="hero-stat-val">1 min</div><div class="hero-stat-lbl">To see your buying power</div></div>
+
+    <div class="hero2-statsbar" id="heroStats">
+      <div class="stat"><p class="val">55</p><p class="lbl">Ontario cities analyzed</p></div>
+      <div class="stat"><p class="val">9,900+</p><p class="lbl">Live MLS listings</p></div>
+      <div class="stat"><p class="val">$0</p><p class="lbl">Free to use, always</p></div>
+      <div class="stat"><p class="val">&lt;2 min</p><p class="lbl">Average analysis time</p></div>
     </div>
-  </div>
+  </section>
 
   <div id="calculatorSection" class="calculator-section">
   <div class="card">
