@@ -211,6 +211,17 @@ body{
     padding:20px;
   }
   .hero2-example-lbl{font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:12px}
+  .lb-list{display:flex;flex-direction:column;gap:10px}
+  .lb-row{display:flex;align-items:flex-start;gap:12px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;transition:border-color 0.15s,box-shadow 0.15s}
+  .lb-row:hover{border-color:var(--green);box-shadow:var(--shadow)}
+  .lb-rank{flex-shrink:0;width:26px;height:26px;border-radius:50%;background:var(--navy);color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;margin-top:1px}
+  .lb-body{flex:1;min-width:0}
+  .lb-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px}
+  .lb-city{font-size:14.5px;font-weight:700;color:var(--ink)}
+  .lb-badge{font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap}
+  .lb-meta{font-size:12.5px;color:var(--ink-soft);margin-bottom:8px}
+  .lb-bar{height:5px;border-radius:999px;background:var(--border);overflow:hidden}
+  .lb-bar-fill{height:100%;border-radius:999px}
   .hero2-statsbar{grid-template-columns:repeat(4,1fr);max-width:900px;margin:40px auto 0}
 }
 
@@ -1143,28 +1154,52 @@ select{
       </div>
 
       <div class="hero2-example">
-        <p class="hero2-example-lbl">EXAMPLE RESULTS</p>
-        <div class="bp-box" style="display:block">
-          <div class="bp-lbl">Your Buying Power</div>
-          <div class="bp-val">$620,000 – $780,000</div>
-          <div class="bp-row">
-            <div class="bp-stat"><div class="bp-stat-lbl">Est. Monthly</div><div class="bp-stat-val">$3,240</div></div>
-            <div class="bp-stat"><div class="bp-stat-lbl">Cities Matched</div><div class="bp-stat-val">14 of 55</div></div>
+        <p class="hero2-example-lbl">EXAMPLE RESULTS · RANKED FOR YOUR BUDGET</p>
+        <div class="lb-list">
+          <div class="lb-row">
+            <span class="lb-rank">1</span>
+            <div class="lb-body">
+              <div class="lb-top">
+                <span class="lb-city">Barrie</span>
+                <span class="lb-badge" style="background:#E1F5EE;color:#085041">Great Fit</span>
+              </div>
+              <p class="lb-meta">Detached · $681K · $3,590/mo</p>
+              <div class="lb-bar"><div class="lb-bar-fill" style="width:34%;background:#1D9E75"></div></div>
+            </div>
           </div>
-        </div>
-        <div class="city" style="cursor:default">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-            <span style="font-size:15px;font-weight:700;color:var(--ink)">Barrie</span>
-            <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;background:#E1F5EE;color:#085041">Great Fit</span>
+          <div class="lb-row">
+            <span class="lb-rank">2</span>
+            <div class="lb-body">
+              <div class="lb-top">
+                <span class="lb-city">Oshawa</span>
+                <span class="lb-badge" style="background:#E1F5EE;color:#085041">Great Fit</span>
+              </div>
+              <p class="lb-meta">Semi-Detached · $622K · $3,280/mo</p>
+              <div class="lb-bar"><div class="lb-bar-fill" style="width:31%;background:#1D9E75"></div></div>
+            </div>
           </div>
-          <p style="font-size:13px;color:var(--ink-soft)">Detached · $681K · $3,590/mo</p>
-        </div>
-        <div class="city" style="cursor:default;margin-bottom:0">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-            <span style="font-size:15px;font-weight:700;color:var(--ink)">Oshawa</span>
-            <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;background:#E6F1FB;color:#0C447C">Good Fit</span>
+          <div class="lb-row">
+            <span class="lb-rank">3</span>
+            <div class="lb-body">
+              <div class="lb-top">
+                <span class="lb-city">Kitchener</span>
+                <span class="lb-badge" style="background:#E6F1FB;color:#0C447C">Good Fit</span>
+              </div>
+              <p class="lb-meta">Townhouse · $712K · $3,760/mo</p>
+              <div class="lb-bar"><div class="lb-bar-fill" style="width:42%;background:#2F80C4"></div></div>
+            </div>
           </div>
-          <p style="font-size:13px;color:var(--ink-soft)">Semi-Detached · $622K · $3,280/mo</p>
+          <div class="lb-row">
+            <span class="lb-rank">4</span>
+            <div class="lb-body">
+              <div class="lb-top">
+                <span class="lb-city">Milton</span>
+                <span class="lb-badge" style="background:#FAEEDA;color:#633806">Stretch</span>
+              </div>
+              <p class="lb-meta">Detached · $845K · $4,460/mo</p>
+              <div class="lb-bar"><div class="lb-bar-fill" style="width:58%;background:#C7841A"></div></div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
