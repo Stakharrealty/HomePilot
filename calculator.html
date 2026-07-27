@@ -1186,6 +1186,44 @@ select{
     #calculatorSection{position:sticky;top:24px}
     #calculatorSection .card{margin-bottom:12px}
   }
+
+  /* Empty state for the results column — shown until the user submits the
+     form, so the right side isn't just blank space on first visit. Hidden
+     by main.js the moment real results are ready to display. */
+  .calc-empty-state{
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;
+    min-height:320px;
+    padding:40px 24px;
+    border:1.5px dashed var(--border);
+    border-radius:var(--radius-lg);
+    color:var(--ink-faint);
+  }
+  .calc-empty-icon{
+    width:52px;height:52px;border-radius:50%;
+    background:var(--surface);
+    display:flex;align-items:center;justify-content:center;
+    color:var(--ink-faint);
+    margin-bottom:16px;
+  }
+  .calc-empty-state h3{font-size:15px;font-weight:700;color:var(--ink-mid);margin:0 0 8px}
+  .calc-empty-state p{font-size:13px;color:var(--ink-faint);line-height:1.6;max-width:320px;margin:0}
+
+  /* Guided walkthrough */
+  #tourTrigger{
+    display:flex;align-items:center;gap:6px;
+    background:none;border:1px solid var(--border);
+    border-radius:999px;padding:7px 14px;
+    font-size:12.5px;font-weight:600;color:var(--green-mid);
+    cursor:pointer;margin-bottom:14px;
+    font-family:var(--font);
+  }
+  #tourTrigger:hover{background:var(--green-light)}
+  .tour-highlight{
+    position:relative;z-index:9501;
+    box-shadow:0 0 0 3px var(--green),0 0 0 9999px rgba(11,14,20,0.55);
+    border-radius:12px;
+  }
 </style>
 <body>
 <div class="w">
@@ -1221,6 +1259,10 @@ select{
 
   <div class="calc-layout">
   <div id="calculatorSection" class="calculator-section">
+  <button type="button" id="tourTrigger" onclick="startTour()">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.5 9a2.5 2.5 0 015 0c0 1.5-2 2-2 3.5"/><circle cx="12" cy="17" r="0.5" fill="currentColor"/></svg>
+    How does this work?
+  </button>
   <div class="card">
     <label class="lbl" style="display:flex;align-items:center;gap:6px;">
       <span id="l1">Annual household income (before tax)</span>
@@ -1332,6 +1374,13 @@ select{
   </div>
 
   <div class="calc-results">
+  <div class="calc-empty-state" id="calcEmptyState">
+    <div class="calc-empty-icon">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-6"/></svg>
+    </div>
+    <h3>Your results will appear here</h3>
+    <p>Fill in your details on the left and click "Show Me What I Can Afford" to see your buying power and ranked Ontario cities.</p>
+  </div>
   <div class="bp-box" id="bpBox">
     <div class="bp-lbl" id="bp_lbl">Your estimated buying power</div>
     <div class="bp-val" id="bpV"></div>
@@ -1592,6 +1641,22 @@ document.addEventListener('keydown',function(e){
   }
 });
 </script>
+<!-- Guided walkthrough overlay -->
+<div id="tourOverlay" style="display:none;position:fixed;inset:0;z-index:9500;pointer-events:none">
+  <div id="tourTooltip" style="position:absolute;pointer-events:auto;background:#fff;border-radius:14px;box-shadow:0 20px 50px rgba(0,0,0,0.25);padding:18px 20px;max-width:300px;">
+    <p id="tourStepNum" style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#1D9E75;margin:0 0 8px"></p>
+    <h4 id="tourTitle" style="font-size:15px;font-weight:700;color:#111318;margin:0 0 8px"></h4>
+    <p id="tourDesc" style="font-size:13px;color:#3D4555;line-height:1.55;margin:0 0 16px"></p>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+      <button type="button" id="tourSkip" onclick="skipTour()" style="background:none;border:none;font-size:12.5px;color:#9CA3AF;cursor:pointer;padding:0">Skip tour</button>
+      <div style="display:flex;gap:8px">
+        <button type="button" id="tourBack" onclick="tourStepBack()" style="padding:8px 14px;border-radius:8px;border:1px solid #E4E7EC;background:#fff;color:#3D4555;font-size:13px;font-weight:600;cursor:pointer">Back</button>
+        <button type="button" id="tourNext" onclick="tourStepNext()" style="padding:8px 16px;border-radius:8px;border:none;background:#1D9E75;color:#fff;font-size:13px;font-weight:700;cursor:pointer">Next</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Floating WhatsApp Button -->
 <div id="waWrap" style="position:fixed;bottom:20px;right:20px;z-index:9999;display:flex;flex-direction:column;align-items:flex-end;gap:8px">
   <div id="waTooltip" style="position:relative;display:flex;align-items:flex-start;gap:8px;background:#fff;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,0.15);border:1px solid #E4E7EC;padding:12px 14px;max-width:210px">

@@ -120,6 +120,7 @@ function go(){
     const frn=document.getElementById('footerRateNote');
     if(frn) frn.innerHTML=`Estimates based on ${rateDisplay} mortgage rate, stress tested at ${stressRateDisplay} (higher of 5.25% or contract rate + 2%). Amortization: 25-year, or 30-year where 20%+ down qualifies. Property tax rates sourced from each municipality. Utilities estimated by family size and region. Maintenance at 1% of home value annually. Qualification estimates are educational only and do not represent mortgage approval — final qualification depends on lender underwriting, credit, property taxes, condo fees, heating costs, and program eligibility. Sandeep Takhar is a RE/MAX agent covering Bolton, Caledon, Orangeville and surrounding areas. English · Français · 中文 · Punjabi · Hindi · Urdu · 416-725-8087`;
     document.getElementById("bpBox").style.display="block";
+    const es=document.getElementById("calcEmptyState");if(es)es.style.display="none";
     document.getElementById("cnt").innerHTML="<span>"+results.length+" cities</span> match your budget — tap any city to see the full monthly breakdown";
     document.getElementById("res").style.display="block";document.getElementById("cap").style.display="block";const pfb=document.getElementById("propFilterBar");if(pfb)pfb.style.display="block";
     activeProp='all';activeFit='all';

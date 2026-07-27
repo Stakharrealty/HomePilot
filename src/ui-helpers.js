@@ -154,3 +154,103 @@ function closeTransparencyModal(){
   document.addEventListener('DOMContentLoaded', updateHeaderScrollState);
   updateHeaderScrollState();
 })();
+
+// ── GUIDED WALKTHROUGH (July 27 2026) ──────────────────────────────────
+// A simple, non-AI onboarding tour for the calculator page. Highlights each
+// form field in sequence with a tooltip explaining what it's for. Purely
+// presentational — does not read or write any real app state (results,
+// buyPower, etc.), only walks the user through the form. Auto-shows once
+// for first-time visitors (tracked via localStorage), always re-accessible
+// via the "How does this work?" button.
+const TOUR_STEPS = [
+  { id: 'inc', title: 'Start with your income', desc: 'Enter your total household income before taxes. If two people are buying together, add both incomes.' },
+  { id: 'dwn', title: 'Your down payment', desc: 'How much you\'ve saved toward a down payment. This affects your mortgage insurance and monthly costs.' },
+  { id: 'dbt', title: 'Existing debt (optional)', desc: 'Car loans, credit cards, other monthly payments. Leave at 0 if none — this affects how much a lender would qualify you for.' },
+  { id: 'waSelect', title: 'How you work', desc: 'Remote workers get ranked purely by affordability. Hybrid or daily commuters get cities filtered by realistic commute time too.' },
+  { id: 'area', title: 'Where you want to live', desc: 'Narrow results to a specific part of Ontario, or leave it broad to see everything you can afford.' },
+  { id: 'ftb-yes', title: 'First-time buyer?', desc: 'This can unlock different programs and incentives that affect what you can afford.' },
+  { id: 'fam', title: 'Household size', desc: 'Used to estimate realistic living costs and space needs for your household.' },
+  { id: 'goBtn', title: 'See your results', desc: 'Once you\'re ready, tap this to see your buying power and ranked Ontario cities on the right.' },
+];
+let tourIndex = 0;
+
+function getTourTargetCard(stepId){
+  const el = document.getElementById(stepId);
+  if(!el) return null;
+  return el.closest('.card') || el;
+}
+
+function positionTourTooltip(target){
+  const tooltip = document.getElementById('tourTooltip');
+  if(!target || !tooltip) return;
+  const rect = target.getBoundingClientRect();
+  const scrollY = window.scrollY || window.pageYOffset;
+  const scrollX = window.scrollX || window.pageXOffset;
+  let top = rect.bottom + scrollY + 12;
+  let left = rect.left + scrollX;
+  // Keep the tooltip on-screen horizontally
+  const maxLeft = window.innerWidth - 320;
+  if(left > maxLeft) left = Math.max(16, maxLeft);
+  tooltip.style.top = top + 'px';
+  tooltip.style.left = left + 'px';
+}
+
+function showTourStep(i){
+  const prev = document.querySelector('.tour-highlight');
+  if(prev) prev.classList.remove('tour-highlight');
+
+  const step = TOUR_STEPS[i];
+  if(!step) return;
+  const target = getTourTargetCard(step.id);
+  if(!target) { tourStepNext(); return; }
+
+  target.classList.add('tour-highlight');
+  target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+  document.getElementById('tourStepNum').textContent = 'Step ' + (i+1) + ' of ' + TOUR_STEPS.length;
+  document.getElementById('tourTitle').textContent = step.title;
+  document.getElementById('tourDesc').textContent = step.desc;
+  document.getElementById('tourBack').style.display = i === 0 ? 'none' : 'inline-block';
+  document.getElementById('tourNext').textContent = i === TOUR_STEPS.length - 1 ? 'Got it' : 'Next';
+
+  setTimeout(() => positionTourTooltip(target), 300);
+}
+
+function startTour(){
+  tourIndex = 0;
+  const overlay = document.getElementById('tourOverlay');
+  if(overlay) overlay.style.display = 'block';
+  showTourStep(tourIndex);
+  try { localStorage.setItem('homepilot_tour_seen', '1'); } catch(e){}
+}
+
+function tourStepNext(){
+  if(tourIndex >= TOUR_STEPS.length - 1){ endTour(); return; }
+  tourIndex++;
+  showTourStep(tourIndex);
+}
+
+function tourStepBack(){
+  if(tourIndex <= 0) return;
+  tourIndex--;
+  showTourStep(tourIndex);
+}
+
+function skipTour(){ endTour(); }
+
+function endTour(){
+  const overlay = document.getElementById('tourOverlay');
+  if(overlay) overlay.style.display = 'none';
+  const highlighted = document.querySelector('.tour-highlight');
+  if(highlighted) highlighted.classList.remove('tour-highlight');
+}
+
+// Auto-launch once for first-time visitors, small delay so the page settles first.
+document.addEventListener('DOMContentLoaded', function(){
+  if(!document.getElementById('calculatorSection')) return; // only on the calculator page
+  let seen = null;
+  try { seen = localStorage.getItem('homepilot_tour_seen'); } catch(e){}
+  if(!seen){
+    setTimeout(startTour, 900);
+  }
+});
