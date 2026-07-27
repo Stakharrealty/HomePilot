@@ -190,11 +190,6 @@ function render(){
           '<div style="font-size:11px;color:#bbb;margin-top:2px" id="'+id+'-mmort">'+t.mortgage+': '+fc(c.mort)+'/mo</div>';
       })()+
       '</div></div>'+
-      '<div class="ai-insights-trigger" id="ai-trigger-'+id+'" onclick="event.stopPropagation();toggleAiInsights(\''+id+'\',\''+x.n+'\')" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:10px 12px;margin:10px 0;background:linear-gradient(135deg,#F3EEFB,#EEF7F3);border:1px solid #E3DAF5;border-radius:10px">'+
-      '<span style="font-size:13px;font-weight:700;color:#5B3A7E">✨ AI Insights for '+x.n+'</span>'+
-      '<span id="ai-trigger-chevron-'+id+'" style="font-size:13px;color:#5B3A7E;transition:transform 0.2s">›</span>'+
-      '</div>'+
-      '<div class="ai-insights" id="ai-'+id+'" style="display:none;margin-bottom:6px"></div>'+
       unlockNote+
       buildWhyRanked(x, c, netMonthlyIncome||grossMonthlyIncome*0.72, accessTier, x.dynPropType||activeProp, displayPrice)+
       (devMode?buildDevPanel(x,compositeScore):'')+
@@ -242,6 +237,15 @@ function render(){
         h+='<div style="font-size:11px;color:#aaa;margin-top:4px;text-align:right">% of monthly take-home</div>';
         return h;
       })()+
+      // AI Insights sits right under the property type ladder (moved here
+      // July 27 2026 per feedback — reads more naturally right after the
+      // user has seen the concrete price/cost breakdown, rather than before
+      // it at the top of the card).
+      '<div class="ai-insights-trigger" id="ai-trigger-'+id+'" onclick="event.stopPropagation();toggleAiInsights(\''+id+'\',\''+x.n+'\')" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:10px 12px;margin:10px 0;background:linear-gradient(135deg,#F3EEFB,#EEF7F3);border:1px solid #E3DAF5;border-radius:10px">'+
+      '<span style="font-size:13px;font-weight:700;color:#5B3A7E">✨ AI Insights for '+x.n+'</span>'+
+      '<span id="ai-trigger-chevron-'+id+'" style="font-size:13px;color:#5B3A7E;transition:transform 0.2s">›</span>'+
+      '</div>'+
+      '<div class="ai-insights" id="ai-'+id+'" style="display:none;margin-bottom:6px"></div>'+
       '<div class="cm" style="margin-top:8px"><div></div><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end">'+
       ''+
       '</div></div>'+
