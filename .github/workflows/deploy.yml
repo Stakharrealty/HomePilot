@@ -53,15 +53,18 @@ jobs:
       # so this step is unreachable unless all 4 suites passed.
       #
       # Build a clean deploy folder with ONLY what buyers should ever see:
-      # index.html + src/. This deliberately excludes tests/, workers/
-      # (which includes SECRETS.md, RECOVERY.md, worker source), README.md,
-      # and package*.json — none of that should ever be publicly servable
-      # from myhomepilot.ca.
+      # index.html + listings.html + the 3 static legal pages + src/. This
+      # deliberately excludes tests/, workers/ (which includes SECRETS.md,
+      # RECOVERY.md, worker source), README.md, and package*.json — none of
+      # that should ever be publicly servable from myhomepilot.ca.
       - name: Build deploy folder
         run: |
           mkdir -p deploy
           cp index.html deploy/
           cp listings.html deploy/
+          cp privacy-policy.html deploy/
+          cp terms-of-use.html deploy/
+          cp disclaimer.html deploy/
           cp -r src deploy/
           cat > deploy/wrangler.jsonc << 'EOF'
           {
