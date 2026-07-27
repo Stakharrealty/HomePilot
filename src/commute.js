@@ -88,6 +88,20 @@ const DRIVE_TABLE = {
   'Brock':            {brampton:90, mississauga:85, toronto_west:80, toronto_downtown:80,  toronto_north:75,  toronto_east:65,  vaughan:85,  markham:65,  richmond_hill:70, oakville:95, burlington:105, hamilton:120, ajax_whitby:40,  newmarket_aurora:85,  barrie:110, kitchener:140, guelph:120, milton:100, georgetown:95, orangeville:130, shelburne:150, mono:120, bolton:100, caledon:105, king_city:90, erin:115, scarborough:65,  pickering:55,  oshawa:45,  ajax:55,  whitby:50,  georgina:90,  scugog:25,  innisfil:110, collingwood:145, wasaga_beach:140, midland:150, st_catharines:155, niagara_falls:165, welland:170, fort_erie:180, acton:110, centre_wellington:140, cobourg:65,  peterborough:60,  belleville:105, kingston:150, ottawa:385},
 };
 
+// BUG FIX (July 26 2026): DRIVE_TO_TORONTO was referenced by compare.js and
+// homepilot-score.js as a "legacy Toronto-anchor" flat lookup (cityName ->
+// minutes), used as a fallback for remote workers / when no real work zone
+// can be resolved. It was never actually defined anywhere in the codebase —
+// a genuine ReferenceError in production, present since compare.js was
+// first extracted (pre-dates today's session). Derived here from
+// DRIVE_TABLE's existing toronto_downtown column, which every one of the 56
+// cities already has, rather than re-inventing a second hand-maintained
+// table that could drift out of sync with DRIVE_TABLE over time.
+const DRIVE_TO_TORONTO = {};
+for (const city in DRIVE_TABLE) {
+  DRIVE_TO_TORONTO[city] = DRIVE_TABLE[city].toronto_downtown;
+}
+
 
 // Map FSA prefix → work zone key
 // Built from real Ontario postal geography
