@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>HomePilot — What does it really cost to own a home in Ontario?</title>
+<title>HomePilot Calculator — See What You Can Afford</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -138,9 +138,6 @@ body{
   }
   .hdr-nav-link:hover{color:var(--ink);background:var(--surface)}
   .hdr-nav-cta{
-    display:inline-flex;
-    align-items:center;
-    text-decoration:none;
     font-size:14px;font-weight:600;
     padding:9px 18px;
     border-radius:8px;
@@ -190,7 +187,7 @@ body{
 .hero2-benefits{list-style:none;margin:0 0 22px;padding:0;display:flex;flex-direction:column;gap:10px}
 .hero2-benefits li{display:flex;align-items:flex-start;gap:9px;font-size:13.5px;color:var(--ink-mid);line-height:1.5}
 .hero2-benefits li svg{flex-shrink:0;margin-top:2px}
-.hero2-cta{display:inline-flex;align-items:center;gap:8px;text-decoration:none;padding:14px 26px;border-radius:var(--radius-sm);border:none;background:var(--green);color:#fff;font-size:14.5px;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(29,158,117,0.25);transition:opacity 0.15s,transform 0.1s}
+.hero2-cta{display:inline-flex;align-items:center;gap:8px;padding:14px 26px;border-radius:var(--radius-sm);border:none;background:var(--green);color:#fff;font-size:14.5px;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(29,158,117,0.25);transition:opacity 0.15s,transform 0.1s}
 .hero2-cta:hover{opacity:0.92;transform:translateY(-1px)}
 .hero2-note{font-size:12px;color:var(--ink-faint);margin-top:12px}
 .hero2-statsbar{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:24px;padding-top:20px;border-top:1px solid var(--border)}
@@ -319,7 +316,7 @@ body{
 .fcta-eyebrow{font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--green);margin-bottom:14px}
 .fcta h2{font-size:24px;font-weight:800;line-height:1.25;letter-spacing:-0.4px;color:#fff;max-width:640px;margin:0 auto 16px}
 .fcta-sub{font-size:14px;color:rgba(255,255,255,0.6);line-height:1.65;max-width:560px;margin:0 auto 26px}
-.fcta-btn{display:inline-flex;align-items:center;gap:8px;text-decoration:none;padding:15px 30px;border-radius:10px;border:none;background:var(--green);color:#fff;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 8px 24px rgba(29,158,117,0.3);transition:opacity 0.15s}
+.fcta-btn{display:inline-flex;align-items:center;gap:8px;padding:15px 30px;border-radius:10px;border:none;background:var(--green);color:#fff;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 8px 24px rgba(29,158,117,0.3);transition:opacity 0.15s}
 .fcta-btn:hover{opacity:0.9}
 .fcta-trust{display:flex;flex-wrap:wrap;justify-content:center;gap:10px 20px;margin-top:26px}
 .fcta-trust span{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:rgba(255,255,255,0.7)}
@@ -1174,10 +1171,16 @@ select{
 .pr-agent-contact { text-align: right; font-size: 11px; color: #555; }
 </style>
 </head>
+<style>
+  /* This page has no marketing hero above it — the calculator is the whole
+     point of the page, so show it immediately instead of the hidden/
+     reveal-on-click behavior used on the homepage. */
+  .calculator-section{display:block !important;opacity:1 !important;transform:none !important}
+</style>
 <body>
-<div class="w">
-  <div class="hdr" id="mainHdr">
-    <div class="logo">
+<div class="w" style="max-width:720px">
+  <div class="hdr" style="position:static;background:transparent;border-bottom:1px solid var(--border-light);padding:0 0 1.25rem;margin-bottom:1.75rem">
+    <a href="/" style="display:flex;align-items:center;gap:10px;text-decoration:none">
       <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
         <rect width="32" height="32" rx="8" fill="#1D9E75"/>
         <polygon points="16,5 5,13 5,27 12,27 12,20 20,20 20,27 27,27 27,13" fill="white"/>
@@ -1185,340 +1188,290 @@ select{
         <line x1="16" y1="16" x2="16" y2="12" stroke="#1D9E75" stroke-width="1.8" stroke-linecap="round"/>
         <polygon points="16,10 14,14 18,14" fill="#1D9E75"/>
       </svg>
-      <div class="logo-text"><span>HomePilot</span><span class="logo-tag">Live Comfortably</span></div>
+      <div class="logo-text"><span style="color:var(--ink)">HomePilot</span><span class="logo-tag">Live Comfortably</span></div>
+    </a>
+    <select class="lang-sel" onchange="setLang(this.value)">
+      <option value="" disabled>🌐 Language</option>
+      <option value="en" selected>English</option>
+      <option value="fr">Français</option>
+      <option value="zh">中文</option>
+      <option value="pa">ਪੰਜਾਬੀ</option>
+      <option value="hi">हिंदी</option>
+      <option value="ur">اردو</option>
+    </select>
+  </div>
+
+  <div id="calculatorSection" class="calculator-section">
+  <div class="card">
+    <label class="lbl" style="display:flex;align-items:center;gap:6px;">
+      <span id="l1">Annual household income (before tax)</span>
+      <button type="button" class="info-btn" onclick="toggleTooltip(event,'inc-tooltip')" aria-label="Income info">ⓘ</button>
+    </label>
+    <div class="tooltip-box" id="inc-tooltip">
+      <div>Enter your total household income before taxes. If two people are buying together, add both incomes.</div>
+      <div style="margin-top:4px;color:#1D9E75;font-weight:600">Example: If you earn $80K and your partner earns $60K, enter $140,000</div>
     </div>
-    <div class="hdr-right">
-      <div class="hdr-nav" id="hdrNav">
-        <a class="hdr-nav-link" href="#how-it-works">How It Works</a>
-        <a class="hdr-nav-link" href="#cities">Cities</a>
-        <a class="hdr-nav-link" href="#faq">FAQ</a>
-        <a class="hdr-nav-cta" id="hdrCtaBtn" href="calculator.html" target="_blank" rel="noopener">See What I Can Afford</a>
-      </div>
-      <select class="lang-sel" onchange="setLang(this.value)">
-        <option value="" disabled>🌐 Language</option>
-        <option value="en" selected>English</option>
-        <option value="fr">Français</option>
-        <option value="zh">中文</option>
-        <option value="pa">ਪੰਜਾਬੀ</option>
-        <option value="hi">हिंदी</option>
-        <option value="ur">اردو</option>
-      </select>
+    <input type="number" id="inc" placeholder="e.g. 120000" min="0" oninput="checkDebtSanity()">
+  </div>
+  <div class="card">
+    <label class="lbl" style="display:flex;align-items:center;gap:6px;">
+      <span id="l2">Down payment saved</span>
+      <button type="button" class="info-btn" onclick="toggleTooltip(event,'dwn-tooltip')" aria-label="Down payment info">ⓘ</button>
+    </label>
+    <div class="tooltip-box" id="dwn-tooltip">
+      <div>The amount of cash you have saved and ready to put toward a home purchase.</div>
+      <div style="margin-top:4px">Minimum in Canada: 5% for homes under $500K, 10% for the portion between $500K–$999K, 20% for $1M+</div>
+      <div style="margin-top:4px;color:#1D9E75;font-weight:600">More down payment = lower mortgage = lower monthly costs</div>
+    </div>
+    <input type="number" id="dwn" placeholder="e.g. 80000" min="0">
+  </div>
+  <div class="card">
+    <label class="lbl" style="display:flex;align-items:center;gap:6px;">
+      <span id="l3">Existing monthly debt payments</span>
+      <button type="button" class="info-btn" onclick="toggleTooltip(event,'debt-tooltip')" aria-label="Debt info">ⓘ</button>
+    </label>
+    <div class="tooltip-box" id="debt-tooltip">
+      <div id="l3_inc">Include: car loan, student loan, credit card minimums, personal loans</div>
+      <div style="margin-top:4px" id="l3_exc">Do NOT include: rent, groceries, phone, utilities — only debts on your credit report</div>
+      <div style="margin-top:6px;color:#1D9E75;font-weight:600" id="l3_zero">No existing debts? Leave it as Zero</div>
+    </div>
+    <input type="number" id="dbt" placeholder="0" min="0" value="0" oninput="checkDebtSanity()">
+    <div id="dbt-warning" style="display:none;margin-top:6px;font-size:12px;color:#92400E;background:#FFFBEB;border:1px solid #FDE68A;border-radius:6px;padding:8px 10px;line-height:1.4">
+      ⚠ That looks high for a <em>monthly</em> payment. Please enter your monthly debt payment (e.g. $400), not your total loan balance — a large number here will incorrectly reduce how much home you qualify for.
     </div>
   </div>
 
-  <section class="hero2" id="hero" aria-labelledby="heroHeading">
-    <div class="hero2-grid">
-      <div class="hero2-left">
-        <div class="hero2-badge">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--green-mid)"><path d="M12 2C8 2 5 5.5 5 9.5c0 5.5 7 12.5 7 12.5s7-7 7-12.5C19 5.5 16 2 12 2z"/><circle cx="12" cy="9.5" r="2.5"/></svg>
-          <span>Ontario Homebuyers</span>
+  <div class="card" id="workArrangementCard">
+    <label class="lbl" id="wa_lbl">Work arrangement</label>
+    <select id="waSelect" onchange="setWorkArrangement(this.value)">
+      <option value="remote" selected>Remote</option>
+      <option value="hybrid">Hybrid (2–4 days/week)</option>
+      <option value="daily">Daily (5+ days/week)</option>
+    </select>
+    <div id="workLocationFields" style="display:none;" class="work-location-fields">
+      <div style="margin-top:12px;">
+        <label class="lbl" id="wc_lbl" style="margin-bottom:5px;">Work city</label>
+        <input type="text" id="workCity" placeholder="e.g. Brampton">
+      </div>
+      <div style="margin-top:10px;">
+        <label class="lbl" id="wp_lbl" style="margin-bottom:5px;">Work postal code <span style="color:#bbb;font-weight:400">(optional)</span></label>
+        <input type="text" id="workPostal" placeholder="e.g. L6Y 0A1" maxlength="7" style="text-transform:uppercase;">
+      </div>
+    </div>
+    <div style="font-size:11px;color:#9CA3AF;margin-top:8px;" id="wa_hint">Remote workers get recommendations ranked purely by affordability.</div>
+  </div>
+  <div class="card">
+    <label class="lbl" style="display:flex;align-items:center;gap:6px;">
+      <span id="l4">Preferred area</span>
+      <button type="button" class="info-btn" onclick="toggleTooltip(event,'area-tooltip')" aria-label="Area info">ⓘ</button>
+    </label>
+    <div class="tooltip-box" id="area-tooltip">
+      <div>Select the region you'd like to buy in. Choose "All GTA and surrounding areas" to see every city we cover.</div>
+      <div style="margin-top:4px;color:#1D9E75;font-weight:600">Tip: Smaller cities outside the GTA often offer significantly better value for your budget</div>
+    </div>
+    <select id="area">
+      <option value="all">All GTA and surrounding areas</option>
+      <option value="gta">City of Toronto + Peel</option>
+      <option value="west">West of Toronto (Halton / Wellington)</option>
+      <option value="east">East of Toronto (Durham)</option>
+      <option value="north">North of Toronto (York / Simcoe)</option>
+      <option value="duff">Dufferin / Orangeville area</option>
+      <option value="niag">Niagara / Hamilton</option>
+      <option value="wloo">Waterloo Region</option>
+      <option value="east2">Eastern Ontario</option>
+    </select>
+  </div>
+  <div class="card">
+    <div class="lbl" id="ftb_lbl">Are you a first-time home buyer?</div>
+    <div style="display:flex;gap:10px;margin-top:8px">
+      <button id="ftb-yes" onclick="setFTB(true)" style="flex:1;padding:10px;border-radius:999px;border:1.5px solid #E4E7EC;background:#fff;color:#3D4555;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;font-family:var(--font)">Yes</button>
+      <button id="ftb-no" onclick="setFTB(false)" style="flex:1;padding:10px;border-radius:999px;border:1.5px solid #1D9E75;background:#1D9E75;color:#fff;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;font-family:var(--font)">No</button>
+    </div>
+    <div style="font-size:11px;color:#9CA3AF;margin-top:6px">First-time buyers may qualify for land transfer tax rebates</div>
+  </div>
+  <div class="card">
+    <label class="lbl" style="display:flex;align-items:center;gap:6px;">
+      <span id="l5">Family size</span>
+      <button type="button" class="info-btn" onclick="toggleTooltip(event,'fam-tooltip')" aria-label="Family size info">ⓘ</button>
+    </label>
+    <div class="tooltip-box" id="fam-tooltip">
+      <div>How many people will be living in the home? This affects utility cost estimates in each city.</div>
+    </div>
+    <select id="fam">
+      <option value="1">Just me</option>
+      <option value="2">2 people</option>
+      <option value="3" selected>3 people</option>
+      <option value="4">4 people</option>
+      <option value="5">5+ people</option>
+    </select>
+  </div>
+
+  <button class="go-btn" id="goBtn" onclick="go()">
+    <span id="bt">Show Me What I Can Afford</span>
+  </button>
+  <div class="err" id="err">Please fill in your income to continue.</div>
+  </div>
+
+  <div class="bp-box" id="bpBox">
+    <div class="bp-lbl" id="bp_lbl">Your estimated buying power</div>
+    <div class="bp-val" id="bpV"></div>
+    <div class="bp-sub" id="bpSub" style="font-size:13px;line-height:1.5"></div>
+    <div class="bp-sub" id="bp_sub_txt" style="margin-top:6px;opacity:0.7">This is the maximum home price you can qualify for. Tap any city below to see the full monthly cost breakdown.</div>
+    <div id="rateNote" style="font-size:11px;color:rgba(255,255,255,0.6);margin-top:6px;line-height:1.5">Based on 4.19% mortgage rate · Stress tested at 6.19% · Educational estimate only — not a mortgage pre-approval.</div>
+  </div>
+
+  <div class="results-section" id="res">
+    <div class="sec-title" id="cities_title_el">Cities you can afford</div>
+    <div class="count" id="cnt"></div>
+    </div>
+    <div class="filter-group" id="propFilterBar" style="display:none">
+      <div class="filter-label">Property Type</div>
+      <div class="filters">
+        <button id="pt-all"      onclick="filtProp('all',this)"      class="fb on">All</button>
+        <button id="pt-condo"    onclick="filtProp('condo',this)"    class="fb">Condos</button>
+        <button id="pt-town"     onclick="filtProp('town',this)"     class="fb">Townhomes</button>
+        <button id="pt-semi"     onclick="filtProp('semi',this)"     class="fb">Semi-Detached</button>
+        <button id="pt-detached" onclick="filtProp('detached',this)" class="fb">Detached</button>
+      </div>
+    </div>
+    <div id="topPicks"></div>
+    <div id="printReport"></div>
+
+    <div id="rateBar" style="display:none;margin:0 0 14px 0;background:#fff;border:1px solid #E4E7EC;border-radius:12px;padding:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#3D4555;display:flex;align-items:center;gap:4px">Mortgage Rate<button type="button" class="info-btn" onclick="toggleTooltip(event,'rate-tooltip')" aria-label="Mortgage rate info">ⓘ</button></div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <input id="rateInput" type="number" min="1" max="15" step="0.05"
+            style="width:72px;font-size:15px;font-weight:800;color:#1D9E75;border:1.5px solid #E4E7EC;border-radius:8px;padding:4px 8px;text-align:center;outline:none;font-family:var(--font)"
+            oninput="syncRate(this.value,'input')" />
+          <span style="font-size:14px;font-weight:700;color:#1D9E75">%</span>
         </div>
-        <h1 id="heroHeading">Find out how much home you can <span class="accent">actually afford</span> in Ontario.</h1>
-        <p class="hero2-sub" id="hs">HomePilot helps you understand your true homebuying options by analyzing income, down payment, monthly budget, commute, and real housing costs.</p>
-        <ul class="hero2-benefits">
-          <li><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="8" fill="var(--green)"/><path d="M4.5 8.2L6.8 10.5L11.5 5.5" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Based on your real income and debt — not estimates</span></li>
-          <li><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="8" fill="var(--green)"/><path d="M4.5 8.2L6.8 10.5L11.5 5.5" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Compares 55 Ontario cities by affordability</span></li>
-          <li><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="8" fill="var(--green)"/><path d="M4.5 8.2L6.8 10.5L11.5 5.5" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Shows full monthly costs: mortgage, tax, utilities</span></li>
-          <li><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="8" fill="var(--green)"/><path d="M4.5 8.2L6.8 10.5L11.5 5.5" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Filters by commute time from your workplace</span></li>
-        </ul>
-        <a class="hero2-cta" id="heroCtaBtn" href="calculator.html" target="_blank" rel="noopener">
-          See What I Can Afford
-          <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </a>
-        <p class="hero2-note">Free to use · No mortgage broker · No financial advice</p>
+      </div>
+      <div class="tooltip-box" id="rate-tooltip">This estimate assumes a fixed rate. Variable rates may start lower but can rise over your term — your buying power above is already stress-tested for that possibility (qualified at the higher of 5.25% or your rate + 2%), so it won't change based on which you eventually choose.</div>
+      <input id="rateSlider" type="range" min="1" max="15" step="0.05" value="4.19"
+        style="width:100%;accent-color:#1D9E75;cursor:pointer"
+        oninput="syncRate(this.value,'slider')" />
+      <div style="display:flex;justify-content:space-between;margin-top:4px">
+        <span style="font-size:10px;color:#9CA3AF">1%</span>
+        <span id="rateHint" style="font-size:10px;color:#6B7280;font-style:italic"></span>
+        <span style="font-size:10px;color:#9CA3AF">15%</span>
+      </div>
+    </div>
+    <div id="shareBar" style="display:none;margin:0 0 10px 0;gap:8px">
+      <button id="scenarioBtn" onclick="openScenarioSandbox()"
+        style="flex:1;background:#fff;color:#1D9E75;border:1.5px solid #1D9E75;border-radius:8px;padding:10px 8px;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap;font-family:var(--font)">
+        <span>Scenarios</span>
+      </button>
+      <button id="shareBtn" onclick="shareScenario()"
+        style="flex:1;background:#fff;color:#1D9E75;border:1.5px solid #1D9E75;border-radius:8px;padding:10px 8px;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap;font-family:var(--font)">
+        <span id="shareBtnLbl">Share</span>
+      </button>
+      <button onclick="downloadReport()"
+        style="flex:1;background:#fff;color:#1D9E75;border:1.5px solid #1D9E75;border-radius:8px;padding:10px 8px;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap;font-family:var(--font)">
+        <span>Download Report</span>
+      </button>
+    </div>
+    <div id="scenarioPanel" style="display:none;margin:0 0 16px 0;background:#FAF8FE;border:1.5px solid #D9C9F0;border-radius:14px;padding:18px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div style="font-size:13px;font-weight:800;color:#5B3A7E">🔮 What If...</div>
+        <button onclick="closeScenarioSandbox()" style="background:none;border:none;color:#8B6CA8;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font)">Close</button>
       </div>
 
-      <div class="hero2-example">
-        <p class="hero2-example-lbl">EXAMPLE RESULTS · RANKED FOR YOUR BUDGET</p>
-        <div class="lb-list">
-          <div class="lb-row">
-            <span class="lb-rank">1</span>
-            <div class="lb-body">
-              <div class="lb-top">
-                <span class="lb-city">Barrie</span>
-                <span class="lb-badge" style="background:#E1F5EE;color:#085041">Great Fit</span>
-              </div>
-              <p class="lb-meta">Detached · $681K · $3,590/mo</p>
-              <div class="lb-bar"><div class="lb-bar-fill" style="width:34%;background:#1D9E75"></div></div>
-            </div>
-          </div>
-          <div class="lb-row">
-            <span class="lb-rank">2</span>
-            <div class="lb-body">
-              <div class="lb-top">
-                <span class="lb-city">Oshawa</span>
-                <span class="lb-badge" style="background:#E1F5EE;color:#085041">Great Fit</span>
-              </div>
-              <p class="lb-meta">Semi-Detached · $622K · $3,280/mo</p>
-              <div class="lb-bar"><div class="lb-bar-fill" style="width:31%;background:#1D9E75"></div></div>
-            </div>
-          </div>
-          <div class="lb-row">
-            <span class="lb-rank">3</span>
-            <div class="lb-body">
-              <div class="lb-top">
-                <span class="lb-city">Kitchener</span>
-                <span class="lb-badge" style="background:#E6F1FB;color:#0C447C">Good Fit</span>
-              </div>
-              <p class="lb-meta">Townhouse · $712K · $3,760/mo</p>
-              <div class="lb-bar"><div class="lb-bar-fill" style="width:42%;background:#2F80C4"></div></div>
-            </div>
-          </div>
-          <div class="lb-row">
-            <span class="lb-rank">4</span>
-            <div class="lb-body">
-              <div class="lb-top">
-                <span class="lb-city">Milton</span>
-                <span class="lb-badge" style="background:#FAEEDA;color:#633806">Stretch</span>
-              </div>
-              <p class="lb-meta">Detached · $845K · $4,460/mo</p>
-              <div class="lb-bar"><div class="lb-bar-fill" style="width:58%;background:#C7841A"></div></div>
-            </div>
-          </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+        <div>
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#8B6CA8;margin-bottom:4px">Income</div>
+          <input id="scnInc" type="number" style="width:100%;font-size:14px;font-weight:700;color:#5B3A7E;border:1.5px solid #D9C9F0;border-radius:8px;padding:7px 10px;outline:none;font-family:var(--font)" oninput="scenarioPreview()" />
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#8B6CA8;margin-bottom:4px">Down Payment</div>
+          <input id="scnDn" type="number" style="width:100%;font-size:14px;font-weight:700;color:#5B3A7E;border:1.5px solid #D9C9F0;border-radius:8px;padding:7px 10px;outline:none;font-family:var(--font)" oninput="scenarioPreview()" />
         </div>
       </div>
-    </div>
 
-    <div class="hero2-statsbar" id="heroStats">
-      <div class="stat"><p class="val">55</p><p class="lbl">Ontario cities analyzed</p></div>
-      <div class="stat"><p class="val">9,900+</p><p class="lbl">Live MLS listings</p></div>
-      <div class="stat"><p class="val">$0</p><p class="lbl">Free to use, always</p></div>
-      <div class="stat"><p class="val">&lt;2 min</p><p class="lbl">Average analysis time</p></div>
-    </div>
-  </section>
+      <div style="margin-bottom:14px">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#8B6CA8;margin-bottom:6px">Work Style</div>
+        <div style="display:flex;gap:6px">
+          <button id="scnWaDaily"  onclick="setScenarioWA('daily')"  class="scn-wa-btn">Daily</button>
+          <button id="scnWaHybrid" onclick="setScenarioWA('hybrid')" class="scn-wa-btn">Hybrid</button>
+          <button id="scnWaRemote" onclick="setScenarioWA('remote')" class="scn-wa-btn">Remote</button>
+        </div>
+      </div>
 
-  <section class="hiw" id="how-it-works" aria-labelledby="hiwHeading">
-    <div class="hiw-head">
-      <p class="hiw-eyebrow">HOW HOMEPILOT WORKS</p>
-      <h2 id="hiwHeading">From your finances to your best cities — in under 5 minutes</h2>
-      <p class="hiw-sub">HomePilot is not a mortgage calculator. It's a full Ontario home affordability analysis that tells you exactly where you can buy and what it will cost.</p>
-    </div>
-    <div class="hiw-grid">
-      <div class="hiw-card">
-        <div class="hiw-card-top">
-          <span class="hiw-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="8" y2="10"/><line x1="12" y1="10" x2="12" y2="10"/><line x1="16" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="8" y2="14"/><line x1="12" y1="14" x2="12" y2="14"/><line x1="16" y1="14" x2="16" y2="14"/><line x1="8" y1="18" x2="8" y2="18"/><line x1="12" y1="18" x2="12" y2="18"/></svg></span>
-          <span class="hiw-num">01</span>
-        </div>
-        <h3>Tell us about your finances</h3>
-        <p>Enter your household income, existing debt, down payment savings, and target monthly budget. No bank login required.</p>
-        <div class="hiw-detail">Income · Down payment · Monthly comfort zone</div>
-      </div>
-      <div class="hiw-card">
-        <div class="hiw-card-top">
-          <span class="hiw-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><polygon points="1,6 1,22 8,18 16,22 23,18 23,2 16,6 8,2"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg></span>
-          <span class="hiw-num">02</span>
-        </div>
-        <h3>Set your commute preferences</h3>
-        <p>Enter your workplace address. HomePilot automatically filters Ontario cities by realistic commute time — GO train, highway, or hybrid.</p>
-        <div class="hiw-detail">Workplace · Max commute time · Transit or drive</div>
-      </div>
-      <div class="hiw-card">
-        <div class="hiw-card-top">
-          <span class="hiw-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><line x1="4" y1="20" x2="4" y2="12"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="20" y1="20" x2="20" y2="8"/></svg></span>
-          <span class="hiw-num">03</span>
-        </div>
-        <h3>Get your affordability range</h3>
-        <p>We calculate your true price ceiling using GDS/TDS ratios, current rates, property tax estimates, and real utility costs.</p>
-        <div class="hiw-detail">True home price ceiling · Monthly cost breakdown</div>
-      </div>
-      <div class="hiw-card">
-        <div class="hiw-card-top">
-          <span class="hiw-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg></span>
-          <span class="hiw-num">04</span>
-        </div>
-        <h3>Explore matching cities &amp; listings</h3>
-        <p>See a ranked list of Ontario cities within your budget. Browse real listings that match your parameters, organized by best fit.</p>
-        <div class="hiw-detail">55 Ontario cities · Real listing data</div>
-      </div>
-    </div>
-  </section>
+      <button onclick="runScenarioComparison()" style="width:100%;background:#5B3A7E;color:#fff;border:none;border-radius:10px;padding:11px;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--font)">Compare</button>
 
-  <section class="wd" id="why-different" aria-labelledby="wdHeading">
-    <div class="wd-head">
-      <p class="wd-eyebrow">WHY IT'S DIFFERENT</p>
-      <h2 id="wdHeading">Not a mortgage calculator. Not a real estate search. Something better.</h2>
-      <p class="wd-sub">HomePilot is an Ontario homebuying decision platform. Here's how it compares to the tools you've already tried.</p>
+      <div id="scenarioResults" style="margin-top:16px"></div>
     </div>
-    <div class="wd-table">
-      <div class="wd-row wd-row-head">
-        <div class="wd-cell">Feature</div>
-        <div class="wd-cell">Generic Calculators</div>
-        <div class="wd-cell wd-cell-hl">HomePilot</div>
-      </div>
-      <div class="wd-row">
-        <div class="wd-cell wd-topic">What you get</div>
-        <div class="wd-cell wd-no"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span>A monthly payment number based on a mortgage formula</span></div>
-        <div class="wd-cell wd-yes wd-cell-hl"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Full affordability picture: price, tax, utilities, commute</span></div>
-      </div>
-      <div class="wd-row">
-        <div class="wd-cell wd-topic">Geography</div>
-        <div class="wd-cell wd-no"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span>You pick the city, it crunches numbers</span></div>
-        <div class="wd-cell wd-yes wd-cell-hl"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>We recommend which Ontario cities fit your budget</span></div>
-      </div>
-      <div class="wd-row">
-        <div class="wd-cell wd-topic">Commute</div>
-        <div class="wd-cell wd-no"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span>Not considered at all</span></div>
-        <div class="wd-cell wd-yes wd-cell-hl"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Built into city rankings — GO train, highway, hybrid</span></div>
-      </div>
-      <div class="wd-row">
-        <div class="wd-cell wd-topic">Real costs</div>
-        <div class="wd-cell wd-no"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span>Principal + interest only</span></div>
-        <div class="wd-cell wd-yes wd-cell-hl"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Mortgage + property tax + utilities + insurance</span></div>
-      </div>
-      <div class="wd-row">
-        <div class="wd-cell wd-topic">Listings</div>
-        <div class="wd-cell wd-no"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span>None — just a number</span></div>
-        <div class="wd-cell wd-yes wd-cell-hl"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Real Ontario listings that match your affordability</span></div>
-      </div>
-      <div class="wd-row">
-        <div class="wd-cell wd-topic">Who it helps</div>
-        <div class="wd-cell wd-no"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span>People who already know what city and price they want</span></div>
-        <div class="wd-cell wd-yes wd-cell-hl"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>People who need to figure out where and what is realistic</span></div>
-      </div>
-    </div>
-  </section>
+    <div id="list"></div>
+  </div>
 
-  <section class="faq" id="faq" aria-labelledby="faqHeading">
-    <div class="faq-grid">
-      <div class="faq-left">
-        <p class="faq-eyebrow">FAQ</p>
-        <h2 id="faqHeading">Common questions about HomePilot</h2>
-        <p class="faq-sub">Everything you need to know about Ontario home affordability analysis, how it works, and what HomePilot is (and is not).</p>
-        <div class="faq-cta-box">
-          <p class="faq-cta-title">Still have questions?</p>
-          <p class="faq-cta-sub">Message us on WhatsApp — the button is at the bottom right of your screen.</p>
-        </div>
-      </div>
-      <div class="faq-right">
-        <div class="faq-item open">
-          <button type="button" class="faq-q" onclick="toggleFaq(this)">
-            <span>How is HomePilot different from a mortgage calculator?</span>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-          </button>
-          <div class="faq-a"><p>A mortgage calculator takes a home price you already know and tells you the monthly payment. HomePilot works the opposite way — it starts from your income, debt, down payment, and budget, then tells you how much home you can afford and which Ontario cities have homes in that range. It also factors in property tax, utilities, and commute time.</p></div>
-        </div>
-        <div class="faq-item">
-          <button type="button" class="faq-q" onclick="toggleFaq(this)">
-            <span>Is HomePilot a mortgage broker or financial advisor?</span>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-          </button>
-          <div class="faq-a"><p>No. HomePilot is an Ontario homebuying decision and affordability platform. We do not originate loans, provide mortgage pre-approvals, or give financial advice. All estimates are for informational purposes to help you understand your options before speaking with a licensed professional.</p></div>
-        </div>
-        <div class="faq-item">
-          <button type="button" class="faq-q" onclick="toggleFaq(this)">
-            <span>How accurate is the affordability analysis?</span>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-          </button>
-          <div class="faq-a"><p>HomePilot uses current benchmark interest rates, average Ontario property tax rates by municipality, regional utility cost estimates, and GDS/TDS ratio guidelines used by Canadian lenders. Results are estimates — your actual approved amount may vary based on your credit score, lender policies, and other factors.</p></div>
-        </div>
-        <div class="faq-item">
-          <button type="button" class="faq-q" onclick="toggleFaq(this)">
-            <span>Does HomePilot require my banking or credit information?</span>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-          </button>
-          <div class="faq-a"><p>No. HomePilot never asks for your bank login, SIN, or credit report. You simply enter your gross income, existing monthly debt obligations, target down payment, and monthly budget comfort zone. No sensitive data is required.</p></div>
-        </div>
-        <div class="faq-item">
-          <button type="button" class="faq-q" onclick="toggleFaq(this)">
-            <span>Which Ontario cities does HomePilot cover?</span>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-          </button>
-          <div class="faq-a"><p>HomePilot covers 55 Ontario cities and municipalities, with a focus on commutable distance from major employment hubs like Toronto, Mississauga, Ottawa, and Hamilton. Cities include the GTA, Hamilton, Kitchener-Waterloo, London, Barrie, Guelph, Oshawa, St. Catharines, and more.</p></div>
-        </div>
-        <div class="faq-item">
-          <button type="button" class="faq-q" onclick="toggleFaq(this)">
-            <span>How does the commute filter work?</span>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-          </button>
-          <div class="faq-a"><p>You enter your workplace address and a maximum acceptable commute time. HomePilot filters Ontario cities to show only those within your commute tolerance, using real GO Transit schedules and estimated highway drive times. You can toggle between GO train, drive, and hybrid options.</p></div>
-        </div>
-        <div class="faq-item">
-          <button type="button" class="faq-q" onclick="toggleFaq(this)">
-            <span>Are the property listings real?</span>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-          </button>
-          <div class="faq-a"><p>Yes. HomePilot integrates real Ontario listing data, filtered to your affordability range and preferred cities. Listings are updated daily. Note that HomePilot is not a real estate brokerage and does not facilitate offers or purchases.</p></div>
-        </div>
-        <div class="faq-item">
-          <button type="button" class="faq-q" onclick="toggleFaq(this)">
-            <span>Is HomePilot free to use?</span>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-          </button>
-          <div class="faq-a"><p>Yes. The core affordability analysis, city discovery, and listing results are completely free. HomePilot does not charge users, and does not require account creation to run your first analysis.</p></div>
-        </div>
-      </div>
+  <button class="cmp-btn" id="cmpBtn" onclick="buildCompare()">📊 Compare Selected</button>
+  <div id="cmpTable"></div>
+  <div class="cmp-sticky" id="cmpSticky">
+    <div>
+      <div class="cmp-sticky-left" id="cmpStickyLabel">2 cities selected</div>
+      <div class="cmp-sticky-sub">Tap to compare side by side</div>
     </div>
-  </section>
+    <button class="cmp-sticky-btn" onclick="buildCompare()">📊 Compare</button>
+  </div>
+  <div class="cap" id="cap">
+    <h3 id="ctt">Ready to see real homes in your budget?</h3>
+    <p id="ctp">Sandeep will send you a curated list of homes matching your budget across the cities that fit. No pressure, no spam — just real homes.</p>
+    <div class="fld"><label class="lbl" id="fn_lbl">Full name</label><input type="text" id="nm" placeholder="Your name"></div>
+    <div class="fld"><label class="lbl" id="em_lbl">Email address</label><input type="email" id="em" placeholder="you@email.com"></div>
+    <div class="fld"><label class="lbl" id="ph_lbl">Phone number</label><input type="tel" id="ph" placeholder="416-000-0000"></div>
+    <div class="fld">
+      <label class="lbl" id="q1_lbl">Are you currently renting or do you own?</label>
+      <select id="status">
+        <option value="">Select your situation</option>
+        <option value="renting">I'm renting</option>
+        <option value="own">I own and want to move</option>
+        <option value="family">Living with family</option>
+      </select>
+    </div>
+    <div class="fld">
+      <label class="lbl" id="q2_lbl">When are you hoping to make a move?</label>
+      <select id="timeline">
+        <option value="">Select a timeline</option>
+        <option value="6months">Within 6 months</option>
+        <option value="1year">6 months – 1 year</option>
+        <option value="2years">1 – 2 years</option>
+        <option value="exploring">Just exploring</option>
+      </select>
+    </div>
+    <button class="sub-btn" id="subBtn" onclick="showTransparencyModal()"><span id="st">Send me homes in my budget</span></button>
+    <p id="leadErr" style="display:none;color:#b91c1c;font-size:13px;margin-top:10px;text-align:center;">Something went wrong sending your info. Please try again, or reach out directly.</p>
+  </div>
 
-  <section class="fcta" aria-labelledby="fctaHeading">
-    <p class="fcta-eyebrow">START YOUR ANALYSIS</p>
-    <h2 id="fctaHeading">Find out where you can afford to live in Ontario — right now.</h2>
-    <p class="fcta-sub">Stop guessing. Stop searching random cities. Get a data-driven Ontario home affordability analysis based on your real numbers — income, down payment, budget, and commute — in under 5 minutes.</p>
-    <a class="fcta-btn" href="calculator.html" target="_blank" rel="noopener">
-      Start My Home Analysis
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 6 15 12 9 18"/></svg>
-    </a>
-    <div class="fcta-trust">
-      <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg>Free to use, no account required</span>
-      <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg>No mortgage broker, no pressure</span>
-      <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg>Ontario-specific data</span>
-      <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg>55 cities analyzed</span>
-    </div>
-  </section>
+  <div class="done" id="done">
+    <div class="done-icon">✓</div>
+    <h3 id="dtt">You're all set!</h3>
+    <p id="dtp">Sandeep will be in touch within 24 hours with real homes in your budget. He speaks English, Punjabi, Hindi and Urdu.</p>
+    <a class="phone" href="tel:4167258087">416-725-8087</a>
+  </div>
 
-  <footer class="mainFooter">
-    <div class="ft-top">
-      <div class="ft-brand">
-        <div class="ft-brand-row">
-          <span class="ft-brand-icon"><svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 2L2 8v8h5v-5h4v5h5V8L9 2z" fill="white"/></svg></span>
-          <span class="ft-brand-name">HomePilot</span>
-        </div>
-        <p class="ft-brand-desc">Ontario home affordability and homebuying decision platform.</p>
-        <p class="ft-brand-loc">Based in Ontario, Canada</p>
-      </div>
-      <div class="ft-col">
-        <p class="ft-col-title">Platform</p>
-        <ul>
-          <li><a href="#how-it-works">How It Works</a></li>
-          <li><a href="#cities">City Discovery</a></li>
-          <li><a href="#listings">Listings</a></li>
-          <li><a href="#faq">FAQ</a></li>
-        </ul>
-      </div>
-      <div class="ft-col">
-        <p class="ft-col-title">Ontario Cities</p>
-        <ul>
-          <li><a href="#cities">Hamilton</a></li>
-          <li><a href="#cities">Kitchener</a></li>
-          <li><a href="#cities">Barrie</a></li>
-          <li><a href="#cities">London</a></li>
-          <li><a href="#cities">Oshawa</a></li>
-          <li><a href="#cities">Guelph</a></li>
-        </ul>
-      </div>
-      <div class="ft-col">
-        <p class="ft-col-title">Legal</p>
-        <ul>
-          <li><a href="/privacy-policy.html" target="_blank" rel="noopener">Privacy Policy</a></li>
-          <li><a href="/terms-of-use.html" target="_blank" rel="noopener">Terms of Use</a></li>
-          <li><a href="/disclaimer.html" target="_blank" rel="noopener">Disclaimer</a></li>
-        </ul>
-      </div>
+  <div class="pw">Powered by HomePilot · Built for Ontario home buyers</div>
+
+  <div class="ft-trademark" style="margin-top:32px;padding-top:20px;border-top:1px solid var(--border-light)">
+    <div class="ft-trademark-logos" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:10px">
+      <img src="data:image/png;base64,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auTXowC1JfAulC4+nYGd52pVUhaijlTnoLbyS1DNsDs61gPQ1J3zSvahdBrYB9GQxG+jWvDno9d/HbUBX4CaAB5Hn/MuwFGollzan6Otzn7+CQXPs1GTwPUow7E1KiQ8j66n0t7Yv0AB+RS0mtsqFETHogJHPD47D/x3dA5+CfwOTewRoMzg21AtvNYMauutoVp/s5V2Qxdl2vbDEKWQH0n5unKLUWl0/4yvn4Q+hxlkT9FVswrdIBqdzKAdeA/pV5LpRe3k9WYDAgWVo0k+dOcm1E6WZG7uvdBMP0PhQnSTa7U16HxNbMG2f4smEGnmYhlLou01Mq92B+qhewMqgKXRib5fP0Wp2L3Q+TsYBYp5KPCVNml0o1TsjVSfOe656O/T0BSch6He0YvRTFF/otjLuR3YGNV+4/1fggrJ26P26YdQwLouev5h6NrdF3XguhB9Nkui1wfo3vESCnyV5KP3fIribHwHoe/z36LtTUC12cej1/SjguQV0T49QDEzsC+qJcff6xUoqK+NtvsWNPf9JOCPqDCR9vNaLwz3hPzNsBuazSVLAL6Q5nSW2QI4nmJPxzQC1E7WgS7YZnXIyqF2qZ/QeE2mA3g/SgMmrakHqADwU2r3wIxNiN5jVoL3yKGaTNIUaTz7UVIButnFx5D0M4kLdXeleK+sxqJe+Fun2L8kx92HCk0PtmCfJ6LPeGOyZ3wCFDSuyfC6Nopju+OOR+3oM17B4POYix5JFqwPUOFxPApEyxg8dCveh0KF42+L9mVtyXvF12FXtK1lDO5pHFCs/SYZKtYRHXcbar+NCxZtFMe+1zIB+CSaYOMkBvZfCVD7dXe0reU0f352M1sPlKcLbWTw59J6HShjUO0cz0A1Xq9x3iB3wjKrrHRGJhs5/Lm03lGog1i1Jspl0WPCcO/oaOcAbGZmpXKofXxGlb9vCWzEyB5ZYWZmNupsiIZO/YLi0oUB6newG5rB73xaM9f5esXtKGZmVm42Gha1LepEuRSNFd4UTRDyVZJ1rrQaHIDNzKySCWh41OvREKnFqHf8o6jnuJmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZnZyPP/AQaqAnzxeBNVAAAAAElFTkSuQmCC" alt="RE/MAX Realty Specialists Inc., Brokerage" style="height:28px;width:auto;display:block" />
+      <img src="src/assets/crea-logo.png" alt="The Canadian Real Estate Association" style="height:28px;width:auto;display:block" />
     </div>
-    <div class="ft-trademark">
-      <div class="ft-trademark-logos">
-        <img src="data:image/png;base64,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auTXowC1JfAulC4+nYGd52pVUhaijlTnoLbyS1DNsDs61gPQ1J3zSvahdBrYB9GQxG+jWvDno9d/HbUBX4CaAB5Hn/MuwFGollzan6Otzn7+CQXPs1GTwPUow7E1KiQ8j66n0t7Yv0AB+RS0mtsqFETHogJHPD47D/x3dA5+CfwOTewRoMzg21AtvNYMauutoVp/s5V2Qxdl2vbDEKWQH0n5unKLUWl0/4yvn4Q+hxlkT9FVswrdIBqdzKAdeA/pV5LpRe3k9WYDAgWVo0k+dOcm1E6WZG7uvdBMP0PhQnSTa7U16HxNbMG2f4smEGnmYhlLou01Mq92B+qhewMqgKXRib5fP0Wp2L3Q+TsYBYp5KPCVNml0o1TsjVSfOe656O/T0BSch6He0YvRTFF/otjLuR3YGNV+4/1fggrJ26P26YdQwLouev5h6NrdF3XguhB9Nkui1wfo3vESCnyV5KP3fIribHwHoe/z36LtTUC12cej1/SjguQV0T49QDEzsC+qJcff6xUoqK+NtvsWNPf9JOCPqDCR9vNaLwz3hPzNsBuazSVLAL6Q5nSW2QI4nmJPxzQC1E7WgS7YZnXIyqF2qZ/QeE2mA3g/SgMmrakHqADwU2r3wIxNiN5jVoL3yKGaTNIUaTz7UVIButnFx5D0M4kLdXeleK+sxqJe+Fun2L8kx92HCk0PtmCfJ6LPeGOyZ3wCFDSuyfC6Nopju+OOR+3oM17B4POYix5JFqwPUOFxPApEyxg8dCveh0KF42+L9mVtyXvF12FXtK1lDO5pHFCs/SYZKtYRHXcbar+NCxZtFMe+1zIB+CSaYOMkBvZfCVD7dXe0reU0f352M1sPlKcLbWTw59J6HShjUO0cz0A1Xq9x3iB3wjKrrHRGJhs5/Lm03lGog1i1Jspl0WPCcO/oaOcAbGZmpXKofXxGlb9vCWzEyB5ZYWZmNupsiIZO/YLi0oUB6newG5rB73xaM9f5esXtKGZmVm42Gha1LepEuRSNFd4UTRDyVZJ1rrQaHIDNzKySCWh41OvREKnFqHf8o6jnuJmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZnZyPP/AQaqAnzxeBNVAAAAAElFTkSuQmCC" alt="RE/MAX Realty Specialists Inc., Brokerage" class="ft-tm-logo" />
-        <img src="src/assets/crea-logo.png" alt="The Canadian Real Estate Association" class="ft-tm-logo" />
-      </div>
-      <p class="ft-trademark-text">This site is operated by <strong>Sandeep Takhar</strong>, a REALTOR® with <strong>RE/MAX Realty Specialists Inc., Brokerage</strong>. REALTOR®, REALTORS®, and the REALTOR® logo are certification marks owned by REALTOR® Canada Inc. and licensed exclusively to The Canadian Real Estate Association (CREA). These certification marks identify real estate professionals who are members of CREA and who must abide by CREA's By-Laws, Rules, and the REALTOR® Code. The MLS® trademark and the MLS® logo are owned by CREA and identify the quality of services provided by real estate professionals who are members of CREA.</p>
-      <p class="ft-disclaimer" style="margin-top:8px">HomePilot estimates are for informational purposes only and do not constitute financial or mortgage advice. Consult a licensed mortgage professional before making any homebuying decisions.</p>
-    </div>
-    <div class="ft-bottom">
-      <p class="ft-copyright">© 2026 HomePilot. All rights reserved.</p>
-    </div>
-  </footer>
+    <p style="font-size:11px;color:var(--ink-faint);line-height:1.6;max-width:560px">This site is operated by <strong>Sandeep Takhar</strong>, a REALTOR® with <strong>RE/MAX Realty Specialists Inc., Brokerage</strong>. REALTOR®, REALTORS®, and the REALTOR® logo are certification marks owned by REALTOR® Canada Inc. and licensed exclusively to The Canadian Real Estate Association (CREA). These certification marks identify real estate professionals who are members of CREA and who must abide by CREA's By-Laws, Rules, and the REALTOR® Code. The MLS® trademark and the MLS® logo are owned by CREA and identify the quality of services provided by real estate professionals who are members of CREA.</p>
+    <p style="font-size:11px;color:var(--ink-faint);line-height:1.6;max-width:560px;margin-top:8px">HomePilot estimates are for informational purposes only and do not constitute financial or mortgage advice. Consult a licensed mortgage professional before making any homebuying decisions.</p>
+    <p style="font-size:11px;color:var(--ink-faint);margin-top:10px">© 2026 HomePilot. All rights reserved. · <a href="/privacy-policy.html" target="_blank" rel="noopener" style="color:var(--ink-faint)">Privacy Policy</a> · <a href="/terms-of-use.html" target="_blank" rel="noopener" style="color:var(--ink-faint)">Terms of Use</a> · <a href="/disclaimer.html" target="_blank" rel="noopener" style="color:var(--ink-faint)">Disclaimer</a></p>
+  </div>
 </div>
-
+<div id="transparencyModalOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:10000;align-items:center;justify-content:center;padding:20px">
+  <div style="background:#fff;border-radius:16px;max-width:400px;width:100%;padding:28px 24px 24px;box-shadow:0 24px 64px rgba(0,0,0,0.35)">
+    <div style="font-size:32px;margin-bottom:10px">👋</div>
+    <div style="font-size:15px;font-weight:700;color:#111318;margin-bottom:8px">In the spirit of transparency</div>
+    <div style="font-size:14px;color:#3D4555;line-height:1.55;margin-bottom:20px">This information goes directly to <strong>Sandeep Takhar</strong>, a licensed RE/MAX real estate agent. No call centers, no lead marketplaces — just honest advice and help understanding your options.</div>
+    <div style="display:flex;gap:10px">
+      <button onclick="closeTransparencyModal()" style="flex:1;padding:12px;border-radius:10px;border:1.5px solid #E4E7EC;background:#fff;color:#3D4555;font-size:14px;font-weight:600;cursor:pointer;font-family:var(--font)">Cancel</button>
+      <button onclick="confirmSendLead()" style="flex:1.4;padding:12px;border-radius:10px;border:none;background:#1D9E75;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--font)">Got it — send it</button>
+    </div>
+  </div>
+</div>
 <script src="src/config.js"></script>
 <script src="src/cities.js"></script>
 <script src="src/commute.js"></script>
@@ -1575,7 +1528,6 @@ document.addEventListener('keydown',function(e){
   }
 });
 </script>
-
 <!-- Floating WhatsApp Button -->
 <div id="waWrap" style="position:fixed;bottom:20px;right:20px;z-index:9999;display:flex;flex-direction:column;align-items:flex-end;gap:8px">
   <div id="waTooltip" style="position:relative;display:flex;align-items:flex-start;gap:8px;background:#fff;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,0.15);border:1px solid #E4E7EC;padding:12px 14px;max-width:210px">

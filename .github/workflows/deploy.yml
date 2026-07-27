@@ -65,6 +65,7 @@ jobs:
           cp privacy-policy.html deploy/
           cp terms-of-use.html deploy/
           cp disclaimer.html deploy/
+          cp calculator.html deploy/
           cp -r src deploy/
           cat > deploy/wrangler.jsonc << 'EOF'
           {
