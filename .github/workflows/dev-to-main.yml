@@ -61,6 +61,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.DEV_TO_MAIN_TOKEN }}
         run: |
+          git config --unset-all http.https://github.com/.extraheader || true
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/Stakharrealty/HomePilot.git
