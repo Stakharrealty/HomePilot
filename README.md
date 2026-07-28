@@ -42,3 +42,4 @@ The tag v1.0.0-baseline marks the known-good starting point -- the tested index.
 
 <!-- Verified: real git push from Claude working as of 2026-07-20T18:41:49Z -->
 <!-- git push test - safe to ignore -->
+<!-- testing dev-to-main automation - safe to ignore -->
