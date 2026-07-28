@@ -191,13 +191,53 @@ function positionTourTooltip(target){
   // Keep the tooltip on-screen horizontally
   const maxLeft = window.innerWidth - 320;
   if(left > maxLeft) left = Math.max(16, maxLeft);
+  // Keep the tooltip on-screen vertically -- clamp defense-in-depth in case
+  // positioning ever runs against a stale/mid-scroll rect.
+  const tooltipHeight = tooltip.offsetHeight || 160;
+  const viewportBottom = scrollY + window.innerHeight;
+  if(top + tooltipHeight > viewportBottom){
+    top = Math.max(scrollY + 16, viewportBottom - tooltipHeight - 16);
+  }
   tooltip.style.top = top + 'px';
   tooltip.style.left = left + 'px';
 }
 
+// Polls scrollY until it stabilizes (or a frame cap is hit), so tooltip
+// positioning never runs against a mid-scroll stale rect. Falls back to a
+// fixed short delay in environments without requestAnimationFrame (older
+// browsers, some test harnesses).
+function waitForScrollEnd(callback){
+  if(typeof requestAnimationFrame !== 'function'){
+    setTimeout(callback, 50);
+    return;
+  }
+  let lastY = window.scrollY;
+  let stableFrames = 0;
+  let frames = 0;
+  const maxFrames = 90;
+  function check(){
+    frames++;
+    const y = window.scrollY;
+    if(y === lastY){
+      stableFrames++;
+    } else {
+      stableFrames = 0;
+      lastY = y;
+    }
+    if(stableFrames >= 3 || frames >= maxFrames){
+      callback();
+      return;
+    }
+    requestAnimationFrame(check);
+  }
+  requestAnimationFrame(check);
+}
+
 function showTourStep(i){
-  const prev = document.querySelector('.tour-highlight');
-  if(prev) prev.classList.remove('tour-highlight');
+  // querySelectorAll (not querySelector) so no stale highlight from a timing
+  // hiccup on the previous step can ever survive a step transition.
+  const prevHighlighted = document.querySelectorAll('.tour-highlight');
+  prevHighlighted.forEach(function(el){ el.classList.remove('tour-highlight'); });
 
   const step = TOUR_STEPS[i];
   if(!step) return;
@@ -213,7 +253,9 @@ function showTourStep(i){
   document.getElementById('tourBack').style.display = i === 0 ? 'none' : 'inline-block';
   document.getElementById('tourNext').textContent = i === TOUR_STEPS.length - 1 ? 'Got it' : 'Next';
 
-  setTimeout(() => positionTourTooltip(target), 300);
+  // Wait for the smooth-scroll to actually finish before reading the target's
+  // rect, instead of racing it with a blind fixed delay.
+  waitForScrollEnd(() => positionTourTooltip(target));
 }
 
 function startTour(){

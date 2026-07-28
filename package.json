@@ -6,6 +6,7 @@
     "test": "node tests/regression_suite.js index.html",
     "test:browser-load": "node tests/browser_load_verification.js",
     "test:smoke": "node tests/smoke_test.js",
+    "test:tour": "node tests/tour_step_positioning_test.js",
     "test:kv": "node tests/kv_integrity_test.js",
     "test:listings-frontend": "node tests/listings_frontend_display_test.js",
     "test:listings-nodecount": "node tests/listings_query_node_limit_test.js",
