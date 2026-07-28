@@ -1209,7 +1209,7 @@ select{
   .calc-empty-state h3{font-size:15px;font-weight:700;color:var(--ink-mid);margin:0 0 8px}
   .calc-empty-state p{font-size:13px;color:var(--ink-faint);line-height:1.6;max-width:320px;margin:0}
 
-  /* Guided walkthrough */
+  /* How this works trigger */
   #tourTrigger{
     display:flex;align-items:center;gap:6px;
     background:none;border:1px solid var(--border);
@@ -1219,11 +1219,6 @@ select{
     font-family:var(--font);
   }
   #tourTrigger:hover{background:var(--green-light)}
-  .tour-highlight{
-    position:relative;z-index:9501;
-    box-shadow:0 0 0 3px var(--green),0 0 0 9999px rgba(11,14,20,0.55);
-    border-radius:12px;
-  }
 </style>
 <body>
 <div class="w">
@@ -1641,19 +1636,21 @@ document.addEventListener('keydown',function(e){
   }
 });
 </script>
-<!-- Guided walkthrough overlay -->
-<div id="tourOverlay" style="display:none;position:fixed;inset:0;z-index:9500;pointer-events:none">
-  <div id="tourTooltip" style="position:absolute;pointer-events:auto;background:#fff;border-radius:14px;box-shadow:0 20px 50px rgba(0,0,0,0.25);padding:18px 20px;max-width:300px;">
-    <p id="tourStepNum" style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#1D9E75;margin:0 0 8px"></p>
-    <h4 id="tourTitle" style="font-size:15px;font-weight:700;color:#111318;margin:0 0 8px"></h4>
-    <p id="tourDesc" style="font-size:13px;color:#3D4555;line-height:1.55;margin:0 0 16px"></p>
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
-      <button type="button" id="tourSkip" onclick="skipTour()" style="background:none;border:none;font-size:12.5px;color:#9CA3AF;cursor:pointer;padding:0">Skip tour</button>
-      <div style="display:flex;gap:8px">
-        <button type="button" id="tourBack" onclick="tourStepBack()" style="padding:8px 14px;border-radius:8px;border:1px solid #E4E7EC;background:#fff;color:#3D4555;font-size:13px;font-weight:600;cursor:pointer">Back</button>
-        <button type="button" id="tourNext" onclick="tourStepNext()" style="padding:8px 16px;border-radius:8px;border:none;background:#1D9E75;color:#fff;font-size:13px;font-weight:700;cursor:pointer">Next</button>
-      </div>
-    </div>
+<!-- How this works info modal -->
+<div id="tourOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9500;align-items:center;justify-content:center;padding:20px">
+  <div style="background:#fff;border-radius:16px;max-width:440px;width:100%;max-height:85vh;overflow-y:auto;padding:28px 24px 24px;box-shadow:0 24px 64px rgba(0,0,0,0.35)">
+    <div style="font-size:15px;font-weight:700;color:#111318;margin-bottom:14px">How this works</div>
+    <ul style="margin:0 0 20px;padding:0;list-style:none;display:flex;flex-direction:column;gap:12px">
+      <li><strong style="font-size:13px;color:#111318">Income</strong><div style="font-size:13px;color:#3D4555;line-height:1.55">Enter your total household income before taxes. If two people are buying together, add both incomes.</div></li>
+      <li><strong style="font-size:13px;color:#111318">Down payment</strong><div style="font-size:13px;color:#3D4555;line-height:1.55">How much you've saved toward a down payment. This affects your mortgage insurance and monthly costs.</div></li>
+      <li><strong style="font-size:13px;color:#111318">Existing debt</strong><div style="font-size:13px;color:#3D4555;line-height:1.55">Car loans, credit cards, other monthly payments. Leave at 0 if none — this affects how much a lender would qualify you for.</div></li>
+      <li><strong style="font-size:13px;color:#111318">How you work</strong><div style="font-size:13px;color:#3D4555;line-height:1.55">Remote workers get ranked purely by affordability. Hybrid or daily commuters get cities filtered by realistic commute time too.</div></li>
+      <li><strong style="font-size:13px;color:#111318">Area</strong><div style="font-size:13px;color:#3D4555;line-height:1.55">Narrow results to a specific part of Ontario, or leave it broad to see everything you can afford.</div></li>
+      <li><strong style="font-size:13px;color:#111318">First-time buyer</strong><div style="font-size:13px;color:#3D4555;line-height:1.55">This can unlock different programs and incentives that affect what you can afford.</div></li>
+      <li><strong style="font-size:13px;color:#111318">Household size</strong><div style="font-size:13px;color:#3D4555;line-height:1.55">Used to estimate realistic living costs and space needs for your household.</div></li>
+      <li><strong style="font-size:13px;color:#111318">Results</strong><div style="font-size:13px;color:#3D4555;line-height:1.55">Once you're ready, tap "See your results" to see your buying power and ranked Ontario cities on the right.</div></li>
+    </ul>
+    <button type="button" onclick="endTour()" style="width:100%;padding:12px;border-radius:10px;border:none;background:#1D9E75;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--font)">Got it</button>
   </div>
 </div>
 
