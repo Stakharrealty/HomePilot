@@ -373,7 +373,7 @@ body{
   #workArrangementCard,#goBtn,#err{grid-column:1/-1}
   #list{
     display:grid;
-    grid-template-columns:repeat(2,1fr);
+    grid-template-columns:1fr;
     gap:14px;
     align-items:start;
   }
@@ -1183,7 +1183,7 @@ select{
   .calc-layout{display:block}
   @media(min-width:1024px){
     .calc-layout{display:grid;grid-template-columns:420px 1fr;gap:28px;align-items:start}
-    #calculatorSection{position:sticky;top:24px}
+    #calculatorSection{position:sticky;top:24px;max-height:calc(100vh - 48px);overflow-y:auto;padding-right:4px}
     #calculatorSection .card{margin-bottom:12px}
   }
 

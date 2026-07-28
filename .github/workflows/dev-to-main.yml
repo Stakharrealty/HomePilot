@@ -55,6 +55,15 @@ jobs:
       - name: KV integrity test
         run: npm run test:kv
 
+      - name: How this works info modal test
+        run: npm run test:how-this-works
+
+      - name: Calculator independent scroll test
+        run: npm run test:calc-scroll
+
+      - name: Results single-column layout test
+        run: npm run test:results-single-col
+
       # Everything above must exit 0 or the workflow stops here -- this
       # step (and therefore the push to main) is unreachable otherwise.
       - name: Fast-forward main to dev and push
