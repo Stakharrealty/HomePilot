@@ -57,6 +57,9 @@ jobs:
       - name: Results single-column layout test
         run: npm run test:results-single-col
 
+      - name: Listing verified seal removed test
+        run: npm run test:listing-seal-removed
+
       # Everything above must exit 0 or the workflow stops here —
       # GitHub Actions fails the whole run on the first non-zero exit,
       # so this step is unreachable unless all 4 suites passed.

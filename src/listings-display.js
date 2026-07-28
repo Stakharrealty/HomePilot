@@ -172,7 +172,6 @@ function renderListingCard(listing) {
       ${photo
         ? `<img class="listing-photo" src="${photo}" alt="Photo of listing in ${cityEsc}" loading="lazy">`
         : `<div class="listing-photo listing-photo-empty">No photo available</div>`}
-      <span class="listing-verified-seal" title="Sourced directly from CREA's DDF® feed, not scraped or estimated">Verified · CREA DDF®</span>
     </div>
     <div class="listing-body">
       <div class="listing-price">${fmtPrice(listing.listPrice)}</div>
