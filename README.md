@@ -41,3 +41,4 @@ If a deploy breaks something: revert main to the last tagged commit, redeploy th
 The tag v1.0.0-baseline marks the known-good starting point -- the tested index.html and regression suite as they stood before any file-splitting work began. If in doubt, that tag is always safe to roll back to.
 
 <!-- Verified: real git push from Claude working as of 2026-07-20T18:41:49Z -->
+<!-- git push test - safe to ignore -->
