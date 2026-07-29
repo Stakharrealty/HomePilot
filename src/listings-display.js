@@ -100,9 +100,17 @@ function observeForViewTracking(cardEl, listingId) {
 // city/type via the Load More button (see loadMoreListings() below).
 const PAGE_LIMIT = 24;
 
-async function fetchListings(city, propertyType, offset = 0, limit = PAGE_LIMIT) {
+// searchBudget (added 2026-07-29, affordability-consistency fix): when
+// provided, the API applies the SAME 10%-stretch ceiling already used
+// elsewhere in the app (see STRETCH_MULTIPLIER in db.js) -- e.g.
+// buyPower*1.10 -- so listings above that range are excluded server-side,
+// not just visually de-emphasized. Optional and validated: an invalid or
+// missing value means no price ceiling is applied (matches prior
+// behavior exactly, so existing/older callers are unaffected).
+async function fetchListings(city, propertyType, offset = 0, limit = PAGE_LIMIT, searchBudget = null) {
   const params = new URLSearchParams({ city, limit: String(limit), offset: String(offset) });
   if (propertyType && propertyType !== "all") params.set("type", propertyType);
+  if (Number.isFinite(searchBudget) && searchBudget > 0) params.set("budget", String(searchBudget));
   const resp = await fetch(`${LISTINGS_API_BASE}/listings?${params.toString()}`);
   if (!resp.ok) throw new Error(`Listings fetch failed: ${resp.status}`);
   const data = await resp.json();
@@ -134,7 +142,16 @@ function safeUrl(url) {
   return /^https:\/\//i.test(trimmed) ? trimmed : "";
 }
 
-function renderListingCard(listing) {
+// searchBudget (added 2026-07-29): the same recommended-price number the
+// buyer was shown on the card that opened this listings view (or their
+// overall buyPower, for the "all types" city-level entry point -- see
+// openListingsWindow()). Used ONLY to decide the badge below -- the actual
+// price ceiling (searchBudget * 1.10) is already enforced server-side in
+// getListingsByCity(), so every listing reaching this function is
+// guaranteed to be at or under that stretch ceiling already. null/absent
+// means no budget context was passed (e.g. an older bookmarked listings.html
+// URL) -- no badge is shown in that case, not a guessed one.
+function renderListingCard(listing, searchBudget) {
   const rawPhoto = listing.photos && listing.photos.length > 0 ? listing.photos[0] : null;
   const photo = safeUrl(rawPhoto);
   const beds = listing.bedrooms != null ? `${listing.bedrooms} bd` : null;
@@ -143,6 +160,20 @@ function renderListingCard(listing) {
   const brokerage = escapeHtml(listing.brokerageName || "Brokerage not available");
   const cityEsc = escapeHtml(listing.city || "");
   const listingUrl = safeUrl(listing.listingUrl) || "";
+
+  // affordabilityBadge: "Within Budget" if this listing's price is at or
+  // under the exact number the buyer was shown; "Stretch Option" if it's
+  // above that but still within the enforced 10% ceiling (the only way a
+  // listing reaches this function above searchBudget at all, since the
+  // backend already excludes anything past the stretch range). Never
+  // computed when searchBudget is missing/invalid -- no badge, not a
+  // guessed one.
+  let affordabilityBadge = null;
+  if (Number.isFinite(searchBudget) && searchBudget > 0 && Number.isFinite(listing.listPrice)) {
+    affordabilityBadge = listing.listPrice <= searchBudget
+      ? { cls: "listing-badge-within", label: "✅ Within Budget" }
+      : { cls: "listing-badge-stretch", label: "⚠️ Stretch Option" };
+  }
 
   // displayAddress is already consent-gated server-side (see
   // consentGatedAddress() in db.js) -- truthy here means CREA explicitly
@@ -174,7 +205,7 @@ function renderListingCard(listing) {
         : `<div class="listing-photo listing-photo-empty">No photo available</div>`}
     </div>
     <div class="listing-body">
-      <div class="listing-price">${fmtPrice(listing.listPrice)}</div>
+      <div class="listing-price">${fmtPrice(listing.listPrice)}${affordabilityBadge ? ` <span class="listing-affordability-badge ${affordabilityBadge.cls}">${affordabilityBadge.label}</span>` : ""}</div>
       ${addressEsc ? `<div class="listing-address">${addressEsc}</div>` : ""}
       ${bedsBaths ? `<div class="listing-meta">${bedsBaths}</div>` : ""}
       <div class="listing-brokerage">Listed by ${brokerage}</div>
@@ -236,9 +267,9 @@ async function loadMoreListings(buttonEl) {
 
   try {
     const nextOffset = state.offset + PAGE_LIMIT;
-    const listings = await fetchListings(state.city, state.propertyType, nextOffset);
+    const listings = await fetchListings(state.city, state.propertyType, nextOffset, PAGE_LIMIT, state.searchBudget);
     for (const listing of listings) {
-      state.grid.appendChild(renderListingCard(listing));
+      state.grid.appendChild(renderListingCard(listing, state.searchBudget));
     }
     state.offset = nextOffset;
     if (listings.length < PAGE_LIMIT) {
@@ -266,7 +297,12 @@ window.loadMoreListings = loadMoreListings;
 // "All Listings in Brampton" (what a generic portal would show) -- the
 // listings support HomePilot's recommendation, they aren't a separate
 // browsing experience. See the product brief this was built from.
-async function renderLiveListings(city, containerEl, propertyType) {
+// searchBudget (added 2026-07-29): the recommended price shown on whichever
+// card/context opened this view -- see openListingsWindow() below for how
+// it's chosen (card's own displayed price vs. overall buyPower). Threaded
+// through to fetchListings (server-side price ceiling) and every rendered
+// card (client-side "Within Budget"/"Stretch Option" badge).
+async function renderLiveListings(city, containerEl, propertyType, searchBudget) {
   const cityEsc = escapeHtml(city);
   const typeLabelPlural = TYPE_LABELS_PLURAL[propertyType] || "Homes";
   // typePhraseLower is only used as an adjective before "listings" -- when
@@ -285,7 +321,7 @@ async function renderLiveListings(city, containerEl, propertyType) {
   containerEl.innerHTML = `${headerHtml}<div class="listings-loading">Loading live ${escapeHtml(loadingPhrase)} for ${cityEsc}…</div>`;
 
   try {
-    const listings = await fetchListings(city, propertyType, 0);
+    const listings = await fetchListings(city, propertyType, 0, PAGE_LIMIT, searchBudget);
 
     if (listings.length === 0) {
       containerEl.innerHTML = `${headerHtml}<div class="listings-empty">No active ${escapeHtml(loadingPhrase)} found in ${cityEsc} right now. Check back soon.</div>`;
@@ -296,13 +332,13 @@ async function renderLiveListings(city, containerEl, propertyType) {
     const grid = document.createElement("div");
     grid.className = "listings-grid";
     for (const listing of listings) {
-      grid.appendChild(renderListingCard(listing));
+      grid.appendChild(renderListingCard(listing, searchBudget));
     }
     containerEl.appendChild(grid);
 
     // Track pagination state on the container itself so loadMoreListings()
     // can pick up where this left off.
-    containerEl._hpListingsState = { city, propertyType, offset: 0, grid };
+    containerEl._hpListingsState = { city, propertyType, offset: 0, grid, searchBudget };
 
     if (listings.length === PAGE_LIMIT) {
       // A full page came back -- there may be more. Rather than firing an
@@ -368,8 +404,23 @@ const DESKTOP_BREAKPOINT_PX = 1024;
 // the window (or navigates, on mobile) IMMEDIATELY, pointed at a real URL
 // that does its own fetching once loaded -- it never fetches data itself
 // before opening/navigating.
-function openListingsWindow(city, propertyType) {
-  const params = new URLSearchParams({ city, type: propertyType || "all" });
+// searchBudget (added 2026-07-29, affordability-consistency fix): the
+// recommended price the buyer was just shown -- passed by render.js as the
+// 3rd argument at BOTH call sites, with different meaning by context (per
+// explicit product decision, 2026-07-29):
+//   - Property-type recommendation cards/panels (Detached/Semi/Town/Condo):
+//     the EXACT number displayed on that card (render.js's `displayPrice`/
+//     `price`) -- so the listings search never uses a different number than
+//     what the buyer just looked at.
+//   - City-level "View All Homes" (no single type/price shown): the
+//     buyer's overall buyPower, since there's no specific on-screen number
+//     to match in that context.
+// Optional/validated -- an invalid or missing value just omits the budget
+// param entirely, matching prior behavior (no price ceiling) exactly.
+function openListingsWindow(city, propertyType, searchBudget) {
+  const paramsObj = { city, type: propertyType || "all" };
+  if (Number.isFinite(searchBudget) && searchBudget > 0) paramsObj.budget = String(searchBudget);
+  const params = new URLSearchParams(paramsObj);
   const url = `listings.html?${params.toString()}`;
 
   const isDesktop = window.matchMedia(`(min-width: ${DESKTOP_BREAKPOINT_PX}px)`).matches;

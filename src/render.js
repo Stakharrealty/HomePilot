@@ -265,7 +265,7 @@ function render(){
       '<div class="bk">'+
       (fit.cls==='fs'?'<div style="font-size:12px;color:#633806;background:#FAEEDA;border-radius:8px;padding:8px 10px;margin-top:10px;line-height:1.6;">'+t.stretch_warn+'</div>':'')+
       '</div>'+
-      '<button type="button" class="view-btn" onclick="event.stopPropagation();openListingsWindow(\''+x.n+'\',\''+activeProp+'\')">🏠 View Available '+(activeProp==='all'?'Homes':PLBL[activeProp])+' in '+x.n+'</button>'+
+      '<button type="button" class="view-btn" onclick="event.stopPropagation();openListingsWindow(\''+x.n+'\',\''+activeProp+'\','+displayPrice+')">🏠 View Available '+(activeProp==='all'?'Homes':PLBL[activeProp])+' in '+x.n+'</button>'+
       '</div></div>';
   }).join('');
 }
@@ -385,7 +385,7 @@ function selectPropType(cityId, tp, cityName) {
   // product direction, from an inline-expand panel to a real separate
   // popup window (desktop) / navigated page (mobile). See
   // openListingsWindow() in listings-display.js.
-  html += '<button type="button" class="view-btn" style="margin-top:12px" onclick="event.stopPropagation();openListingsWindow(\''+cityName+'\',\''+tp+'\')">🏠 View Available '+(PLBL[tp]||tp)+' in '+cityName+'</button>';
+  html += '<button type="button" class="view-btn" style="margin-top:12px" onclick="event.stopPropagation();openListingsWindow(\''+cityName+'\',\''+tp+'\','+price+')">🏠 View Available '+(PLBL[tp]||tp)+' in '+cityName+'</button>';
 
   html += '</div>';
 

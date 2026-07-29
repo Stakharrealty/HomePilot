@@ -175,8 +175,8 @@ async function main() {
     /searchParams\.get\(["']type["']\)/.test(indexSrc)
   );
   check(
-    "/listings passes the resolved type and offset into getListingsByCity",
-    /getListingsByCity\(env\.DB,\s*city,\s*limit,\s*propertyType,\s*offset\)/.test(indexSrc)
+    "/listings passes the resolved type, offset, and searchBudget into getListingsByCity",
+    /getListingsByCity\(env\.DB,\s*city,\s*limit,\s*propertyType,\s*offset,\s*searchBudget\)/.test(indexSrc)
   );
 
   // --- 5. Pagination: no artificial cap, real offset-based paging ---

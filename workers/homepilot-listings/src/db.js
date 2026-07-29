@@ -244,6 +244,16 @@ const PROPERTY_TYPE_FILTERS = {
   detached: `structure_type LIKE '%"House"%' AND (property_attached = 0 OR property_attached IS NULL) AND (common_interest IS NULL OR common_interest != 'Condo/Strata')`,
 };
 
+// STRETCH_MULTIPLIER (added 2026-07-29, affordability-consistency fix):
+// MUST stay in sync with the identical 1.10 stretch tolerance already used
+// on the main results page (see `buyPower*1.10` in src/render.js,
+// `displayMax` computation). There is no shared module between this Worker
+// and the static frontend to enforce this automatically -- if the main
+// app's stretch tolerance ever changes, this constant needs updating too,
+// by hand, or the listings page and the ranking page will quietly disagree
+// about what counts as "reasonably affordable".
+const STRETCH_MULTIPLIER = 1.10;
+
 // Read path for the public /listings endpoint (added 2026-07-22, listing
 // display UI). Returns listings for a given city, most recently updated
 // first, capped at `limit` starting at `offset`. Parses the photos JSON
@@ -256,10 +266,21 @@ const PROPERTY_TYPE_FILTERS = {
 // Sandeep: buyers should be able to page through EVERY listing they
 // qualify for, not just a first batch) -- the front end's "Load more"
 // button increments this to fetch the next page.
-export async function getListingsByCity(db, city, limit = 20, propertyType = null, offset = 0) {
+// searchBudget (added 2026-07-29): when provided, excludes any listing
+// priced above searchBudget * STRETCH_MULTIPLIER -- the SAME 10%-stretch
+// logic already used on the main results page (not a stricter cutoff and
+// not a looser one; per explicit product decision, listings must match
+// what the app already treats as "reasonably affordable" everywhere else).
+// Optional and defensively validated (must be a finite positive number) --
+// missing/invalid means no price ceiling at all, matching prior behavior
+// exactly for any caller that doesn't pass it.
+export async function getListingsByCity(db, city, limit = 20, propertyType = null, offset = 0, searchBudget = null) {
   const typeClause = propertyType && PROPERTY_TYPE_FILTERS[propertyType]
     ? ` AND ${PROPERTY_TYPE_FILTERS[propertyType]}`
     : "";
+
+  const hasBudget = Number.isFinite(searchBudget) && searchBudget > 0;
+  const budgetClause = hasBudget ? ` AND list_price <= ?` : "";
 
   // derivedTypeCase (added 2026-07-29, classification fix): built from the
   // EXACT SAME clause strings as PROPERTY_TYPE_FILTERS above, not a
@@ -277,6 +298,15 @@ export async function getListingsByCity(db, city, limit = 20, propertyType = nul
       ELSE NULL
     END AS derived_property_type`;
 
+  // Bind params must be positional, in the EXACT order their `?`
+  // placeholders appear in the SQL string above: city first, then the
+  // optional budget ceiling (only present when budgetClause was added),
+  // then limit/offset last -- get this order wrong and D1 silently binds
+  // the wrong value to the wrong placeholder, no error, just wrong results.
+  const bindParams = [city];
+  if (hasBudget) bindParams.push(searchBudget * STRETCH_MULTIPLIER);
+  bindParams.push(limit, offset);
+
   const result = await db
     .prepare(
       `SELECT listing_key, list_price, city, postal_code, bedrooms, bathrooms,
@@ -284,11 +314,11 @@ export async function getListingsByCity(db, city, limit = 20, propertyType = nul
               public_remarks, display_address, year_built, lot_size_area, lot_size_units,
               ${derivedTypeCase}
        FROM listings
-       WHERE city = ?${typeClause}
+       WHERE city = ?${typeClause}${budgetClause}
        ORDER BY last_updated DESC
        LIMIT ? OFFSET ?`
     )
-    .bind(city, limit, offset)
+    .bind(...bindParams)
     .all();
 
   return (result.results || []).map((row) => ({

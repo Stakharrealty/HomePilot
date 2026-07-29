@@ -234,9 +234,19 @@ export default {
         const offsetParam = parseInt(url.searchParams.get("offset") || "0", 10);
         const offset = Number.isFinite(offsetParam) ? Math.max(offsetParam, 0) : 0;
 
-        const listings = await getListingsByCity(env.DB, city, limit, propertyType, offset);
+        // budget (added 2026-07-29, affordability-consistency fix): the
+        // recommended price the buyer was shown -- see openListingsWindow()
+        // in listings-display.js for how the frontend chooses this value.
+        // parseFloat + finite + positive check, same defensive pattern as
+        // limit/offset above -- an invalid or missing value means no price
+        // ceiling at all (matches prior behavior exactly for any caller,
+        // old or new, that doesn't pass it).
+        const budgetParam = parseFloat(url.searchParams.get("budget"));
+        const searchBudget = Number.isFinite(budgetParam) && budgetParam > 0 ? budgetParam : null;
+
+        const listings = await getListingsByCity(env.DB, city, limit, propertyType, offset, searchBudget);
         return new Response(
-          JSON.stringify({ city: requestedCity, propertyType: propertyType || "all", offset, count: listings.length, listings }, null, 2),
+          JSON.stringify({ city: requestedCity, propertyType: propertyType || "all", offset, searchBudget, count: listings.length, listings }, null, 2),
           { headers: { "Content-Type": "application/json", ...corsHeaders(origin) } }
         );
       }
