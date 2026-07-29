@@ -96,8 +96,10 @@ export function buildUpsertStatement(db, r, runStartedAt, brokerageName) {
       property_subtype, structure_type, bedrooms, bathrooms, parking_total,
       listing_url, brokerage_name, listing_status, last_updated, last_seen_at,
       photos, common_interest, property_attached,
-      public_remarks, display_address, year_built, lot_size_area, lot_size_units
-    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      public_remarks, display_address, year_built, lot_size_area, lot_size_units,
+      originating_system_name, originating_system_key, source_system_name,
+      list_office_key, list_agent_key, member_board_key
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ON CONFLICT(listing_key) DO UPDATE SET
       list_price=excluded.list_price, city=excluded.city, postal_code=excluded.postal_code,
       latitude=excluded.latitude, longitude=excluded.longitude,
@@ -109,7 +111,13 @@ export function buildUpsertStatement(db, r, runStartedAt, brokerageName) {
       property_attached=excluded.property_attached, listing_url=excluded.listing_url,
       public_remarks=excluded.public_remarks, display_address=excluded.display_address,
       year_built=excluded.year_built, lot_size_area=excluded.lot_size_area,
-      lot_size_units=excluded.lot_size_units`
+      lot_size_units=excluded.lot_size_units,
+      originating_system_name=excluded.originating_system_name,
+      originating_system_key=excluded.originating_system_key,
+      source_system_name=excluded.source_system_name,
+      list_office_key=excluded.list_office_key,
+      list_agent_key=excluded.list_agent_key,
+      member_board_key=excluded.member_board_key`
   ).bind(
     r.ListingKey,
     r.ListPrice || 0,
@@ -143,7 +151,23 @@ export function buildUpsertStatement(db, r, runStartedAt, brokerageName) {
     consentGatedAddress(r),
     r.YearBuilt || null,
     r.LotSizeArea || null,
-    r.LotSizeUnits || null
+    r.LotSizeUnits || null,
+    // Source-attribution fields (2026-07-28 DDF observability audit):
+    // deliberately defensive with `|| null`, NOT `|| ""` like listing_url
+    // above -- these are diagnostic/analytical fields, not something the
+    // UI renders, so there's no XSS/display reason to coerce to a string,
+    // and a real NULL here is meaningfully different from an empty string
+    // (NULL = "CREA didn't give us this field"; "" would falsely look like
+    // "CREA gave us this field and it was blank"). None of these are in
+    // SELECT_FIELDS yet (see query.js), so today every one of these will
+    // be null for every row -- that's expected and correct until a
+    // /field-probe-confirmed field is added to SELECT_FIELDS.
+    r.OriginatingSystemName || null,
+    r.OriginatingSystemKey || null,
+    r.SourceSystemName || null,
+    r.ListOfficeKey || null,
+    r.ListAgentKey || null,
+    r.MemberBoardKey || null
   );
 }
 

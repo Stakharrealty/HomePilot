@@ -128,3 +128,92 @@ export function buildOfficeQuery(officeKeys) {
     "$select": OFFICE_SELECT_FIELDS.join(","),
   });
 }
+
+// SOURCE_ATTRIBUTION_CANDIDATE_FIELDS (added 2026-07-28, DDF observability
+// audit): candidate field names for "where did this listing come from?"
+// attribution -- OriginatingSystemName/Key and SourceSystemName/ID/Key are
+// real, standard RESO Data Dictionary Property Resource fields (confirmed
+// against RESO's own published Data Dictionary, ddwiki.reso.org, this
+// session). ListAgentKey is also a standard RESO Property field.
+// MemberBoardKey has NO known RESO standard equivalent -- it's included
+// here only because it was explicitly asked about; it is expected to fail
+// and is kept in the candidate list so the probe below proves that rather
+// than assuming it.
+//
+// NONE of these are confirmed to exist on CREA's actual DDF Property
+// entity for this account. RESO "standard" does not mean "every RESO Web
+// API implementation exposes it" -- this codebase already has two
+// confirmed counterexamples (DaysOnMarket, ListOfficeName: both look like
+// standard fields, both returned a live 400 "could not find a property
+// named X" when added to $select). Do NOT add any of these to
+// SELECT_FIELDS above without first confirming via the /field-probe route
+// (index.js) or a live /metadata check -- see the migration file
+// (migrations/0001_source_attribution.sql) for the incident this rule
+// comes from.
+export const SOURCE_ATTRIBUTION_CANDIDATE_FIELDS = [
+  "OriginatingSystemName",
+  "OriginatingSystemKey",
+  "SourceSystemName",
+  "SourceSystemID",
+  "SourceSystemKey",
+  "ListAgentKey",
+  "MemberBoardKey",
+];
+
+// buildFieldProbeQuery(): isolates a single candidate field in its own
+// $select, against a real (already-known-valid) $filter, $top=1. Mirrors
+// the exact debugging method already used and documented in this codebase
+// to root-cause the StandardStatus 400 (see the buildQuery() comment
+// above: "confirmed via isolated per-clause testing that this was the
+// ONLY clause failing"). One request per field, so a single bad field name
+// can't mask or be masked by another -- the /field-probe route in
+// index.js runs one of these per candidate and reports pass/fail
+// individually, which is how "the official field names available" gets
+// answered with evidence instead of assumption.
+export function buildFieldProbeQuery(fieldName) {
+  return new URLSearchParams({
+    "$top": "1",
+    "$filter": `StateOrProvince eq 'Ontario' and PropertySubType eq 'Single Family' and ListPrice gt ${MIN_LIST_PRICE}`,
+    "$select": `ListingKey,${fieldName}`,
+  });
+}
+
+// --- /ingest-probe support (added 2026-07-28, ingestion scope audit) ---
+// Purpose: isolate whether our $filter clauses are excluding real GTA
+// inventory, or whether CREA simply isn't returning it. Each test below
+// adds exactly ONE clause on top of the previous test's baseline (Test 1
+// has none of our production filters; Test 4 IS the production filter),
+// so a jump in count between two adjacent tests points at exactly one
+// clause as the cause -- same isolation principle as buildFieldProbeQuery
+// above, applied to filter clauses instead of $select fields.
+export const INGEST_PROBE_CITIES = ["Toronto", "Brampton", "Mississauga", "Vaughan", "Markham"];
+
+export function buildProbeFilterClauses(city) {
+  return {
+    test1_cityOnly: `City eq '${city}'`,
+    test2_withProvince: `StateOrProvince eq 'Ontario' and City eq '${city}'`,
+    // test3 and test4 both branch off test2 independently (NOT stacked on
+    // top of each other) -- this is deliberate, so a difference between
+    // test3 and test4 isolates ListPrice's effect vs. PropertySubType's
+    // effect separately, rather than confounding them.
+    test3_withPrice: `StateOrProvince eq 'Ontario' and City eq '${city}' and ListPrice gt ${MIN_LIST_PRICE}`,
+    test4_withSubtype: `StateOrProvince eq 'Ontario' and City eq '${city}' and PropertySubType eq 'Single Family'`,
+  };
+}
+
+// buildIngestProbeQuery(): $top kept small (default 5) since the goal is
+// a representative sample (first 5 of each field) plus a true total via
+// $count=true -- NOT a full data pull. $count=true is a standard OData
+// query option (distinct from any $select field name), so this carries
+// none of the "looks standard, isn't on this entity" risk that field
+// names like DaysOnMarket/ListOfficeName turned out to have; the route
+// calling this still checks for @odata.count in the response rather than
+// assuming CREA honors it for this account.
+export function buildIngestProbeQuery(filterClause, selectFields, top = 5) {
+  return new URLSearchParams({
+    "$top": String(top),
+    "$count": "true",
+    "$filter": filterClause,
+    "$select": selectFields.join(","),
+  });
+}

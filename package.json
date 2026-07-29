@@ -24,7 +24,9 @@
     "test:listings-standard-status": "node tests/listings_standard_status_filter_test.js",
     "test:listings-popup-redesign": "node tests/listings_popup_redesign_test.js",
     "test:listings-detail-fields": "node tests/listings_detail_fields_test.js",
-    "test:listings": "npm run test:listings-modules && npm run test:listings-nodecount && npm run test:listings-price-floor && npm run test:listings-stale-removal && npm run test:listings-fairness && npm run test:listings-display && npm run test:listings-fields && npm run test:listings-office-lookup-failure && npm run test:listings-property-filter && npm run test:listings-standard-status && npm run test:listings-popup-redesign && npm run test:listings-frontend && npm run test:listings-detail-fields"
+    "test:listings-source-attribution": "node tests/listings_source_attribution_test.js",
+    "test:listings-ingest-probe": "node tests/listings_ingest_probe_test.js",
+    "test:listings": "npm run test:listings-modules && npm run test:listings-nodecount && npm run test:listings-price-floor && npm run test:listings-stale-removal && npm run test:listings-fairness && npm run test:listings-display && npm run test:listings-fields && npm run test:listings-office-lookup-failure && npm run test:listings-property-filter && npm run test:listings-standard-status && npm run test:listings-popup-redesign && npm run test:listings-frontend && npm run test:listings-detail-fields && npm run test:listings-source-attribution && npm run test:listings-ingest-probe"
   },
   "devDependencies": {
     "http-server": "^14.1.1",
