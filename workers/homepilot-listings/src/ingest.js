@@ -20,18 +20,24 @@ import { buildUpsertStatement, deleteStaleListings } from "./db.js";
 // exceeded" -- live error, not documentation, so treated as authoritative).
 // 200 caused an immediate 400 on every single city query in /ingest --
 // this was NOT the StandardStatus issue, it surfaced only after that one
-// was fixed and masked this cleaner error underneath it. With PAGE_SIZE=100
-// and MAX_PAGES_PER_CITY=20, the safety ceiling is still 2,000/city.
+// was fixed and masked this cleaner error underneath it.
 // This now paginates through a city's full result set via $skip, stopping
 // only when: (a) CREA returns fewer than PAGE_SIZE rows (no more results),
 // or (b) MAX_PAGES_PER_CITY is hit (a genuine safety bound against a City
 // filter somehow matching a huge unbounded result set and blowing past
-// Cloudflare Workers' execution-time limit for a single ingest run -- NOT
-// a realistic ceiling for any of the 49 Ontario cities HomePilot covers;
-// 20 * 100 = 2,000 listings/city is far beyond any single city's real
-// active Single Family inventory).
+// Cloudflare Workers' execution-time limit for a single ingest run).
+//
+// MAX_PAGES_PER_CITY raised 20 -> 40 (2026-07-28, DDF listing-count audit):
+// the old 20*100=2,000/city ceiling was assumed to be "far beyond any
+// single city's real active Single Family inventory" but was NEVER
+// verified against real data. A live D1 query during this audit found
+// Ottawa's stored count sitting at EXACTLY 2,000 -- the safety wall was
+// firing for real in production, silently truncating Ottawa's inventory
+// (and flagged in `citiesTruncated`, which nobody had been checking).
+// 40*100=4,000/city gives real headroom above Ottawa's actual current
+// volume while keeping a genuine upper bound in place.
 const PAGE_SIZE = 100;
-const MAX_PAGES_PER_CITY = 20;
+const MAX_PAGES_PER_CITY = 40;
 
 // How many city queries to run concurrently. Sequential (1 at a time) for
 // 49 cities would be slow; unlimited concurrency risks hitting Cloudflare
