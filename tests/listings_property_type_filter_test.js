@@ -117,11 +117,17 @@ async function main() {
   );
 
   // --- 3. db.js: correct SQL WHERE clause per property type ---
+  // Updated 2026-07-29 (classification fix): clauses changed on purpose --
+  // 'semi'/'detached' now match the JSON-quoted "House" token (not a raw
+  // 'House' substring, which used to also match "Row / Townhouse" -- a
+  // real, measured bug: 2,565 townhouses were showing under
+  // "Semi-Detached"). 'town' now requires non-condo ownership so it can
+  // never overlap with 'condo' again (was 1,305 overlapping listings).
   const typeExpectations = {
     condo: /common_interest\s*=\s*'Condo\/Strata'/,
-    town: /structure_type LIKE '%Row \/ Townhouse%'/,
-    semi: /structure_type LIKE '%House%'[\s\S]*property_attached\s*=\s*1/,
-    detached: /structure_type LIKE '%House%'[\s\S]*property_attached\s*=\s*0[\s\S]*property_attached IS NULL[\s\S]*common_interest/,
+    town: /structure_type LIKE '%"Row \/ Townhouse"%'[\s\S]*common_interest IN \('Freehold','Leasehold'\)/,
+    semi: /structure_type LIKE '%"House"%'[\s\S]*property_attached\s*=\s*1[\s\S]*!= 'Condo\/Strata'/,
+    detached: /structure_type LIKE '%"House"%'[\s\S]*property_attached\s*=\s*0[\s\S]*property_attached IS NULL[\s\S]*!= 'Condo\/Strata'/,
   };
   for (const [type, pattern] of Object.entries(typeExpectations)) {
     const db = makeFakeDb();
@@ -130,17 +136,23 @@ async function main() {
     check(`getListingsByCity('${type}') generates the correct WHERE clause`, pattern.test(sql), sql);
   }
 
-  // No type filter (all/null/unrecognized) must not add any type
-  // condition -- must behave exactly like the pre-fix query for existing
-  // callers that don't pass a type.
+  // No type filter (all/null/unrecognized) must not APPEND any type
+  // condition to the WHERE clause -- must behave exactly like the pre-fix
+  // query for existing callers that don't pass a type. Note: as of the
+  // 2026-07-29 classification fix, common_interest/property_attached now
+  // ALWAYS appear in the SQL (inside the new derived_property_type SELECT
+  // expression, so the frontend can see a listing's type even when
+  // unfiltered) -- so this check looks at the WHERE clause specifically,
+  // not the whole SQL string.
   for (const noType of [null, undefined, "all", "bogus"]) {
     const db = makeFakeDb();
     await dbModule.getListingsByCity(db, "Brampton", 24, noType);
     const sql = db.calls[0]?.sql || "";
+    const whereClause = (sql.match(/WHERE city = \?([\s\S]*?)ORDER BY/) || [])[1] || "";
     check(
-      `getListingsByCity(${JSON.stringify(noType)}) adds no type filter (backward compatible)`,
-      !/common_interest|property_attached/.test(sql),
-      sql
+      `getListingsByCity(${JSON.stringify(noType)}) adds no type filter to WHERE (backward compatible)`,
+      whereClause.trim() === "",
+      JSON.stringify(whereClause)
     );
   }
 

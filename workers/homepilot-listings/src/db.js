@@ -201,18 +201,47 @@ export async function deleteStaleListings(db, runStartedAt, citiesToSweep) {
   return result.meta?.changes ?? 0;
 }
 
-// PROPERTY_TYPE_FILTERS (added 2026-07-24, property-type filtering bug
-// fix): maps the app's 4 buyer-facing property-type buttons to real SQL
-// conditions over the fields confirmed via live /metadata inspection this
-// session. 'semi' is a DERIVED signal, not a dedicated CREA field -- see
-// the SELECT_FIELDS comment in query.js. structure_type is stored as a
-// JSON-stringified array (e.g. '["House"]'), so matching uses a LIKE on
-// the raw column rather than an exact match.
+// PROPERTY_TYPE_FILTERS -- REWRITTEN 2026-07-29 (classification audit + fix).
+// Original version (2026-07-24) had two confirmed, measured bugs, found via
+// a full D1 frequency-table audit against all 11,546 live listings:
+//
+//   1. `structure_type LIKE '%House%'` is a case-INSENSITIVE substring match
+//      in SQLite, and "Row / Townhouse" contains the substring "house"
+//      (town-HOUSE). This meant the 'semi' filter was matching 2,565
+//      townhouses alongside the 421 real semi-detached houses -- 86% of
+//      what "Semi-Detached" returned was wrong. Fixed by anchoring the
+//      match to the JSON-array-quoted token `"House"` (LIKE '%"House"%'),
+//      which "Townhouse" does not contain (no quote immediately precedes
+//      "house" inside "Townhouse").
+//   2. 'condo' had no structure_type restriction, so condo-owned townhouses
+//      (common_interest='Condo/Strata', structure_type='Row / Townhouse')
+//      matched BOTH 'condo' and 'town' simultaneously -- 1,305 listings
+//      appeared under two buttons at once. Fixed by making ownership
+//      (common_interest = 'Condo/Strata') the FIRST, highest-priority
+//      check -- 'town'/'semi'/'detached' now all explicitly exclude
+//      Condo/Strata, so a condo townhouse only ever matches 'condo'.
+//
+// Deliberate product decision (confirmed 2026-07-29): stay at 4 buyer-
+// facing categories, not 5 -- 'condo' now means "any Condo/Strata-owned
+// listing" (apartment OR townhouse structure), 'town' means freehold
+// townhouse only. No new button/label needed anywhere in the frontend.
+//
+// Mobile/Modular homes (145 listings) are deliberately NOT folded into any
+// of the 4 categories (explicit decision, not an oversight) -- they simply
+// match none of the 4 filters, same as before this fix, and remain
+// invisible to all 4 buttons.
+//
+// These conditions are mutually exclusive for every real combination
+// observed in production D1 (verified via the full frequency-table audit):
+// condo is common_interest-first, so it can never overlap with the other
+// three; town/semi/detached are separated by structure_type ("Row /
+// Townhouse" vs "House", quote-anchored so they can't collide), and semi
+// vs detached are separated by property_attached (1 vs 0/NULL).
 const PROPERTY_TYPE_FILTERS = {
   condo: `common_interest = 'Condo/Strata'`,
-  town: `structure_type LIKE '%Row / Townhouse%'`,
-  semi: `structure_type LIKE '%House%' AND property_attached = 1`,
-  detached: `structure_type LIKE '%House%' AND (property_attached = 0 OR property_attached IS NULL) AND (common_interest = 'Freehold' OR common_interest IS NULL)`,
+  town: `structure_type LIKE '%"Row / Townhouse"%' AND common_interest IN ('Freehold','Leasehold')`,
+  semi: `structure_type LIKE '%"House"%' AND property_attached = 1 AND (common_interest IS NULL OR common_interest != 'Condo/Strata')`,
+  detached: `structure_type LIKE '%"House"%' AND (property_attached = 0 OR property_attached IS NULL) AND (common_interest IS NULL OR common_interest != 'Condo/Strata')`,
 };
 
 // Read path for the public /listings endpoint (added 2026-07-22, listing
@@ -232,11 +261,28 @@ export async function getListingsByCity(db, city, limit = 20, propertyType = nul
     ? ` AND ${PROPERTY_TYPE_FILTERS[propertyType]}`
     : "";
 
+  // derivedTypeCase (added 2026-07-29, classification fix): built from the
+  // EXACT SAME clause strings as PROPERTY_TYPE_FILTERS above, not a
+  // separately-written duplicate -- this is deliberate, so the label
+  // returned to the frontend and the filter that selected the row can
+  // never drift apart into "two classification systems" (the original
+  // audit's core complaint about this codebase). NULL means none of the 4
+  // categories matched (mobile/modular homes, true edge cases -- 201
+  // listings, ~1.7% of D1, confirmed via audit).
+  const derivedTypeCase = `CASE
+      WHEN ${PROPERTY_TYPE_FILTERS.condo} THEN 'condo'
+      WHEN ${PROPERTY_TYPE_FILTERS.town} THEN 'town'
+      WHEN ${PROPERTY_TYPE_FILTERS.semi} THEN 'semi'
+      WHEN ${PROPERTY_TYPE_FILTERS.detached} THEN 'detached'
+      ELSE NULL
+    END AS derived_property_type`;
+
   const result = await db
     .prepare(
       `SELECT listing_key, list_price, city, postal_code, bedrooms, bathrooms,
               parking_total, listing_url, brokerage_name, photos, last_updated,
-              public_remarks, display_address, year_built, lot_size_area, lot_size_units
+              public_remarks, display_address, year_built, lot_size_area, lot_size_units,
+              ${derivedTypeCase}
        FROM listings
        WHERE city = ?${typeClause}
        ORDER BY last_updated DESC
@@ -273,5 +319,6 @@ export async function getListingsByCity(db, city, limit = 20, propertyType = nul
     yearBuilt: row.year_built,
     lotSizeArea: row.lot_size_area,
     lotSizeUnits: row.lot_size_units,
+    propertyType: row.derived_property_type || null,
   }));
 }

@@ -36,14 +36,11 @@ jobs:
       - name: Functional smoke test
         run: npm run test:smoke
 
-      - name: DDF listing display frontend test (added 2026-07-22)
-        run: npm run test:listings-frontend
-
-      - name: DDF listings popup/page redesign test (added 2026-07-25)
-        run: npm run test:listings-popup-redesign
-
       - name: Regression suite (245 tests)
         run: npm run test
+
+      - name: DDF listings CI suite
+        run: npm run test:listings-ci
 
       - name: KV integrity test
         run: npm run test:kv
