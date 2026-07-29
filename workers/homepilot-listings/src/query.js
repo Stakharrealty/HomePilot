@@ -49,13 +49,25 @@ export const API_BASE = "https://ddfapi.realtor.ca/odata/v1";
 //     allowed the listing address to be displayed on Internet sites."
 //     UnparsedAddress must NEVER be shown/stored-as-displayable unless
 //     this is true -- see the address handling in db.js.
+// - OriginatingSystemName: ADDED 2026-07-29, DDF source-attribution audit.
+//   Confirmed VALID via a live /field-probe run (2026-07-29T00:58:50Z):
+//   HTTP 200, sample value "Cornwall & District Real Estate Board" -- a
+//   real regional board name, not a placeholder/generic "CREA" label.
+//   Only field added from SOURCE_ATTRIBUTION_CANDIDATE_FIELDS -- the other
+//   6 candidates (OriginatingSystemKey, SourceSystemName, SourceSystemID,
+//   SourceSystemKey, MemberBoardKey; ListAgentKey also confirmed valid but
+//   not needed yet) were confirmed INVALID or intentionally left out by
+//   that same probe run. Do NOT add any of those without a fresh
+//   /field-probe confirming them first -- see query.js's
+//   SOURCE_ATTRIBUTION_CANDIDATE_FIELDS comment for why this account's
+//   valid-field-list doesn't match the RESO standard 1:1.
 const SELECT_FIELDS = [
   "ListingKey", "ListPrice", "City", "PostalCode", "Latitude", "Longitude",
   "BedroomsTotal", "BathroomsTotalInteger", "ParkingTotal", "PropertySubType",
   "StructureType", "StandardStatus", "ModificationTimestamp", "Media",
   "ListOfficeKey", "CommonInterest", "PropertyAttachedYN",
   "ListingURL", "PublicRemarks", "UnparsedAddress", "InternetAddressDisplayYN",
-  "YearBuilt", "LotSizeArea", "LotSizeUnits",
+  "YearBuilt", "LotSizeArea", "LotSizeUnits", "OriginatingSystemName",
 ];
 
 // ListPrice gt 50000 (not just "ne null") -- added 2026-07-21 after finding

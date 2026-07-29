@@ -115,17 +115,36 @@ async function main() {
   );
   check("buildFieldProbeQuery uses $top=1 (minimal live-data cost per probe)", probeParams.get("$top") === "1");
 
-  // Confirm NONE of the candidate fields have been added to the real
-  // production SELECT_FIELDS yet -- this is intentional (see the comment
-  // on SOURCE_ATTRIBUTION_CANDIDATE_FIELDS in query.js): they must be
-  // /field-probe-confirmed against live CREA data first. This test locks
-  // that discipline in so a future edit can't silently skip the probe step.
+  // Confirm NONE of the STILL-UNCONFIRMED candidate fields have been added
+  // to the real production SELECT_FIELDS -- this is intentional (see the
+  // comment on SOURCE_ATTRIBUTION_CANDIDATE_FIELDS in query.js): they must
+  // be /field-probe-confirmed against live CREA data first. This test
+  // locks that discipline in so a future edit can't silently skip the
+  // probe step.
+  //
+  // OriginatingSystemName is the ONE exception, deliberately: a live
+  // /field-probe run (2026-07-29T00:58:50Z) confirmed it valid (HTTP 200,
+  // real sample value "Cornwall & District Real Estate Board"), so it was
+  // added to SELECT_FIELDS for real ingestion. This test now asserts the
+  // OPPOSITE for that one field -- it MUST be present -- so a future
+  // accidental removal gets caught too, not just an unconfirmed addition.
   const querySrc = fs.readFileSync(path.join(SRC_DIR, "query.js"), "utf8");
   const selectFieldsMatch = querySrc.match(/const SELECT_FIELDS = \[([\s\S]*?)\];/);
   const selectFieldsBlock = selectFieldsMatch ? selectFieldsMatch[1] : "";
-  for (const field of query.SOURCE_ATTRIBUTION_CANDIDATE_FIELDS) {
+
+  check(
+    "the /field-probe-CONFIRMED field \"OriginatingSystemName\" IS in production SELECT_FIELDS",
+    selectFieldsBlock.includes(`"OriginatingSystemName"`)
+  );
+
+  const stillUnconfirmed = query.SOURCE_ATTRIBUTION_CANDIDATE_FIELDS.filter((f) => f !== "OriginatingSystemName");
+  check(
+    "sanity: at least one candidate remains unconfirmed (this test isn't vacuous)",
+    stillUnconfirmed.length > 0
+  );
+  for (const field of stillUnconfirmed) {
     check(
-      `unconfirmed candidate "${field}" is NOT yet in production SELECT_FIELDS (must be /field-probe-confirmed first)`,
+      `unconfirmed candidate "${field}" is NOT in production SELECT_FIELDS (must be /field-probe-confirmed first)`,
       !selectFieldsBlock.includes(`"${field}"`)
     );
   }
