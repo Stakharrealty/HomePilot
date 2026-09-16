@@ -1,14 +1,17 @@
-// Footer Contact section test (added 2026-09-16, updated 2026-09-16 for the
-// two-column trademark/disclosure layout).
+// Footer Contact section test (added 2026-09-16; updated 2026-09-16 for the
+// two-column trademark/disclosure layout; updated again 2026-09-16 to move
+// the agent info block down to the bottom-right of the footer).
 //
 // Verifies the footer on index.html and calculator.html includes:
 //   1. A dedicated Contact column (phone click-to-call, email mailto,
 //      brokerage name/branch, office address, RECO registration #).
 //   2. A two-column trademark/disclosure area (.ft-tm-top): the exact
-//      trademark paragraph on the left, and the RE/MAX + CREA logos plus
-//      an info block (name, phone, brokerage/branch, address, RECO#) on
+//      trademark paragraph on the left, and the RE/MAX + CREA logos on
 //      the right (.ft-tm-right), which stacks below the paragraph on
 //      mobile via flex-direction.
+//   3. The agent info block (name, phone, brokerage/branch, address,
+//      RECO#) lives in .ft-bottom, right-aligned next to the copyright
+//      line on desktop -- NOT inside .ft-tm-right under the logos.
 //
 // Run: node tests/footer_contact_section_test.js
 
@@ -72,9 +75,35 @@ for (const { name, content } of HTML_FILES) {
     /<div class="ft-tm-top">/.test(content)
   );
   check(
-    `${name}: .ft-tm-right holds the logos + info block`,
+    `${name}: .ft-tm-right holds the logos`,
     /<div class="ft-tm-right">/.test(content)
   );
+
+  const tmRightMatch = content.match(
+    /<div class="ft-tm-right">([\s\S]*?)<\/div>\s*<\/div>\s*<\/div>/
+  );
+  check(`${name}: .ft-tm-right block found`, !!tmRightMatch);
+  if (tmRightMatch) {
+    check(
+      `${name}: info block is NOT nested under the logos in .ft-tm-right (it moved to the footer bottom row)`,
+      !/ft-tm-info/.test(tmRightMatch[1])
+    );
+  }
+
+  const bottomMatch = content.match(
+    /<div class="ft-bottom">([\s\S]*?)<\/div>\s*<\/footer>/
+  );
+  check(`${name}: .ft-bottom block found`, !!bottomMatch);
+  if (bottomMatch) {
+    check(
+      `${name}: .ft-bottom contains the info block (bottom-right of the footer)`,
+      /<div class="ft-tm-info">/.test(bottomMatch[1])
+    );
+    check(
+      `${name}: copyright line still present in .ft-bottom`,
+      /ft-copyright/.test(bottomMatch[1])
+    );
+  }
 
   const paragraphMatch = content.match(
     /<p class="ft-trademark-text">([\s\S]*?)<\/p>/
