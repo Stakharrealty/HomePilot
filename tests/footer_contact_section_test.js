@@ -1,9 +1,14 @@
-// Footer Contact section test (added 2026-09-16).
+// Footer Contact section test (added 2026-09-16, updated 2026-09-16 for the
+// two-column trademark/disclosure layout).
 //
-// Verifies the footer on index.html and calculator.html includes a
-// dedicated Contact column (phone click-to-call, email mailto, brokerage
-// name/branch, office address, RECO registration #), and that the same
-// details were appended to the trademark disclosure paragraph.
+// Verifies the footer on index.html and calculator.html includes:
+//   1. A dedicated Contact column (phone click-to-call, email mailto,
+//      brokerage name/branch, office address, RECO registration #).
+//   2. A two-column trademark/disclosure area (.ft-tm-top): the exact
+//      trademark paragraph on the left, and the RE/MAX + CREA logos plus
+//      an info block (name, phone, brokerage/branch, address, RECO#) on
+//      the right (.ft-tm-right), which stacks below the paragraph on
+//      mobile via flex-direction.
 //
 // Run: node tests/footer_contact_section_test.js
 
@@ -61,30 +66,66 @@ for (const { name, content } of HTML_FILES) {
     /RECO Registration #5035266/.test(content)
   );
 
-  // ── Trademark disclosure paragraph updated with the same details ──
-  const disclosureMatch = content.match(
+  // ── Two-column trademark/disclosure layout ─────────────────────────
+  check(
+    `${name}: .ft-tm-top wraps the paragraph + right-side block`,
+    /<div class="ft-tm-top">/.test(content)
+  );
+  check(
+    `${name}: .ft-tm-right holds the logos + info block`,
+    /<div class="ft-tm-right">/.test(content)
+  );
+
+  const paragraphMatch = content.match(
     /<p class="ft-trademark-text">([\s\S]*?)<\/p>/
   );
-  check(`${name}: trademark disclosure paragraph found`, !!disclosureMatch);
-  if (disclosureMatch) {
-    const disclosure = disclosureMatch[1];
+  check(`${name}: trademark paragraph found`, !!paragraphMatch);
+  if (paragraphMatch) {
+    const EXPECTED_PARAGRAPH =
+      "This site is operated by <strong>Sandeep Takhar</strong>, a REALTOR® with <strong>RE/MAX Realty Specialists Inc., Brokerage</strong>. REALTORS®, and the REALTOR® logo are certification marks owned by REALTOR® Canada Inc. and licensed exclusively to The Canadian Real Estate Association (CREA). These certification marks identify real estate professionals who are members of CREA and who must abide by CREA's By-Laws, Rules, and the REALTOR® Code. The MLS® trademark and the MLS® logo are owned by CREA and identify the quality of services provided by real estate professionals who are members of CREA.";
     check(
-      `${name}: disclosure includes Caledon Branch office address`,
-      /16069 Airport Rd Unit 1, Caledon Village, ON L7C 1G4/.test(disclosure)
+      `${name}: paragraph text matches exactly as specified (no phone/address/RECO baked in)`,
+      paragraphMatch[1] === EXPECTED_PARAGRAPH
+    );
+  }
+
+  check(
+    `${name}: RE/MAX logo still present (invert/brightness filter via .ft-tm-logo)`,
+    /alt="RE\/MAX Realty Specialists Inc\., Brokerage" class="ft-tm-logo"/.test(
+      content
+    )
+  );
+  check(
+    `${name}: CREA logo still present`,
+    /alt="The Canadian Real Estate Association" class="ft-tm-logo"/.test(
+      content
+    )
+  );
+
+  const infoMatch = content.match(
+    /<div class="ft-tm-info">([\s\S]*?)<\/div>/
+  );
+  check(`${name}: .ft-tm-info block found`, !!infoMatch);
+  if (infoMatch) {
+    const info = infoMatch[1];
+    check(`${name}: info block shows the agent name`, /Sandeep Takhar/.test(info));
+    check(
+      `${name}: info block includes click-to-call phone link`,
+      /<a href="tel:\+14167258087">\(416\) 725-8087<\/a>/.test(info)
     );
     check(
-      `${name}: disclosure includes RECO registration number`,
-      /RECO Registration #5035266/.test(disclosure)
-    );
-    check(
-      `${name}: disclosure includes click-to-call phone link`,
-      /<a href="tel:\+14167258087">\(416\) 725-8087<\/a>/.test(disclosure)
-    );
-    check(
-      `${name}: disclosure includes mailto email link`,
-      /<a href="mailto:stakharrealty@gmail\.com">stakharrealty@gmail\.com<\/a>/.test(
-        disclosure
+      `${name}: info block includes Caledon Branch`,
+      /RE\/MAX Realty Specialists Inc\., Brokerage &ndash; Caledon Branch/.test(
+        info
       )
+    );
+    check(
+      `${name}: info block includes office address`,
+      /16069 Airport Rd Unit 1, Caledon Village, ON L7C 1G4/.test(info)
+    );
+    check(
+      `${name}: info block includes RECO registration number`,
+      /RECO Registration #5035266/.test(info)
     );
   }
 
