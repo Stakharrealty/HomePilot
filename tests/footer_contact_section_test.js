@@ -1,19 +1,27 @@
-// Footer Contact section test (added 2026-09-16; updated 2026-09-16 for the
-// two-column trademark/disclosure layout; updated again 2026-09-16 to move
-// the agent info block down to the bottom-right of the footer; updated
-// again 2026-09-16 to move the RE/MAX + CREA + REALTOR® logos to sit full
-// width above the trademark paragraph instead of beside it).
+// Footer Contact section test (added 2026-09-16; updated repeatedly the
+// same day as the footer trademark/disclosure area layout evolved):
+//   1. Added a dedicated Contact column.
+//   2. Two-column trademark/disclosure layout (paragraph + logos+info
+//      side by side), then simplified.
+//   3. Agent info block moved to the bottom-right of the footer.
+//   4. RE/MAX + CREA + REALTOR® logos moved to sit full width above the
+//      trademark paragraph.
+//   5. Agent info block moved back up to sit beside the trademark
+//      paragraph on the same row (.ft-tm-row), in the open space to its
+//      right -- out of the .ft-bottom row entirely, clear of the
+//      copyright line and the on-page WhatsApp widget.
 //
 // Verifies the footer on index.html and calculator.html includes:
 //   1. A dedicated Contact column (phone click-to-call, email mailto,
 //      brokerage name/branch, office address, RECO registration #).
 //   2. The RE/MAX, CREA, and REALTOR® logos (.ft-trademark-logos) sitting
-//      directly above the trademark paragraph, full width -- not beside
-//      it in a two-column layout.
+//      directly above the trademark paragraph, full width.
 //   3. The exact trademark paragraph text, unchanged.
-//   4. The agent info block (name, phone, brokerage/branch, address,
-//      RECO#) in .ft-bottom, right-aligned next to the copyright line on
-//      desktop.
+//   4. .ft-tm-row wraps the trademark paragraph and the agent info block
+//      (name, brokerage, phone, RECO#) side by side, with the info block
+//      AFTER the paragraph in DOM order (so it sits to its right) and
+//      NOT inside .ft-bottom.
+//   5. .ft-bottom contains only the copyright line.
 //
 // Run: node tests/footer_contact_section_test.js
 
@@ -76,23 +84,37 @@ for (const { name, content } of HTML_FILES) {
     /<div class="ft-trademark">([\s\S]*?)<\/div>\s*<div class="ft-bottom">/
   );
   check(`${name}: .ft-trademark block found`, !!tmBlockMatch);
+  let tmBlock = "";
   if (tmBlockMatch) {
-    const tmBlock = tmBlockMatch[1];
+    tmBlock = tmBlockMatch[1];
     const logosIdx = tmBlock.indexOf('<div class="ft-trademark-logos">');
-    const paragraphIdx = tmBlock.indexOf('<p class="ft-trademark-text">');
+    const rowIdx = tmBlock.indexOf('<div class="ft-tm-row">');
+    check(`${name}: .ft-trademark-logos row exists`, logosIdx !== -1);
     check(
-      `${name}: .ft-trademark-logos row exists`,
-      logosIdx !== -1
-    );
-    check(
-      `${name}: logos row comes BEFORE the trademark paragraph (above it, not beside it)`,
-      logosIdx !== -1 && paragraphIdx !== -1 && logosIdx < paragraphIdx
-    );
-    check(
-      `${name}: no leftover .ft-tm-top / .ft-tm-right wrapper from the old side-by-side layout`,
-      !/ft-tm-top|ft-tm-right/.test(tmBlock)
+      `${name}: logos row comes BEFORE .ft-tm-row (above the paragraph, not beside it)`,
+      logosIdx !== -1 && rowIdx !== -1 && logosIdx < rowIdx
     );
   }
+
+  // ── .ft-tm-row: paragraph + info block side by side ────────────────
+  check(`${name}: .ft-tm-row wraps the paragraph + info block`, /<div class="ft-tm-row">/.test(content));
+  const rowMatch = content.match(
+    /<div class="ft-tm-row">([\s\S]*?)<\/div>\s*<\/div>\s*<p class="ft-disclaimer"/
+  );
+  check(`${name}: .ft-tm-row block found`, !!rowMatch);
+  if (rowMatch) {
+    const row = rowMatch[1];
+    const paragraphIdx = row.indexOf('<p class="ft-trademark-text">');
+    const infoIdx = row.indexOf('<div class="ft-tm-info">');
+    check(
+      `${name}: info block comes AFTER the paragraph in .ft-tm-row (sits to its right)`,
+      paragraphIdx !== -1 && infoIdx !== -1 && paragraphIdx < infoIdx
+    );
+  }
+  check(
+    `${name}: no leftover .ft-tm-top / .ft-tm-right wrapper from an earlier layout`,
+    !/ft-tm-top\b|ft-tm-right\b/.test(tmBlock)
+  );
 
   const paragraphMatch = content.match(
     /<p class="ft-trademark-text">([\s\S]*?)<\/p>/
@@ -126,46 +148,57 @@ for (const { name, content } of HTML_FILES) {
     )
   );
 
-  // ── Agent info block lives in the footer bottom row, not by the logos ──
+  // ── .ft-bottom holds ONLY the copyright line now ────────────────────
   const bottomMatch = content.match(
     /<div class="ft-bottom">([\s\S]*?)<\/div>\s*<\/footer>/
   );
   check(`${name}: .ft-bottom block found`, !!bottomMatch);
   if (bottomMatch) {
     check(
-      `${name}: .ft-bottom contains the info block (bottom-right of the footer)`,
-      /<div class="ft-tm-info">/.test(bottomMatch[1])
+      `${name}: copyright line present in .ft-bottom`,
+      /ft-copyright/.test(bottomMatch[1])
     );
     check(
-      `${name}: copyright line still present in .ft-bottom`,
-      /ft-copyright/.test(bottomMatch[1])
+      `${name}: info block is NOT in .ft-bottom anymore (moved up beside the paragraph)`,
+      !/ft-tm-info/.test(bottomMatch[1])
     );
   }
 
-  const infoMatch = content.match(
-    /<div class="ft-tm-info">([\s\S]*?)<\/div>/
-  );
+  // ── Info block content: name (prominent), brokerage, phone, RECO# ──
+  const infoMatch = content.match(/<div class="ft-tm-info">([\s\S]*?)<\/div>/);
   check(`${name}: .ft-tm-info block found`, !!infoMatch);
   if (infoMatch) {
     const info = infoMatch[1];
-    check(`${name}: info block shows the agent name`, /Sandeep Takhar/.test(info));
+    const nameIdx = info.indexOf("Sandeep Takhar");
+    const brokerageIdx = info.indexOf("RE/MAX Realty Specialists Inc., Brokerage");
+    const phoneIdx = info.indexOf("tel:+14167258087");
+    const recoIdx = info.indexOf("RECO Registration #5035266");
+    check(`${name}: info block shows the agent name`, nameIdx !== -1);
+    check(
+      `${name}: name line uses the prominent .ft-tm-info-name style`,
+      /<p class="ft-tm-info-line ft-tm-info-name">Sandeep Takhar<\/p>/.test(info)
+    );
+    check(
+      `${name}: info block includes the brokerage name`,
+      brokerageIdx !== -1
+    );
     check(
       `${name}: info block includes click-to-call phone link`,
       /<a href="tel:\+14167258087">\(416\) 725-8087<\/a>/.test(info)
     );
     check(
-      `${name}: info block includes Caledon Branch`,
-      /RE\/MAX Realty Specialists Inc\., Brokerage &ndash; Caledon Branch/.test(
-        info
-      )
-    );
-    check(
-      `${name}: info block includes office address`,
-      /16069 Airport Rd Unit 1, Caledon Village, ON L7C 1G4/.test(info)
-    );
-    check(
       `${name}: info block includes RECO registration number`,
-      /RECO Registration #5035266/.test(info)
+      recoIdx !== -1
+    );
+    check(
+      `${name}: info block order is name, brokerage, phone, RECO#`,
+      nameIdx !== -1 &&
+        brokerageIdx !== -1 &&
+        phoneIdx !== -1 &&
+        recoIdx !== -1 &&
+        nameIdx < brokerageIdx &&
+        brokerageIdx < phoneIdx &&
+        phoneIdx < recoIdx
     );
   }
 

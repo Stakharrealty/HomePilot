@@ -338,11 +338,12 @@ body{
 .ft-trademark{margin-top:24px}
 .ft-trademark-logos{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:12px}
 .ft-tm-logo{height:24px;width:auto;display:block;filter:invert(1) brightness(1.8);opacity:0.85}
+.ft-tm-row{display:flex;flex-direction:column;gap:16px}
 .ft-trademark-text{font-size:11px;color:rgba(255,255,255,0.3);line-height:1.6;max-width:560px;margin:0}
-.ft-tm-info{display:flex;flex-direction:column;gap:4px}
+.ft-tm-info{display:flex;flex-direction:column;gap:4px;text-align:left}
 .ft-tm-info-line{font-size:11px;color:rgba(255,255,255,0.3);line-height:1.5;margin:0}
 .ft-tm-info-line a{color:inherit;text-decoration:none}
-.ft-tm-info-name{font-size:12px;font-weight:600;color:rgba(255,255,255,0.55)}
+.ft-tm-info-name{font-size:14px;font-weight:700;color:#fff}
 .ft-bottom{padding-top:20px;display:flex;flex-direction:column;gap:12px}
 .ft-copyright{font-size:11px;color:rgba(255,255,255,0.3)}
 .ft-disclaimer{font-size:11px;color:rgba(255,255,255,0.3);line-height:1.6;max-width:560px}
@@ -352,6 +353,8 @@ body{
 @media(min-width:600px){
   .ft-top{grid-template-columns:1fr 1fr 1fr 1fr 1fr}
   .ft-brand{grid-column:auto}
+  .ft-tm-row{flex-direction:row;align-items:flex-start;justify-content:space-between;gap:32px}
+  .ft-tm-info{flex-shrink:0}
 }
 @media(min-width:1024px){
   .fcta{padding:64px 40px}
@@ -359,8 +362,7 @@ body{
   .fcta-sub{font-size:16px}
   .mainFooter{padding:52px 40px 28px}
   .ft-top{gap:40px}
-  .ft-bottom{flex-direction:row;align-items:flex-end;justify-content:space-between}
-  .ft-tm-info{text-align:right}
+  .ft-bottom{flex-direction:row;align-items:center;justify-content:space-between}
 }
 
 /* ── CALCULATOR SECTION REVEAL ──────────────────────────────── */
@@ -1573,18 +1575,19 @@ select{
         <img src="src/assets/crea-logo.png" alt="The Canadian Real Estate Association" class="ft-tm-logo" />
         <img src="src/assets/realtor-r.svg" alt="REALTOR® logo" class="ft-tm-logo" />
       </div>
-      <p class="ft-trademark-text">This site is operated by <strong>Sandeep Takhar</strong>, a REALTOR® with <strong>RE/MAX Realty Specialists Inc., Brokerage</strong>. REALTORS®, and the REALTOR® logo are certification marks owned by REALTOR® Canada Inc. and licensed exclusively to The Canadian Real Estate Association (CREA). These certification marks identify real estate professionals who are members of CREA and who must abide by CREA's By-Laws, Rules, and the REALTOR® Code. The MLS® trademark and the MLS® logo are owned by CREA and identify the quality of services provided by real estate professionals who are members of CREA.</p>
+      <div class="ft-tm-row">
+        <p class="ft-trademark-text">This site is operated by <strong>Sandeep Takhar</strong>, a REALTOR® with <strong>RE/MAX Realty Specialists Inc., Brokerage</strong>. REALTORS®, and the REALTOR® logo are certification marks owned by REALTOR® Canada Inc. and licensed exclusively to The Canadian Real Estate Association (CREA). These certification marks identify real estate professionals who are members of CREA and who must abide by CREA's By-Laws, Rules, and the REALTOR® Code. The MLS® trademark and the MLS® logo are owned by CREA and identify the quality of services provided by real estate professionals who are members of CREA.</p>
+        <div class="ft-tm-info">
+          <p class="ft-tm-info-line ft-tm-info-name">Sandeep Takhar</p>
+          <p class="ft-tm-info-line">RE/MAX Realty Specialists Inc., Brokerage</p>
+          <p class="ft-tm-info-line"><a href="tel:+14167258087">(416) 725-8087</a></p>
+          <p class="ft-tm-info-line">RECO Registration #5035266</p>
+        </div>
+      </div>
       <p class="ft-disclaimer" style="margin-top:8px">HomePilot estimates are for informational purposes only and do not constitute financial or mortgage advice. Consult a licensed mortgage professional before making any homebuying decisions.</p>
     </div>
 <div class="ft-bottom">
       <p class="ft-copyright">© 2026 HomePilot. All rights reserved.</p>
-      <div class="ft-tm-info">
-        <p class="ft-tm-info-line ft-tm-info-name">Sandeep Takhar</p>
-        <p class="ft-tm-info-line"><a href="tel:+14167258087">(416) 725-8087</a></p>
-        <p class="ft-tm-info-line">RE/MAX Realty Specialists Inc., Brokerage &ndash; Caledon Branch</p>
-        <p class="ft-tm-info-line">16069 Airport Rd Unit 1, Caledon Village, ON L7C 1G4</p>
-        <p class="ft-tm-info-line">RECO Registration #5035266</p>
-      </div>
     </div>
   </footer>
 </div>
