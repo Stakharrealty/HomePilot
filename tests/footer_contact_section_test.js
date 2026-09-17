@@ -10,10 +10,16 @@
 //      paragraph on the same row (.ft-tm-row), in the open space to its
 //      right -- out of the .ft-bottom row entirely, clear of the
 //      copyright line and the on-page WhatsApp widget.
+//   6. The Contact column's detail lines (phone/email/brokerage/address/
+//      RECO#) were removed, leaving just the "Contact" heading -- that
+//      contact info now lives solely in the .ft-tm-info block beside the
+//      trademark paragraph (name/brokerage/phone/RECO#; no address or
+//      email there either, by design).
 //
 // Verifies the footer on index.html and calculator.html includes:
-//   1. A dedicated Contact column (phone click-to-call, email mailto,
-//      brokerage name/branch, office address, RECO registration #).
+//   1. A "Contact" column heading with NO detail lines under it (and no
+//      mailto link anywhere in the footer, since email only ever lived
+//      in that column).
 //   2. The RE/MAX, CREA, and REALTOR® logos (.ft-trademark-logos) sitting
 //      directly above the trademark paragraph, full width.
 //   3. The exact trademark paragraph text, unchanged.
@@ -49,33 +55,40 @@ function check(label, cond, detail) {
 for (const { name, content } of HTML_FILES) {
   console.log(`\n${name}`);
 
-  // ── Footer Contact column ──────────────────────────────────────────
+  // ── Footer Contact column: heading only, detail lines removed ───────
   check(
     `${name}: footer has a "Contact" column title`,
     /<p class="ft-col-title">Contact<\/p>/.test(content)
   );
+  const contactColMatch = content.match(
+    /<p class="ft-col-title">Contact<\/p>([\s\S]*?)<\/div>/
+  );
+  check(`${name}: Contact column block found`, !!contactColMatch);
+  if (contactColMatch) {
+    const contactCol = contactColMatch[1];
+    check(
+      `${name}: Contact column has no .ft-contact-line detail rows (heading only)`,
+      !/ft-contact-line/.test(contactCol)
+    );
+    check(
+      `${name}: Contact column has no .ft-contact-reco line (heading only)`,
+      !/ft-contact-reco/.test(contactCol)
+    );
+  }
   check(
-    `${name}: click-to-call phone link (tel:+14167258087)`,
+    `${name}: no mailto link anywhere in the footer (email only ever lived in the removed Contact column)`,
+    !/mailto:stakharrealty@gmail\.com/.test(content)
+  );
+  check(
+    `${name}: office address text no longer appears anywhere (was only in the removed Contact column)`,
+    !/16069 Airport Rd Unit 1, Caledon Village, ON L7C 1G4/.test(content)
+  );
+  check(
+    `${name}: click-to-call phone link still present (now only via the .ft-tm-info block)`,
     /<a href="tel:\+14167258087">\(416\) 725-8087<\/a>/.test(content)
   );
   check(
-    `${name}: mailto email link (stakharrealty@gmail.com)`,
-    /<a href="mailto:stakharrealty@gmail\.com">stakharrealty@gmail\.com<\/a>/.test(
-      content
-    )
-  );
-  check(
-    `${name}: brokerage name + Caledon Branch shown in contact column`,
-    /RE\/MAX Realty Specialists Inc\., Brokerage &ndash; Caledon Branch/.test(
-      content
-    )
-  );
-  check(
-    `${name}: office address shown in contact column`,
-    /16069 Airport Rd Unit 1, Caledon Village, ON L7C 1G4/.test(content)
-  );
-  check(
-    `${name}: RECO registration number shown in contact column`,
+    `${name}: RECO registration number still present (now only via the .ft-tm-info block)`,
     /RECO Registration #5035266/.test(content)
   );
 
