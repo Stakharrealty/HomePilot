@@ -87,6 +87,8 @@
   function watch() {
     var el = document.getElementById(CONTAINER_ID);
     if (!el) return;
+    // The wrapper starts hidden and is only shown once results render, so a
+    // hidden container never triggers the observer and never loads Maps JS.
     if (!('IntersectionObserver' in window)) { loadMapsLibrary(); return; }
     var io = new IntersectionObserver(function (entries) {
       for (var i = 0; i < entries.length; i++) {

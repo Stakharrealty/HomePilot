@@ -122,7 +122,7 @@ function go(){
     document.getElementById("bpBox").style.display="block";
     const es=document.getElementById("calcEmptyState");if(es)es.style.display="none";
     document.getElementById("cnt").innerHTML="<span>"+results.length+" cities</span> match your budget — tap any city to see the full monthly breakdown";
-    document.getElementById("res").style.display="block";document.getElementById("cap").style.display="block";const pfb=document.getElementById("propFilterBar");if(pfb)pfb.style.display="block";
+    document.getElementById("res").style.display="block";document.getElementById("cap").style.display="block";const pfb=document.getElementById("propFilterBar");if(pfb)pfb.style.display="block";const hpmw=document.getElementById("hpMapWrap");if(hpmw)hpmw.style.display="block";
     activeProp='all';activeFit='all';
     document.querySelectorAll("[id^='pt-'],[id^='ft-']").forEach(b=>b.classList.remove("on"));const ptAll=document.getElementById('pt-all');if(ptAll)ptAll.classList.add('on');
 
