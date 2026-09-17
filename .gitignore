@@ -8,6 +8,9 @@ node_modules/
 .env.local
 *.local
 
+# Generated at deploy time from the GOOGLE_MAPS_API_KEY secret — never commit
+src/maps-key.js
+
 # OS / editor noise
 .DS_Store
 Thumbs.db

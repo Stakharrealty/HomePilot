@@ -70,6 +70,8 @@ jobs:
       # RECOVERY.md, worker source), README.md, and package*.json — none of
       # that should ever be publicly servable from myhomepilot.ca.
       - name: Build deploy folder
+        env:
+          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
         run: |
           mkdir -p deploy
           cp index.html deploy/
@@ -79,6 +81,11 @@ jobs:
           cp disclaimer.html deploy/
           cp calculator.html deploy/
           cp -r src deploy/
+          # Google Maps browser key — injected from repo secrets at build time so
+          # the key is never stored in the repository. The key is referrer-locked
+          # to myhomepilot.ca in Google Cloud. If the secret is unset, the map
+          # block hides itself and nothing else changes.
+          printf "window.HOMEPILOT_MAPS_KEY='%s';\n" "$GOOGLE_MAPS_API_KEY" > deploy/src/maps-key.js
           cat > deploy/wrangler.jsonc << 'EOF'
           {
             "name": "little-heart-362f",
