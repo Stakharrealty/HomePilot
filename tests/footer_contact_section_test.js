@@ -1,17 +1,19 @@
 // Footer Contact section test (added 2026-09-16; updated 2026-09-16 for the
 // two-column trademark/disclosure layout; updated again 2026-09-16 to move
-// the agent info block down to the bottom-right of the footer).
+// the agent info block down to the bottom-right of the footer; updated
+// again 2026-09-16 to move the RE/MAX + CREA + REALTOR® logos to sit full
+// width above the trademark paragraph instead of beside it).
 //
 // Verifies the footer on index.html and calculator.html includes:
 //   1. A dedicated Contact column (phone click-to-call, email mailto,
 //      brokerage name/branch, office address, RECO registration #).
-//   2. A two-column trademark/disclosure area (.ft-tm-top): the exact
-//      trademark paragraph on the left, and the RE/MAX + CREA logos on
-//      the right (.ft-tm-right), which stacks below the paragraph on
-//      mobile via flex-direction.
-//   3. The agent info block (name, phone, brokerage/branch, address,
-//      RECO#) lives in .ft-bottom, right-aligned next to the copyright
-//      line on desktop -- NOT inside .ft-tm-right under the logos.
+//   2. The RE/MAX, CREA, and REALTOR® logos (.ft-trademark-logos) sitting
+//      directly above the trademark paragraph, full width -- not beside
+//      it in a two-column layout.
+//   3. The exact trademark paragraph text, unchanged.
+//   4. The agent info block (name, phone, brokerage/branch, address,
+//      RECO#) in .ft-bottom, right-aligned next to the copyright line on
+//      desktop.
 //
 // Run: node tests/footer_contact_section_test.js
 
@@ -69,27 +71,62 @@ for (const { name, content } of HTML_FILES) {
     /RECO Registration #5035266/.test(content)
   );
 
-  // ── Two-column trademark/disclosure layout ─────────────────────────
-  check(
-    `${name}: .ft-tm-top wraps the paragraph + right-side block`,
-    /<div class="ft-tm-top">/.test(content)
+  // ── Logos sit full-width above the trademark paragraph ─────────────
+  const tmBlockMatch = content.match(
+    /<div class="ft-trademark">([\s\S]*?)<\/div>\s*<div class="ft-bottom">/
   );
-  check(
-    `${name}: .ft-tm-right holds the logos`,
-    /<div class="ft-tm-right">/.test(content)
-  );
-
-  const tmRightMatch = content.match(
-    /<div class="ft-tm-right">([\s\S]*?)<\/div>\s*<\/div>\s*<\/div>/
-  );
-  check(`${name}: .ft-tm-right block found`, !!tmRightMatch);
-  if (tmRightMatch) {
+  check(`${name}: .ft-trademark block found`, !!tmBlockMatch);
+  if (tmBlockMatch) {
+    const tmBlock = tmBlockMatch[1];
+    const logosIdx = tmBlock.indexOf('<div class="ft-trademark-logos">');
+    const paragraphIdx = tmBlock.indexOf('<p class="ft-trademark-text">');
     check(
-      `${name}: info block is NOT nested under the logos in .ft-tm-right (it moved to the footer bottom row)`,
-      !/ft-tm-info/.test(tmRightMatch[1])
+      `${name}: .ft-trademark-logos row exists`,
+      logosIdx !== -1
+    );
+    check(
+      `${name}: logos row comes BEFORE the trademark paragraph (above it, not beside it)`,
+      logosIdx !== -1 && paragraphIdx !== -1 && logosIdx < paragraphIdx
+    );
+    check(
+      `${name}: no leftover .ft-tm-top / .ft-tm-right wrapper from the old side-by-side layout`,
+      !/ft-tm-top|ft-tm-right/.test(tmBlock)
     );
   }
 
+  const paragraphMatch = content.match(
+    /<p class="ft-trademark-text">([\s\S]*?)<\/p>/
+  );
+  check(`${name}: trademark paragraph found`, !!paragraphMatch);
+  if (paragraphMatch) {
+    const EXPECTED_PARAGRAPH =
+      "This site is operated by <strong>Sandeep Takhar</strong>, a REALTOR® with <strong>RE/MAX Realty Specialists Inc., Brokerage</strong>. REALTORS®, and the REALTOR® logo are certification marks owned by REALTOR® Canada Inc. and licensed exclusively to The Canadian Real Estate Association (CREA). These certification marks identify real estate professionals who are members of CREA and who must abide by CREA's By-Laws, Rules, and the REALTOR® Code. The MLS® trademark and the MLS® logo are owned by CREA and identify the quality of services provided by real estate professionals who are members of CREA.";
+    check(
+      `${name}: paragraph text is unchanged`,
+      paragraphMatch[1] === EXPECTED_PARAGRAPH
+    );
+  }
+
+  check(
+    `${name}: RE/MAX logo present (invert/brightness filter via .ft-tm-logo)`,
+    /alt="RE\/MAX Realty Specialists Inc\., Brokerage" class="ft-tm-logo"/.test(
+      content
+    )
+  );
+  check(
+    `${name}: CREA logo present`,
+    /alt="The Canadian Real Estate Association" class="ft-tm-logo"/.test(
+      content
+    )
+  );
+  check(
+    `${name}: REALTOR® logo present`,
+    /src="src\/assets\/realtor-r\.svg" alt="REALTOR® logo" class="ft-tm-logo"/.test(
+      content
+    )
+  );
+
+  // ── Agent info block lives in the footer bottom row, not by the logos ──
   const bottomMatch = content.match(
     /<div class="ft-bottom">([\s\S]*?)<\/div>\s*<\/footer>/
   );
@@ -104,32 +141,6 @@ for (const { name, content } of HTML_FILES) {
       /ft-copyright/.test(bottomMatch[1])
     );
   }
-
-  const paragraphMatch = content.match(
-    /<p class="ft-trademark-text">([\s\S]*?)<\/p>/
-  );
-  check(`${name}: trademark paragraph found`, !!paragraphMatch);
-  if (paragraphMatch) {
-    const EXPECTED_PARAGRAPH =
-      "This site is operated by <strong>Sandeep Takhar</strong>, a REALTOR® with <strong>RE/MAX Realty Specialists Inc., Brokerage</strong>. REALTORS®, and the REALTOR® logo are certification marks owned by REALTOR® Canada Inc. and licensed exclusively to The Canadian Real Estate Association (CREA). These certification marks identify real estate professionals who are members of CREA and who must abide by CREA's By-Laws, Rules, and the REALTOR® Code. The MLS® trademark and the MLS® logo are owned by CREA and identify the quality of services provided by real estate professionals who are members of CREA.";
-    check(
-      `${name}: paragraph text matches exactly as specified (no phone/address/RECO baked in)`,
-      paragraphMatch[1] === EXPECTED_PARAGRAPH
-    );
-  }
-
-  check(
-    `${name}: RE/MAX logo still present (invert/brightness filter via .ft-tm-logo)`,
-    /alt="RE\/MAX Realty Specialists Inc\., Brokerage" class="ft-tm-logo"/.test(
-      content
-    )
-  );
-  check(
-    `${name}: CREA logo still present`,
-    /alt="The Canadian Real Estate Association" class="ft-tm-logo"/.test(
-      content
-    )
-  );
 
   const infoMatch = content.match(
     /<div class="ft-tm-info">([\s\S]*?)<\/div>/
