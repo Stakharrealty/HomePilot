@@ -1368,7 +1368,7 @@ select{
     </select>
   </div>
 
-  <button class="go-btn" id="goBtn" onclick="go()">
+  <button class="go-btn" id="goBtn" onclick="requestCalculation()">
     <span id="bt">Show Me What I Can Afford</span>
   </button>
   <div class="err" id="err">Please fill in your income to continue.</div>
@@ -1599,6 +1599,22 @@ select{
     </div>
   </div>
 </div>
+<!-- Pre-calculation consent gate -->
+<div id="consentModalOverlay" role="dialog" aria-modal="true" aria-labelledby="consentModalTitle" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:10001;align-items:center;justify-content:center;padding:20px">
+  <div style="background:#fff;border-radius:16px;max-width:460px;width:100%;padding:28px 24px 24px;box-shadow:0 24px 64px rgba(0,0,0,0.35);max-height:90vh;overflow-y:auto">
+    <div style="font-size:15px;font-weight:700;color:#111318;margin-bottom:10px" id="consentModalTitle">Before we show your numbers</div>
+    <div style="font-size:14px;color:#3D4555;line-height:1.55;margin-bottom:14px">HomePilot is an educational estimating tool. The figures it produces are illustrative only — they are <strong>not</strong> financial, mortgage, legal or tax advice, and they are not a mortgage pre-approval or a commitment to lend. Only a licensed mortgage professional or lender can tell you what you actually qualify for.</div>
+    <div style="font-size:14px;color:#3D4555;line-height:1.55;margin-bottom:16px">The details you enter are used to generate your estimate. If you choose to contact Sandeep Takhar through this site, your contact information is shared with him as a licensed RE/MAX sales representative. See the Privacy Policy for how your information is handled.</div>
+    <label style="display:flex;gap:10px;align-items:flex-start;font-size:13.5px;color:#111318;line-height:1.5;margin-bottom:20px;cursor:pointer">
+      <input type="checkbox" id="consentCheckbox" onchange="onConsentCheckboxChange()" style="margin-top:3px;width:17px;height:17px;flex-shrink:0;cursor:pointer">
+      <span>I have read and agree to the <a href="/terms-of-use.html" target="_blank" rel="noopener" style="color:#1D9E75;font-weight:600">Terms of Use</a>, <a href="/privacy-policy.html" target="_blank" rel="noopener" style="color:#1D9E75;font-weight:600">Privacy Policy</a> and <a href="/disclaimer.html" target="_blank" rel="noopener" style="color:#1D9E75;font-weight:600">Disclaimer</a>, and I understand these results are estimates, not advice.</span>
+    </label>
+    <div style="display:flex;gap:10px">
+      <button onclick="closeConsentModal()" style="flex:1;padding:12px;border-radius:10px;border:1.5px solid #E4E7EC;background:#fff;color:#3D4555;font-size:14px;font-weight:600;cursor:pointer;font-family:var(--font)">Cancel</button>
+      <button id="consentAcceptBtn" onclick="acceptConsentAndCalculate()" disabled style="flex:1.4;padding:12px;border-radius:10px;border:none;background:#1D9E75;color:#fff;font-size:14px;font-weight:700;cursor:not-allowed;opacity:0.45;font-family:var(--font)">Agree &amp; continue</button>
+    </div>
+  </div>
+</div>
 <script src="src/config.js"></script>
 <script src="src/cities.js"></script>
 <script src="src/commute.js"></script>
@@ -1616,6 +1632,7 @@ select{
 <script src="src/scenario-sandbox.js"></script>
 <script src="src/report.js"></script>
 <script src="src/ui-helpers.js"></script>
+<script src="src/consent.js"></script>
 <script src="src/render-support.js"></script>
 <script src="src/main.js"></script>
 <script src="src/render.js"></script>
