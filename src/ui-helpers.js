@@ -48,6 +48,21 @@ function setLang(l){
   if(timelineEl){const opts=timelineEl.options;if(opts[0])opts[0].text=t.q2_ph;if(opts[1])opts[1].text=t.q2_a;if(opts[2])opts[2].text=t.q2_b;if(opts[3])opts[3].text=t.q2_c;if(opts[4])opts[4].text=t.q2_d;}
   document.querySelector('.w').style.direction=l==="ur"?"rtl":"ltr";
   if(results.length)render();
+
+  // Homepage (index.html) translations. HPT is only defined when
+  // i18n-homepage.js is loaded (index.html only) — calculator.html has no
+  // matching element IDs, so this block is a silent no-op there.
+  if(typeof HPT!=='undefined' && HPT[l]){
+    const hp=HPT[l];
+    Object.keys(hp).forEach(id=>{
+      const el=document.getElementById(id);
+      if(!el) return;
+      // heroHeading carries an inline <span class="accent"> — every other
+      // key is plain text, so innerHTML is only needed there.
+      if(id==='heroHeading') el.innerHTML=hp[id];
+      else el.textContent=hp[id];
+    });
+  }
 }
 
 function toggleTooltip(e,id){

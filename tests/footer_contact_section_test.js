@@ -58,10 +58,10 @@ for (const { name, content } of HTML_FILES) {
   // ── Footer Contact column: heading only, detail lines removed ───────
   check(
     `${name}: footer has a "Contact" column title`,
-    /<p class="ft-col-title">Contact<\/p>/.test(content)
+    /<p class="ft-col-title"(?:\s+id="[^"]*")?>Contact<\/p>/.test(content)
   );
   const contactColMatch = content.match(
-    /<p class="ft-col-title">Contact<\/p>([\s\S]*?)<\/div>/
+    /<p class="ft-col-title"(?:\s+id="[^"]*")?>Contact<\/p>([\s\S]*?)<\/div>/
   );
   check(`${name}: Contact column block found`, !!contactColMatch);
   if (contactColMatch) {
