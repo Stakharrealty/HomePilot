@@ -19,7 +19,7 @@
 // recordHomePilotConsent(), requestCalculation(), openConsentModal(),
 // closeConsentModal(), onConsentCheckboxChange(), acceptConsentAndCalculate().
 
-const HP_CONSENT_VERSION = '2026-09-17';
+const HP_CONSENT_VERSION = '2026-09-17c';
 const HP_CONSENT_KEY = 'hp_consent';
 
 // Fallback for browsers where localStorage throws (Safari private mode,
