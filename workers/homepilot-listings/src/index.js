@@ -92,7 +92,21 @@ export default {
         }
         const nextParam = url.searchParams.get("next");
         const pageUrl = nextParam ? decodeURIComponent(nextParam) : null;
-        const result = await ingestCityPage(env.DB, env.PROPTX_IDX_TOKEN, "Mississauga", pageUrl);
+        let result;
+        try {
+          result = await ingestCityPage(env.DB, env.PROPTX_IDX_TOKEN, "Mississauga", pageUrl);
+        } catch (e) {
+          // On failure, report every NOT NULL column in the table so all
+          // remaining DDF-era constraints can be fixed in one pass rather
+          // than discovered one error at a time. db.batch() is atomic, so
+          // a failed page writes nothing.
+          const cols = await env.DB.prepare("PRAGMA table_info(listings)").all();
+          const notNullColumns = (cols.results || []).filter(c => c.notnull === 1).map(c => c.name);
+          return new Response(JSON.stringify({
+            error: String(e.message || e),
+            notNullColumns,
+          }, null, 2), { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders(origin) } });
+        }
         // Surface the nextLink as a ready-to-click continuation URL in the
         // response, so testing the next page doesn't require manually
         // re-encoding anything.

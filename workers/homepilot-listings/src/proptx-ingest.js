@@ -142,6 +142,17 @@ function mapPropertyToRow(p) {
   const photos = extractPublicPhotoUrls(p.Media);
   return {
     listing_key: p.ListingKey,
+    // listing_url: the old DDF-era schema requires this to be NOT NULL
+    // (DDF supplied a realtor.ca link). PropTx provides no external
+    // listing page, so an empty string is stored -- honest "no link",
+    // and the frontend (listings-display.js) already hides the
+    // "View original listing" link when this is empty.
+    listing_url: "",
+    latitude: p.Latitude ?? null,
+    longitude: p.Longitude ?? null,
+    listing_status: p.StandardStatus ?? null,
+    last_seen_at: new Date().toISOString(),
+    created_at: new Date().toISOString(), // excluded from the ON CONFLICT update below, so it keeps the first-seen time
     list_price: p.ListPrice ?? null,
     city: p.City ?? null,
     postal_code: p.PostalCode ?? null,
@@ -188,7 +199,7 @@ function buildUpsertStatement(db, row) {
   const columns = Object.keys(row);
   const placeholders = columns.map(() => "?").join(", ");
   const updateClause = columns
-    .filter((c) => c !== "listing_key")
+    .filter((c) => c !== "listing_key" && c !== "created_at")
     .map((c) => `${c} = excluded.${c}`)
     .join(", ");
 
