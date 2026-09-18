@@ -12,7 +12,7 @@
 
 import { getListingsByCity } from "./db.js";
 import { CITY_ALIASES, PUBLIC_CITY_NAMES, HOMEPILOT_CITIES } from "./cities.js";
-import { ingestCity } from "./proptx-ingest.js";
+import { ingestCityPage } from "./proptx-ingest.js";
 
 // The 4 buyer-facing property-type buttons the main app supports. Anything
 // else (including 'all', missing, or unrecognized) means no type filter --
@@ -76,16 +76,30 @@ export default {
       // ONE test city only (Mississauga), per explicit decision to verify
       // correctness on a single city before running it across all 43+
       // HOMEPILOT_CITIES. Writes real rows to D1 with source='PROPTX'.
-      // Delete this route once the single-city output has been reviewed
-      // and the full-city version is wired into the scheduled handler.
+      // Updated 2026-09-18 to use the page-based ingestCityPage() after
+      // the original whole-city version hit Cloudflare Error 1102 on its
+      // first real run. Processes exactly ONE page (25 listings) per
+      // call. Pass ?next=<url-encoded nextLink> to continue from where a
+      // previous call left off; omit it to start the city from the
+      // beginning. Delete this route once single-city paging has been
+      // reviewed and the full-city version is wired into the scheduled
+      // handler.
       if (url.pathname === "/proptx-ingest-test-mississauga") {
         if (!env.PROPTX_IDX_TOKEN) {
           return new Response(JSON.stringify({ error: "PROPTX_IDX_TOKEN secret not found on this Worker" }), {
             status: 500, headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
           });
         }
-        const result = await ingestCity(env.DB, env.PROPTX_IDX_TOKEN, "Mississauga");
-        return new Response(JSON.stringify(result, null, 2), {
+        const nextParam = url.searchParams.get("next");
+        const pageUrl = nextParam ? decodeURIComponent(nextParam) : null;
+        const result = await ingestCityPage(env.DB, env.PROPTX_IDX_TOKEN, "Mississauga", pageUrl);
+        // Surface the nextLink as a ready-to-click continuation URL in the
+        // response, so testing the next page doesn't require manually
+        // re-encoding anything.
+        const continuationUrl = result.nextLink
+          ? `${url.origin}${url.pathname}?next=${encodeURIComponent(result.nextLink)}`
+          : null;
+        return new Response(JSON.stringify({ ...result, continuationUrl }, null, 2), {
           headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
         });
       }
