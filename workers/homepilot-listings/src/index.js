@@ -51,6 +51,34 @@ export default {
       // temporary /proptx-metadata-check route used to confirm this has
       // been removed. Real PropTx ingest module goes here next.
 
+      // ONE-TIME (2026-09-18): the table turned out NOT to be empty
+      // (11,121 rows found, all with property_subtype populated) --
+      // contradicting the assumption that DDF removal had cleared it.
+      // This checks what these rows actually are: sample rows, last_seen
+      // range, and whether any new PropTx columns (source, tax_annual_
+      // amount, etc.) are already populated on them (which would mean
+      // they're leftover DDF data, not something newer). Read-only.
+      if (url.pathname === "/proptx-table-contents-check") {
+        const sample = await env.DB.prepare(
+          "SELECT listing_key, city, list_price, source, originating_system_name, last_seen_at, last_updated FROM listings LIMIT 5"
+        ).all();
+        const dateRange = await env.DB.prepare(
+          "SELECT MIN(last_seen_at) as earliest, MAX(last_seen_at) as latest, MIN(last_updated) as earliest_updated, MAX(last_updated) as latest_updated FROM listings"
+        ).first();
+        const sourceBreakdown = await env.DB.prepare(
+          "SELECT source, COUNT(*) as n FROM listings GROUP BY source"
+        ).all();
+        const originatingBreakdown = await env.DB.prepare(
+          "SELECT originating_system_name, COUNT(*) as n FROM listings GROUP BY originating_system_name"
+        ).all();
+        return new Response(JSON.stringify({
+          sampleRows: sample.results,
+          dateRange,
+          sourceBreakdown: sourceBreakdown.results,
+          originatingSystemBreakdown: originatingBreakdown.results,
+        }, null, 2), { headers: { "Content-Type": "application/json", ...corsHeaders(origin) } });
+      }
+
       // ONE-TIME (2026-09-18): confirms the `listings` table is genuinely
       // empty (post-DDF-removal) before deciding to reuse the leftover
       // `property_subtype` column for PropTx data. Read-only COUNT
