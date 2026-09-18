@@ -101,6 +101,55 @@ export default {
         });
       }
 
+      // TEMPORARY (2026-09-18): investigate why Toronto (and 5 other
+      // cities) returned 0 from /proptx-coverage-check. Pulls a small
+      // sample (5 rows, City-ish fields only, no price/address/agent
+      // content) of Active listings using a StartsWith on PostalCode 'M'
+      // (Toronto's postal prefix) to see what value PropTx actually puts
+      // in the City field for Toronto listings. Delete once resolved.
+      if (url.pathname === "/proptx-toronto-check") {
+        if (!env.PROPTX_IDX_TOKEN) {
+          return new Response(JSON.stringify({ error: "PROPTX_IDX_TOKEN secret not found on this Worker" }), {
+            status: 500, headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
+          });
+        }
+        const headers = {
+          Authorization: `Bearer ${env.PROPTX_IDX_TOKEN}`,
+          Accept: "application/json",
+        };
+
+        // 1) Province-wide active count, no city filter at all.
+        const totalUrl = `https://query.ampre.ca/odata/Property?$filter=${encodeURIComponent("StandardStatus eq 'Active'")}&$count=true&$top=0`;
+        const totalResp = await fetch(totalUrl, { headers });
+        const totalData = totalResp.ok ? await totalResp.json() : null;
+
+        // 2) Sample 5 Active listings whose postal code starts with 'M'
+        // (Toronto-area prefix), pulling only City/CityRegion/PostalCode/
+        // OriginatingSystemName -- no price, address, or agent content.
+        const sampleFilter = encodeURIComponent("StandardStatus eq 'Active' and startswith(PostalCode,'M')");
+        const sampleSelect = encodeURIComponent("City,CityRegion,PostalCode,OriginatingSystemName,StandardStatus");
+        const sampleUrl = `https://query.ampre.ca/odata/Property?$filter=${sampleFilter}&$select=${sampleSelect}&$top=5`;
+        const sampleResp = await fetch(sampleUrl, { headers });
+        const sampleData = sampleResp.ok ? await sampleResp.json() : { error: await sampleResp.text() };
+
+        // 3) Distinct City values actually seen among 'M'-prefix postal
+        // codes, to catch spelling/casing/format differences directly.
+        const distinctFilter = encodeURIComponent("StandardStatus eq 'Active' and startswith(PostalCode,'M')");
+        const distinctSelect = encodeURIComponent("City");
+        const distinctUrl = `https://query.ampre.ca/odata/Property?$filter=${distinctFilter}&$select=${distinctSelect}&$top=50`;
+        const distinctResp = await fetch(distinctUrl, { headers });
+        const distinctData = distinctResp.ok ? await distinctResp.json() : { error: await distinctResp.text() };
+        const distinctCities = distinctData.value
+          ? [...new Set(distinctData.value.map(r => r.City))]
+          : null;
+
+        return new Response(JSON.stringify({
+          provinceWideActiveCount: totalData ? totalData["@odata.count"] : null,
+          sampleTorontoAreaListings: sampleData.value || sampleData,
+          distinctCityValuesForMPostalCodes: distinctCities,
+        }, null, 2), { headers: { "Content-Type": "application/json", ...corsHeaders(origin) } });
+      }
+
       if (url.pathname === "/listings") {
         const requestedCity = url.searchParams.get("city");
         if (!requestedCity) {
