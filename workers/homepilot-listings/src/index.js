@@ -43,41 +43,13 @@ export default {
       // against PropTx's actual API spec rather than assumed to match
       // CREA's shape.
 
-      // TEMPORARY (2026-09-18): read-only PropTx token/connectivity check.
-      // Calls PropTx's own $metadata endpoint with PROPTX_IDX_TOKEN and
-      // returns exactly what PropTx sends back -- no parsing, no writes,
-      // no D1 involvement. Delete this route once the real ingest module
-      // is built and the field names are confirmed.
-      if (url.pathname === "/proptx-metadata-check") {
-        if (!env.PROPTX_IDX_TOKEN) {
-          return new Response(JSON.stringify({ error: "PROPTX_IDX_TOKEN secret not found on this Worker" }), {
-            status: 500, headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
-          });
-        }
-        const resp = await fetch("https://query.ampre.ca/odata/$metadata", {
-          headers: {
-            Authorization: `Bearer ${env.PROPTX_IDX_TOKEN}`,
-            Accept: "application/json",
-          },
-        });
-        const bodyText = await resp.text();
-        let propertyFields = null;
-        try {
-          const parsed = JSON.parse(bodyText);
-          const ns = parsed["us.ampre.webapi"];
-          if (ns && ns.Property) propertyFields = Object.keys(ns.Property);
-        } catch (e) {
-          // leave propertyFields null if parsing fails; bodyPreview still shows raw response
-        }
-        return new Response(JSON.stringify({
-          status: resp.status,
-          ok: resp.ok,
-          contentType: resp.headers.get("content-type"),
-          bodyLength: bodyText.length,
-          propertyFieldNames: propertyFields,
-          bodyPreview: bodyText.slice(0, 2000),
-        }, null, 2), { headers: { "Content-Type": "application/json", ...corsHeaders(origin) } });
-      }
+      // PropTx IDX token verified working 2026-09-18 against
+      // https://query.ampre.ca/odata/$metadata (200 OK, full Property
+      // entity field list confirmed -- ListingKey, ListPrice, City,
+      // PropertyType, ListAgentFullName, ListOfficeName, Media, etc. all
+      // present as expected under the us.ampre.webapi namespace). The
+      // temporary /proptx-metadata-check route used to confirm this has
+      // been removed. Real PropTx ingest module goes here next.
 
       if (url.pathname === "/listings") {
         const requestedCity = url.searchParams.get("city");
