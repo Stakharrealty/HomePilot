@@ -51,214 +51,25 @@ export default {
       // temporary /proptx-metadata-check route used to confirm this has
       // been removed. Real PropTx ingest module goes here next.
 
-      // TEMPORARY (2026-09-18): checks how often ListAgentFullName is
-      // actually populated across a broad real sample (20 Active listings
-      // each from 5 different cities/property mixes), since the single
-      // sample listing checked earlier had it empty while ListOfficeName
-      // was present. Returns only presence counts and a few examples --
-      // not full listing content. No D1 write. Delete once resolved.
-      if (url.pathname === "/proptx-agent-field-check") {
-        if (!env.PROPTX_IDX_TOKEN) {
-          return new Response(JSON.stringify({ error: "PROPTX_IDX_TOKEN secret not found on this Worker" }), {
-            status: 500, headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
-          });
-        }
-        const headers = {
-          Authorization: `Bearer ${env.PROPTX_IDX_TOKEN}`,
-          Accept: "application/json",
-        };
-        const sampleCities = ["Mississauga", "Brampton", "Hamilton", "Vaughan", "Markham"];
-        const select = encodeURIComponent("ListingKey,City,PropertyType,PropertySubType,ListAgentFullName,ListOfficeName,ListAOR");
-        let total = 0, agentPresent = 0, officePresent = 0;
-        const examples = [];
-        for (const city of sampleCities) {
-          const filter = encodeURIComponent(`StandardStatus eq 'Active' and City eq '${city}'`);
-          const url2 = `https://query.ampre.ca/odata/Property?$filter=${filter}&$select=${select}&$top=20`;
-          const resp = await fetch(url2, { headers });
-          if (!resp.ok) continue;
-          const data = await resp.json();
-          for (const row of data.value || []) {
-            total++;
-            const hasAgent = row.ListAgentFullName != null && row.ListAgentFullName !== "";
-            const hasOffice = row.ListOfficeName != null && row.ListOfficeName !== "";
-            if (hasAgent) agentPresent++;
-            if (hasOffice) officePresent++;
-            if (examples.length < 10) {
-              examples.push({
-                ListingKey: row.ListingKey,
-                City: row.City,
-                PropertyType: row.PropertyType,
-                ListAgentFullName: row.ListAgentFullName,
-                ListOfficeName: row.ListOfficeName,
-              });
-            }
-          }
-        }
-        return new Response(JSON.stringify({
-          totalListingsChecked: total,
-          agentNamePresentCount: agentPresent,
-          agentNamePresentPercent: total > 0 ? Math.round((agentPresent / total) * 100) : null,
-          officeNamePresentCount: officePresent,
-          officeNamePresentPercent: total > 0 ? Math.round((officePresent / total) * 100) : null,
-          examples,
-        }, null, 2), { headers: { "Content-Type": "application/json", ...corsHeaders(origin) } });
-      }
-
-      // TEMPORARY (2026-09-18): read-only sample of ONE real, complete
-      // Active listing (no $select restriction, so every field PropTx
-      // actually returns is visible) plus its Media (photos) via $expand.
-      // Used ONLY to verify real PropTx field names/values before
-      // designing the final ingest schema -- no D1 write, nothing stored,
-      // nothing else on the site reads or is affected by this route.
-      // Delete once the field mapping is confirmed.
-      if (url.pathname === "/proptx-sample-listing") {
-        if (!env.PROPTX_IDX_TOKEN) {
-          return new Response(JSON.stringify({ error: "PROPTX_IDX_TOKEN secret not found on this Worker" }), {
-            status: 500, headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
-          });
-        }
-        const headers = {
-          Authorization: `Bearer ${env.PROPTX_IDX_TOKEN}`,
-          Accept: "application/json",
-        };
-        // One Active Mississauga listing (high-volume city, likely to have
-        // a full, well-populated record) with its Media expanded.
-        const filter = encodeURIComponent("StandardStatus eq 'Active' and City eq 'Mississauga'");
-        const sampleUrl = `https://query.ampre.ca/odata/Property?$filter=${filter}&$expand=Media&$top=1`;
-        const resp = await fetch(sampleUrl, { headers });
-        const data = resp.ok ? await resp.json() : { error: await resp.text() };
-        return new Response(JSON.stringify(data, null, 2), {
-          headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
-        });
-      }
-
-      // TEMPORARY (2026-09-18): read-only PropTx coverage check. For each
-      // of HomePilot's 49 tracked cities, gets an active-listing COUNT
-      // ONLY from PropTx ($count=true&$top=0 -- no listing content is
-      // fetched, stored, or displayed). Batches cities in groups of 12 per
-      // request to stay well under PropTx/AMPRE's OData node limit on
-      // chained 'or' filters (CREA DDF hit the same kind of limit above
-      // ~15-20 chained clauses). Delete this route once the real ingest
-      // module is built and coverage is confirmed.
-      if (url.pathname === "/proptx-coverage-check") {
-        if (!env.PROPTX_IDX_TOKEN) {
-          return new Response(JSON.stringify({ error: "PROPTX_IDX_TOKEN secret not found on this Worker" }), {
-            status: 500, headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
-          });
-        }
-        const BATCH_SIZE = 12;
-        const results = {};
-        const errors = [];
-        for (let i = 0; i < HOMEPILOT_CITIES.length; i += BATCH_SIZE) {
-          const batch = HOMEPILOT_CITIES.slice(i, i + BATCH_SIZE);
-          for (const city of batch) {
-            // Escape single quotes for OData string literal safety.
-            const safeCity = city.replace(/'/g, "''");
-            const filter = encodeURIComponent(`City eq '${safeCity}' and StandardStatus eq 'Active'`);
-            const queryUrl = `https://query.ampre.ca/odata/Property?$filter=${filter}&$count=true&$top=0`;
-            try {
-              const resp = await fetch(queryUrl, {
-                headers: {
-                  Authorization: `Bearer ${env.PROPTX_IDX_TOKEN}`,
-                  Accept: "application/json",
-                },
-              });
-              if (!resp.ok) {
-                const errText = await resp.text();
-                errors.push({ city, status: resp.status, error: errText.slice(0, 300) });
-                results[city] = null;
-                continue;
-              }
-              const data = await resp.json();
-              results[city] = data["@odata.count"] ?? null;
-            } catch (e) {
-              errors.push({ city, error: String(e) });
-              results[city] = null;
-            }
-          }
-        }
-        return new Response(JSON.stringify({ cityCounts: results, errors, totalCitiesChecked: HOMEPILOT_CITIES.length }, null, 2), {
-          headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
-        });
-      }
-
-      // TEMPORARY (2026-09-18): investigate why Toronto (and 5 other
-      // cities) returned 0 from /proptx-coverage-check. Pulls a small
-      // sample (5 rows, City-ish fields only, no price/address/agent
-      // content) of Active listings using a StartsWith on PostalCode 'M'
-      // (Toronto's postal prefix) to see what value PropTx actually puts
-      // in the City field for Toronto listings. Delete once resolved.
-      if (url.pathname === "/proptx-toronto-check") {
-        if (!env.PROPTX_IDX_TOKEN) {
-          return new Response(JSON.stringify({ error: "PROPTX_IDX_TOKEN secret not found on this Worker" }), {
-            status: 500, headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
-          });
-        }
-        const headers = {
-          Authorization: `Bearer ${env.PROPTX_IDX_TOKEN}`,
-          Accept: "application/json",
-        };
-
-        // 1) Province-wide active count, no city filter at all.
-        const totalUrl = `https://query.ampre.ca/odata/Property?$filter=${encodeURIComponent("StandardStatus eq 'Active'")}&$count=true&$top=0`;
-        const totalResp = await fetch(totalUrl, { headers });
-        const totalData = totalResp.ok ? await totalResp.json() : null;
-
-        // 2) Sample 5 Active listings whose postal code starts with 'M'
-        // (Toronto-area prefix), pulling only City/CityRegion/PostalCode/
-        // OriginatingSystemName -- no price, address, or agent content.
-        const sampleFilter = encodeURIComponent("StandardStatus eq 'Active' and startswith(PostalCode,'M')");
-        const sampleSelect = encodeURIComponent("City,CityRegion,PostalCode,OriginatingSystemName,StandardStatus");
-        const sampleUrl = `https://query.ampre.ca/odata/Property?$filter=${sampleFilter}&$select=${sampleSelect}&$top=5`;
-        const sampleResp = await fetch(sampleUrl, { headers });
-        const sampleData = sampleResp.ok ? await sampleResp.json() : { error: await sampleResp.text() };
-
-        // 3) Distinct City values actually seen among 'M'-prefix postal
-        // codes, to catch spelling/casing/format differences directly.
-        const distinctFilter = encodeURIComponent("StandardStatus eq 'Active' and startswith(PostalCode,'M')");
-        const distinctSelect = encodeURIComponent("City");
-        const distinctUrl = `https://query.ampre.ca/odata/Property?$filter=${distinctFilter}&$select=${distinctSelect}&$top=50`;
-        const distinctResp = await fetch(distinctUrl, { headers });
-        const distinctData = distinctResp.ok ? await distinctResp.json() : { error: await distinctResp.text() };
-        const distinctCities = distinctData.value
-          ? [...new Set(distinctData.value.map(r => r.City))]
-          : null;
-
-        // Verify fix: does startswith(City,'Toronto') capture the real count?
-        const fixedFilter = encodeURIComponent("StandardStatus eq 'Active' and startswith(City,'Toronto')");
-        const fixedUrl = `https://query.ampre.ca/odata/Property?$filter=${fixedFilter}&$count=true&$top=0`;
-        const fixedResp = await fetch(fixedUrl, { headers });
-        const fixedData = fixedResp.ok ? await fixedResp.json() : { error: await fixedResp.text() };
-
-        // Also check the other 5 zero-count cities for the same
-        // folded-into-a-larger-name pattern (Bradford West Gwillimbury,
-        // Halton Hills for Georgetown/Acton, King for King City, plus
-        // Ottawa/Grand Valley as-is to rule that possibility out too).
-        const otherZeroChecks = {};
-        const candidates = {
-          "Ottawa": "Ottawa",
-          "Grand Valley": "Grand Valley",
-          "Bradford": "Bradford West Gwillimbury",
-          "Acton": "Halton Hills",
-          "Georgetown": "Halton Hills",
-          "King City": "King",
-        };
-        for (const [original, candidate] of Object.entries(candidates)) {
-          const f = encodeURIComponent(`StandardStatus eq 'Active' and City eq '${candidate.replace(/'/g, "''")}'`);
-          const u = `https://query.ampre.ca/odata/Property?$filter=${f}&$count=true&$top=0`;
-          const r = await fetch(u, { headers });
-          const d = r.ok ? await r.json() : null;
-          otherZeroChecks[original] = { triedCityValue: candidate, count: d ? d["@odata.count"] : null };
-        }
-
-        return new Response(JSON.stringify({
-          provinceWideActiveCount: totalData ? totalData["@odata.count"] : null,
-          sampleTorontoAreaListings: sampleData.value || sampleData,
-          distinctCityValuesForMPostalCodes: distinctCities,
-          torontoStartswithCount: fixedData ? fixedData["@odata.count"] : null,
-          otherZeroCityChecks: otherZeroChecks,
-        }, null, 2), { headers: { "Content-Type": "application/json", ...corsHeaders(origin) } });
-      }
+      // PropTx IDX investigation complete (2026-09-18). Summary of what was
+      // confirmed via temporary diagnostic routes (all since removed):
+      // - Token verified working against query.ampre.ca
+      // - 43 of 49 HomePilot cities match PropTx's City field exactly
+      // - Toronto listings use TRREB district codes (e.g. "Toronto C07",
+      //   "Toronto W04") as their City value, NOT plain "Toronto" --
+      //   startswith(City,'Toronto') recovers the true count (20,656
+      //   active listings); decision made to store the full district code
+      // - Acton and Georgetown both map to "Halton Hills"; King City maps
+      //   to "King"; Bradford maps to "Bradford West Gwillimbury"
+      // - Ottawa and Grand Valley are genuine zero-coverage cities (not a
+      //   naming issue) -- Ottawa is OREB territory, a different board
+      // - ListAgentFullName is empty on 100% of a 100-listing real sample
+      //   across 5 cities -- only ListOfficeName (brokerage) is ever
+      //   populated, which is also all Article 6.3(c) actually requires
+      // - YearBuilt and other fields are inconsistently present -- schema
+      //   must treat every field beyond ListingKey/ListPrice/City/
+      //   StandardStatus as optional
+      // Real PropTx ingest module goes here next.
 
       if (url.pathname === "/listings") {
         const requestedCity = url.searchParams.get("city");
