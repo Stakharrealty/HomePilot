@@ -61,12 +61,21 @@ export default {
           },
         });
         const bodyText = await resp.text();
+        let propertyFields = null;
+        try {
+          const parsed = JSON.parse(bodyText);
+          const ns = parsed["us.ampre.webapi"];
+          if (ns && ns.Property) propertyFields = Object.keys(ns.Property);
+        } catch (e) {
+          // leave propertyFields null if parsing fails; bodyPreview still shows raw response
+        }
         return new Response(JSON.stringify({
           status: resp.status,
           ok: resp.ok,
           contentType: resp.headers.get("content-type"),
-          bodyPreview: bodyText.slice(0, 4000),
           bodyLength: bodyText.length,
+          propertyFieldNames: propertyFields,
+          bodyPreview: bodyText.slice(0, 2000),
         }, null, 2), { headers: { "Content-Type": "application/json", ...corsHeaders(origin) } });
       }
 
