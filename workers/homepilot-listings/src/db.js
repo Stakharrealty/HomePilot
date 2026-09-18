@@ -142,7 +142,7 @@ export async function getListingsByCity(db, city, limit = 20, propertyType = nul
               public_remarks, display_address, year_built, lot_size_area, lot_size_units,
               ${derivedTypeCase}
        FROM listings
-       WHERE city = ? AND source = 'PROPTX'${typeClause}${budgetClause}
+       WHERE city = ? AND source = 'PROPTX' AND transaction_type = 'For Sale'${typeClause}${budgetClause}
        ORDER BY last_updated DESC
        LIMIT ? OFFSET ?`
     )

@@ -77,7 +77,11 @@ const PROPERTY_SELECT_FIELDS = [
  */
 function buildCityFilter(cityName) {
   const safeCity = cityName.replace(/'/g, "''");
-  return `StandardStatus eq 'Active' and City eq '${safeCity}'`;
+  // Residential + For Sale only (fixed 2026-09-18): the first real page
+  // for Mississauga came back 20/25 leases or commercial (retail units,
+  // offices, land, a business for sale, lease prices like $15/sqft).
+  // HomePilot is for home buyers -- only residential homes for sale.
+  return `StandardStatus eq 'Active' and City eq '${safeCity}' and TransactionType eq 'For Sale' and startswith(PropertyType,'Residential')`;
 }
 
 /**

@@ -72,6 +72,23 @@ export default {
         }, null, 2), { headers: { "Content-Type": "application/json", ...corsHeaders(origin) } });
       }
 
+      // ONE-TIME (2026-09-18): deletes the PropTx test rows written by the
+      // first real ingest page, which was run before the residential/For
+      // Sale filter existed (20 of 25 were leases or commercial). Only
+      // rows with source='PROPTX' are touched -- the 11,121 old DDF rows
+      // and anything else are untouched. Delete this route after use.
+      if (url.pathname === "/proptx-reset-test-rows") {
+        const before = await env.DB.prepare("SELECT COUNT(*) as n FROM listings WHERE source='PROPTX'").first();
+        await env.DB.prepare("DELETE FROM listings WHERE source='PROPTX'").run();
+        const after = await env.DB.prepare("SELECT COUNT(*) as n FROM listings WHERE source='PROPTX'").first();
+        const ddf = await env.DB.prepare("SELECT COUNT(*) as n FROM listings WHERE source IS NULL").first();
+        return new Response(JSON.stringify({
+          propTxRowsBefore: before.n,
+          propTxRowsAfter: after.n,
+          oldDdfRowsUntouched: ddf.n,
+        }, null, 2), { headers: { "Content-Type": "application/json", ...corsHeaders(origin) } });
+      }
+
       // ONE-TIME (2026-09-18): summarizes what the first real PropTx page
       // actually saved -- transaction type (sale vs lease), property
       // subtype, and how the existing condo/town/semi/detached
