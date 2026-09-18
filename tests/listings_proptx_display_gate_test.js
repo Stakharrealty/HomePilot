@@ -1,23 +1,18 @@
-// PropTx display gate test (2026-09-18).
+// PropTx display switch test (updated 2026-09-18 when the switch went ON).
 //
-// Why this exists: PropTx IDX listings went live on myhomepilot.ca before
-// the PROPTX IDX Data Agreement Article 6.3 notices were on the page.
-// PROPTX_DISPLAY_ENABLED in workers/homepilot-listings/src/index.js hides
-// them from buyers until the notices are added.
-//
-// What this proves, end to end through the Worker's real fetch handler
-// (not a regex on the source alone):
-//   1. With the switch off, /listings returns count 0 and an empty list,
-//      even when a valid, visible PropTx row IS in the database.
-//   2. The database is never even queried by /listings while off.
-//   3. The switch is a plain `false` literal in source, so a flip to true
-//      is a deliberate, reviewable one-line change.
-//   4. The underlying query still works: calling getListingsByCity
-//      directly against the same real SQLite row returns it -- so the
-//      empty result above comes from the switch, not a broken query.
-//
-// When the Article 6.3 notices ship and the switch flips to true, update
-// check 1/2/3 in the same commit to expect listings again.
+// PROPTX_DISPLAY_ENABLED in workers/homepilot-listings/src/index.js was
+// false while the PROPTX IDX Article 6.3 notices were missing. It was
+// turned on after the notices shipped and the first full Mississauga
+// ingest finished clean. This test now locks in the ON behaviour and
+// proves the safety layers still hold with it on:
+//   1. The switch is a plain `true` literal (flipping it is a deliberate,
+//      reviewable one-line change) and not a named export.
+//   2. /listings returns the real PropTx home through the real Worker
+//      fetch handler, against real SQLite.
+//   3. With the switch on, these still never show: a non-home (parking
+//      space), an old DDF row (source NULL), a lease.
+//   4. Paging past the 100th listing returns nothing and never queries
+//      (Article 6.3(b)).
 //
 // Run: node --no-warnings tests/listings_proptx_display_gate_test.js
 
@@ -35,7 +30,6 @@ function check(label, cond, detail) {
   else { failed++; console.log(`  FAIL - ${label}${detail ? " :: " + detail : ""}`); }
 }
 
-// Minimal D1-shaped wrapper around real node:sqlite, recording every query.
 function makeSqliteD1(sqlite, log) {
   return {
     prepare(sql) {
@@ -54,52 +48,46 @@ function makeSqliteD1(sqlite, log) {
 
 (async () => {
   const indexSrc = fs.readFileSync(path.join(SRC_DIR, "index.js"), "utf8");
+  check("PROPTX_DISPLAY_ENABLED is declared as a plain true literal", /^const PROPTX_DISPLAY_ENABLED = true;$/m.test(indexSrc));
+  check("switch is not a named export (Workers treat named exports of the main module as entrypoints)",
+    !/export\s+const\s+PROPTX_DISPLAY_ENABLED/.test(indexSrc));
 
-  // 3. switch is a plain literal
-  check(
-    "PROPTX_DISPLAY_ENABLED is declared as a plain false literal",
-    /^const PROPTX_DISPLAY_ENABLED = false;$/m.test(indexSrc)
-  );
-  check(
-    "switch is not a named export (Workers treat named exports of the main module as entrypoints)",
-    !/export\s+const\s+PROPTX_DISPLAY_ENABLED/.test(indexSrc)
-  );
-
-  // Real SQLite table with the columns getListingsByCity selects/filters on,
-  // seeded with one fully valid, buyer-visible PropTx row.
   const sqlite = new DatabaseSync(":memory:");
   sqlite.exec(`CREATE TABLE listings (
     listing_key TEXT PRIMARY KEY, list_price REAL, city TEXT, postal_code TEXT,
     bedrooms INTEGER, bathrooms INTEGER, parking_total INTEGER, listing_url TEXT,
     brokerage_name TEXT, photos TEXT, last_updated TEXT, public_remarks TEXT,
     display_address TEXT, year_built INTEGER, lot_size_area REAL, lot_size_units TEXT,
-    structure_type TEXT, common_interest TEXT, property_attached INTEGER,
     source TEXT, transaction_type TEXT, property_subtype TEXT
   )`);
-  sqlite.prepare(`INSERT INTO listings (listing_key, list_price, city, listing_url, brokerage_name,
-    photos, last_updated, source, transaction_type, property_subtype)
-    VALUES ('W1', 850000, 'Mississauga', '', 'TEST REALTY', '[]', '2026-09-18T00:00:00Z', 'PROPTX', 'For Sale', 'Detached')`).run();
+  const ins = sqlite.prepare(`INSERT INTO listings (listing_key, list_price, city, listing_url, brokerage_name,
+    photos, last_updated, source, transaction_type, property_subtype) VALUES (?, ?, 'Mississauga', '', 'TEST REALTY', '[]', ?, ?, ?, ?)`);
+  ins.run("HOME1", 850000, "2026-09-18T04", "PROPTX", "For Sale", "Detached");
+  ins.run("PARK1", 47800, "2026-09-18T03", "PROPTX", "For Sale", "Parking Space");
+  ins.run("DDF1", 800000, "2026-09-18T02", null, null, null);
+  ins.run("LEASE1", 3000, "2026-09-18T01", "PROPTX", "For Lease", "Detached");
 
-  // 4. query itself still returns the row
-  const dbModule = await import(pathToFileURL(path.join(SRC_DIR, "db.js")).href);
-  const directLog = [];
-  const direct = await dbModule.getListingsByCity(makeSqliteD1(sqlite, directLog), "Mississauga", 20, null, 0, null);
-  check("getListingsByCity itself still returns the valid PropTx row (query not broken)", direct.length === 1, `got ${direct.length}`);
-
-  // 1 + 2. Worker /listings route with the switch off
   const worker = (await import(pathToFileURL(path.join(SRC_DIR, "index.js")).href)).default;
-  const routeLog = [];
-  const env = { DB: makeSqliteD1(sqlite, routeLog) };
-  const resp = await worker.fetch(
-    new Request("https://homepilot-listings.example/listings?city=Mississauga", { headers: { Origin: "https://myhomepilot.ca" } }),
-    env,
-    { waitUntil() {} }
-  );
-  const body = await resp.json();
-  check("/listings responds 200", resp.status === 200, `status ${resp.status}`);
-  check("/listings returns count 0 while switch is off", body.count === 0, JSON.stringify(body).slice(0, 200));
-  check("/listings returns an empty listings array while switch is off", Array.isArray(body.listings) && body.listings.length === 0);
-  check("/listings does not query the database at all while switch is off", routeLog.length === 0, `${routeLog.length} queries`);
+  async function get(qs) {
+    const log = [];
+    const resp = await worker.fetch(
+      new Request(`https://homepilot-listings.example/listings?${qs}`, { headers: { Origin: "https://myhomepilot.ca" } }),
+      { DB: makeSqliteD1(sqlite, log) }, { waitUntil() {} });
+    return { resp, body: await resp.json(), log };
+  }
+
+  const r = await get("city=Mississauga");
+  const keys = (r.body.listings || []).map((l) => l.listingKey);
+  check("/listings responds 200", r.resp.status === 200);
+  check("switch on: the real PropTx home is returned", keys.includes("HOME1"), JSON.stringify(keys));
+  check("switch on: parking space still never shown", !keys.includes("PARK1"));
+  check("switch on: old DDF row still never shown", !keys.includes("DDF1"));
+  check("switch on: lease still never shown", !keys.includes("LEASE1"));
+  check("switch on: exactly 1 listing", r.body.count === 1, `${r.body.count}`);
+
+  const past = await get("city=Mississauga&offset=100");
+  check("offset 100: empty page (Article 6.3(b))", past.body.count === 0 && past.body.listings.length === 0);
+  check("offset 100: database not queried", past.log.length === 0, `${past.log.length}`);
 
   console.log(`\n=== RESULT: ${passed} passed, ${failed} failed ===`);
   if (failed > 0) process.exit(1);

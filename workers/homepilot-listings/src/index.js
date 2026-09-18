@@ -16,14 +16,14 @@ import { runSubtypeCensus } from "./proptx-census.js";
 import { runAutoIngest, ensureStateTable, AUTO_INGEST_CITIES } from "./proptx-auto-ingest.js";
 
 // PROPTX_DISPLAY_ENABLED (added 2026-09-18): master switch for showing
-// PropTx IDX listings to buyers on the public /listings route. Set to
-// false because the PROPTX IDX Data Agreement Article 6.3 notices
-// ("deemed reliable but not guaranteed accurate by PROPTX" and the
-// bona-fide-consumer notice) are not on the listings page yet, and the
-// brokerage line is styled smaller/lighter than the other listing
-// details. Ingest keeps running -- this only controls what buyers see.
-// Flip back to true in the same change that adds the notices.
-const PROPTX_DISPLAY_ENABLED = false;
+// PropTx IDX listings to buyers on the public /listings route. Was false
+// while the PROPTX IDX Data Agreement Article 6.3 notices were missing;
+// turned ON 2026-09-18 after (a) the notices, brokerage styling and
+// 100-per-search cap shipped (commit 5dbde08) and (b) the first full
+// Mississauga ingest finished clean (2,354 fetched, 2,310 homes saved,
+// 44 non-homes skipped, 0 errors). Set to false to hide every PropTx
+// listing from buyers at once -- ingest keeps running either way.
+const PROPTX_DISPLAY_ENABLED = true;
 
 
 // The 4 buyer-facing property-type buttons the main app supports. Anything
