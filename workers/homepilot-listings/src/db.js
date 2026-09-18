@@ -14,9 +14,20 @@
 // first, the same way CREA's were confirmed via /metadata and /field-probe
 // (see git history on the removed query.js for why that mattered here).
 //
-// The read path below (getListingsByCity) and the underlying `listings`
-// D1 table are unaffected -- they don't care which ingest pipeline wrote
-// the rows, only what's in them.
+// The read path below (getListingsByCity) DOES care which pipeline wrote a
+// row (correction, 2026-09-18): the earlier version of this comment claimed
+// otherwise, and that was wrong. 11,121 stale DDF rows (source=NULL, last
+// touched by the DDF cron before it was removed) were still being served
+// live to real buyers on myhomepilot.ca, undetected, because the DDF
+// removal deleted the ingest CODE but never touched the DATA already sitting
+// in D1. Fixed by requiring source = 'PROPTX' in the WHERE clause below --
+// this correctly returns zero results for every city until the real PropTx
+// ingest module exists and starts writing rows with source='PROPTX', which
+// is the true empty-state behavior already decided as the product
+// requirement for the PropTx transition (no DDF-shaped fallback, ever).
+// The 11,121 old DDF rows are left in the table, untouched, in case they're
+// useful for reference -- they are simply no longer reachable through this
+// query.
 
 // PROPERTY_TYPE_FILTERS -- REWRITTEN 2026-07-29 (classification audit + fix).
 // Original version (2026-07-24) had two confirmed, measured bugs, found via
@@ -131,7 +142,7 @@ export async function getListingsByCity(db, city, limit = 20, propertyType = nul
               public_remarks, display_address, year_built, lot_size_area, lot_size_units,
               ${derivedTypeCase}
        FROM listings
-       WHERE city = ?${typeClause}${budgetClause}
+       WHERE city = ? AND source = 'PROPTX'${typeClause}${budgetClause}
        ORDER BY last_updated DESC
        LIMIT ? OFFSET ?`
     )
