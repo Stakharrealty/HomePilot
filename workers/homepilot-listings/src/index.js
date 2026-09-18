@@ -51,6 +51,21 @@ export default {
       // temporary /proptx-metadata-check route used to confirm this has
       // been removed. Real PropTx ingest module goes here next.
 
+      // ONE-TIME (2026-09-18): confirms the `listings` table is genuinely
+      // empty (post-DDF-removal) before deciding to reuse the leftover
+      // `property_subtype` column for PropTx data. Read-only COUNT
+      // queries only. Delete once confirmed.
+      if (url.pathname === "/proptx-table-emptiness-check") {
+        const totalRows = await env.DB.prepare("SELECT COUNT(*) as n FROM listings").first();
+        const nonNullSubtype = await env.DB.prepare(
+          "SELECT COUNT(*) as n FROM listings WHERE property_subtype IS NOT NULL AND property_subtype != ''"
+        ).first();
+        return new Response(JSON.stringify({
+          totalRowsInListingsTable: totalRows.n,
+          rowsWithNonEmptyPropertySubtype: nonNullSubtype.n,
+        }, null, 2), { headers: { "Content-Type": "application/json", ...corsHeaders(origin) } });
+      }
+
       // Migration 0002 applied live 2026-09-18 (20 new nullable columns
       // for full PropTx listing detail + HomePilot's own affordability
       // breakdown support). Confirmed via PRAGMA table_info(listings)
