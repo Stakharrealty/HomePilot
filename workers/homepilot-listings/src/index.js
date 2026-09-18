@@ -53,6 +53,25 @@ export default {
         });
       }
 
+      // ONE-TIME (2026-09-18): checks how many rows actually made it into
+      // D1 before the /proptx-ingest-test-mississauga run hit Cloudflare's
+      // Error 1102 (Worker exceeded resource limits) -- upserts that
+      // completed before the timeout are NOT rolled back, so this tells us
+      // whether the run made partial progress or failed before writing
+      // anything. Read-only.
+      if (url.pathname === "/proptx-check-partial-ingest") {
+        const count = await env.DB.prepare(
+          "SELECT COUNT(*) as n FROM listings WHERE city = 'Mississauga' AND source = 'PROPTX'"
+        ).first();
+        const sample = await env.DB.prepare(
+          "SELECT listing_key, list_price, list_office_name, tax_annual_amount, source FROM listings WHERE city = 'Mississauga' AND source = 'PROPTX' LIMIT 5"
+        ).all();
+        return new Response(JSON.stringify({
+          mississaugaPropTxRowsWritten: count.n,
+          sampleRows: sample.results,
+        }, null, 2), { headers: { "Content-Type": "application/json", ...corsHeaders(origin) } });
+      }
+
       // TEST PHASE (2026-09-18): runs the real PropTx ingest module against
       // ONE test city only (Mississauga), per explicit decision to verify
       // correctness on a single city before running it across all 43+
