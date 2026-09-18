@@ -51,6 +51,62 @@ export default {
       // temporary /proptx-metadata-check route used to confirm this has
       // been removed. Real PropTx ingest module goes here next.
 
+      // ONE-TIME (2026-09-18): applies migration 0002 (19 new nullable
+      // columns for full PropTx listing detail + HomePilot's own
+      // affordability breakdown support) to the live `listings` table.
+      // Purely additive -- no existing column or row is touched, and the
+      // table is currently empty (DDF fully removed) so there is no data
+      // to migrate. Runs each ALTER TABLE individually since D1 does not
+      // support multiple column additions in a single statement (see
+      // standing engineering learning on this). Reports exactly which
+      // columns succeeded vs already existed vs failed. Delete this route
+      // once confirmed applied -- it is not meant to run more than once.
+      if (url.pathname === "/proptx-migration-0002") {
+        const columns = [
+          ["source", "TEXT"],
+          ["city_district", "TEXT"],
+          ["public_remarks_full", "TEXT"],
+          ["photos_full", "TEXT"],
+          ["property_sub_type", "TEXT"],
+          ["transaction_type", "TEXT"],
+          ["standard_status", "TEXT"],
+          ["association_fee", "REAL"],
+          ["association_fee_frequency", "TEXT"],
+          ["tax_annual_amount", "REAL"],
+          ["tax_year", "INTEGER"],
+          ["heat_type", "TEXT"],
+          ["cooling", "TEXT"],
+          ["basement", "TEXT"],
+          ["garage_type", "TEXT"],
+          ["parking_spaces", "INTEGER"],
+          ["virtual_tour_url", "TEXT"],
+          ["list_office_name", "TEXT"],
+          ["list_aor", "TEXT"],
+          ["modification_timestamp", "TEXT"],
+        ];
+        const results = [];
+        for (const [name, type] of columns) {
+          try {
+            await env.DB.prepare(`ALTER TABLE listings ADD COLUMN ${name} ${type}`).run();
+            results.push({ column: name, status: "added" });
+          } catch (e) {
+            const msg = String(e.message || e);
+            if (msg.toLowerCase().includes("duplicate column")) {
+              results.push({ column: name, status: "already existed" });
+            } else {
+              results.push({ column: name, status: "FAILED", error: msg });
+            }
+          }
+        }
+        // Verify final schema via PRAGMA, so the response shows the real
+        // current column list, not just what this run reported.
+        const schema = await env.DB.prepare("PRAGMA table_info(listings)").all();
+        return new Response(JSON.stringify({
+          results,
+          currentColumns: (schema.results || []).map(c => c.name),
+        }, null, 2), { headers: { "Content-Type": "application/json", ...corsHeaders(origin) } });
+      }
+
       // PropTx IDX investigation complete (2026-09-18). Summary of what was
       // confirmed via temporary diagnostic routes (all since removed):
       // - Token verified working against query.ampre.ca
