@@ -143,10 +143,39 @@ export default {
           ? [...new Set(distinctData.value.map(r => r.City))]
           : null;
 
+        // Verify fix: does startswith(City,'Toronto') capture the real count?
+        const fixedFilter = encodeURIComponent("StandardStatus eq 'Active' and startswith(City,'Toronto')");
+        const fixedUrl = `https://query.ampre.ca/odata/Property?$filter=${fixedFilter}&$count=true&$top=0`;
+        const fixedResp = await fetch(fixedUrl, { headers });
+        const fixedData = fixedResp.ok ? await fixedResp.json() : { error: await fixedResp.text() };
+
+        // Also check the other 5 zero-count cities for the same
+        // folded-into-a-larger-name pattern (Bradford West Gwillimbury,
+        // Halton Hills for Georgetown/Acton, King for King City, plus
+        // Ottawa/Grand Valley as-is to rule that possibility out too).
+        const otherZeroChecks = {};
+        const candidates = {
+          "Ottawa": "Ottawa",
+          "Grand Valley": "Grand Valley",
+          "Bradford": "Bradford West Gwillimbury",
+          "Acton": "Halton Hills",
+          "Georgetown": "Halton Hills",
+          "King City": "King",
+        };
+        for (const [original, candidate] of Object.entries(candidates)) {
+          const f = encodeURIComponent(`StandardStatus eq 'Active' and City eq '${candidate.replace(/'/g, "''")}'`);
+          const u = `https://query.ampre.ca/odata/Property?$filter=${f}&$count=true&$top=0`;
+          const r = await fetch(u, { headers });
+          const d = r.ok ? await r.json() : null;
+          otherZeroChecks[original] = { triedCityValue: candidate, count: d ? d["@odata.count"] : null };
+        }
+
         return new Response(JSON.stringify({
           provinceWideActiveCount: totalData ? totalData["@odata.count"] : null,
           sampleTorontoAreaListings: sampleData.value || sampleData,
           distinctCityValuesForMPostalCodes: distinctCities,
+          torontoStartswithCount: fixedData ? fixedData["@odata.count"] : null,
+          otherZeroCityChecks: otherZeroChecks,
         }, null, 2), { headers: { "Content-Type": "application/json", ...corsHeaders(origin) } });
       }
 
