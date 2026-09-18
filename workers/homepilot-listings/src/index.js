@@ -13,6 +13,7 @@
 import { getListingsByCity } from "./db.js";
 import { CITY_ALIASES, PUBLIC_CITY_NAMES, HOMEPILOT_CITIES } from "./cities.js";
 import { ingestCityPage } from "./proptx-ingest.js";
+import { runSubtypeCensus } from "./proptx-census.js";
 
 // PROPTX_DISPLAY_ENABLED (added 2026-09-18): master switch for showing
 // PropTx IDX listings to buyers on the public /listings route. Set to
@@ -105,6 +106,18 @@ export default {
       // classification treats these rows. Checks whether leases/commercial
       // slipped in and whether the DDF-era type filters work on PropTx
       // data. Read-only.
+      // TEMPORARY (2026-09-18): read-only census of every PropertySubType
+      // label PropTx uses for active residential for-sale listings -- see
+      // proptx-census.js. Feeds the home-type sorting and non-home
+      // blocking fixes. Never touches D1. Delete with the other /proptx-*
+      // test routes.
+      if (url.pathname === "/proptx-subtype-census") {
+        const census = await runSubtypeCensus(env.PROPTX_IDX_TOKEN);
+        return new Response(JSON.stringify(census, null, 2), {
+          headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
+        });
+      }
+
       if (url.pathname === "/proptx-first-page-summary") {
         const total = await env.DB.prepare("SELECT COUNT(*) as n FROM listings WHERE source='PROPTX'").first();
         const byTxn = await env.DB.prepare("SELECT transaction_type, COUNT(*) as n FROM listings WHERE source='PROPTX' GROUP BY transaction_type").all();
