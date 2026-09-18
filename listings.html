@@ -86,10 +86,22 @@ body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;bac
   </div>
 
   <div id="listingsRoot" class="live-listings-container"></div>
+
+  <!-- Map (Phase 1: base map only — listing markers come with the IDX work).
+       Cards come first; the map is opt-in and loads nothing until pressed. -->
+  <div style="margin:16px 0 0 0">
+    <button type="button" id="hpMapToggle" aria-expanded="false" aria-controls="hpMapWrap"
+            style="appearance:none;cursor:pointer;font:inherit;font-weight:600;font-size:14px;color:#3D4555;background:#fff;border:1px solid #E4E7EC;border-radius:10px;padding:10px 16px">🗺️ Show map</button>
+  </div>
+  <div id="hpMapWrap" style="display:none;margin:12px 0 0 0;background:#fff;border:1px solid #E4E7EC;border-radius:12px;padding:16px">
+    <div id="hpMap" style="width:100%;height:340px;border-radius:8px;background:#F2F4F7"></div>
+  </div>
 </div>
 
 <script src="src/ai.js"></script>
 <script src="src/listings-display.js"></script>
+<script src="src/maps-key.js" onerror="window.HOMEPILOT_MAPS_KEY='';"></script>
+<script src="src/map.js"></script>
 <script>
 // If this page was opened as a popup (window.opener exists), "back" should
 // close the popup and return focus to the original HomePilot window rather
