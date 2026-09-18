@@ -51,6 +51,31 @@ export default {
       // temporary /proptx-metadata-check route used to confirm this has
       // been removed. Real PropTx ingest module goes here next.
 
+      // ONE-TIME (2026-09-18): verifies the source='PROPTX' fix actually
+      // returns zero results for EVERY one of the 49 HOMEPILOT_CITIES,
+      // not just the one (Hamilton) manually spot-checked. Queries D1
+      // directly (bypassing the /listings HTTP path entirely) for a
+      // straight count per city, both with and without the source filter,
+      // so any gap shows up as a nonzero "afterFix" count. Read-only.
+      if (url.pathname === "/proptx-full-fix-verification") {
+        const results = [];
+        for (const city of HOMEPILOT_CITIES) {
+          const before = await env.DB.prepare(
+            "SELECT COUNT(*) as n FROM listings WHERE city = ?"
+          ).bind(city).first();
+          const after = await env.DB.prepare(
+            "SELECT COUNT(*) as n FROM listings WHERE city = ? AND source = 'PROPTX'"
+          ).bind(city).first();
+          results.push({ city, beforeFixTotalRows: before.n, afterFixVisibleRows: after.n });
+        }
+        const anyNonZeroAfterFix = results.filter(r => r.afterFixVisibleRows > 0);
+        return new Response(JSON.stringify({
+          totalCitiesChecked: results.length,
+          citiesStillShowingListingsAfterFix: anyNonZeroAfterFix,
+          allCityCounts: results,
+        }, null, 2), { headers: { "Content-Type": "application/json", ...corsHeaders(origin) } });
+      }
+
       // CRITICAL FINDING, discovered and fixed live 2026-09-18: the
       // `listings` table was assumed empty after DDF removal but actually
       // held 11,121 stale DDF rows (source=NULL, from CREA-participating
