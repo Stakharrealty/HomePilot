@@ -19,8 +19,9 @@
     "test:listings-proptx-display-gate": "node --no-warnings tests/listings_proptx_display_gate_test.js",
     "test:listings-proptx-census": "node --no-warnings tests/listings_proptx_subtype_census_test.js",
     "test:listings-proptx-ingest-homes": "node --no-warnings tests/listings_proptx_ingest_homes_only_test.js",
-    "test:listings": "npm run test:listing-seal-removed && npm run test:listings-frontend && npm run test:listings-popup-redesign && npm run test:listings-property-classification && npm run test:listings-affordability-budget && npm run test:listings-proptx-display-gate && npm run test:listings-proptx-census && npm run test:listings-proptx-ingest-homes",
-    "test:listings-ci": "npm run test:listing-seal-removed && npm run test:listings-frontend && npm run test:listings-popup-redesign && npm run test:listings-property-classification && npm run test:listings-affordability-budget && npm run test:listings-proptx-display-gate && npm run test:listings-proptx-census && npm run test:listings-proptx-ingest-homes"
+    "test:listings-proptx-auto-ingest": "node --no-warnings tests/listings_proptx_auto_ingest_test.js",
+    "test:listings": "npm run test:listing-seal-removed && npm run test:listings-frontend && npm run test:listings-popup-redesign && npm run test:listings-property-classification && npm run test:listings-affordability-budget && npm run test:listings-proptx-display-gate && npm run test:listings-proptx-census && npm run test:listings-proptx-ingest-homes && npm run test:listings-proptx-auto-ingest",
+    "test:listings-ci": "npm run test:listing-seal-removed && npm run test:listings-frontend && npm run test:listings-popup-redesign && npm run test:listings-property-classification && npm run test:listings-affordability-budget && npm run test:listings-proptx-display-gate && npm run test:listings-proptx-census && npm run test:listings-proptx-ingest-homes && npm run test:listings-proptx-auto-ingest"
   },
   "devDependencies": {
     "http-server": "^14.1.1",

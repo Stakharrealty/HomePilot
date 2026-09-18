@@ -10,10 +10,10 @@
 // in here -- until then, /listings will correctly return an empty result
 // for every city (no fallback, per explicit product decision).
 
-import { getListingsByCity } from "./db.js";
+import { getListingsByCity, SHOWN_HOMES_CLAUSE, PROPERTY_TYPE_FILTERS } from "./db.js";
 import { CITY_ALIASES, PUBLIC_CITY_NAMES, HOMEPILOT_CITIES } from "./cities.js";
-import { ingestCityPage } from "./proptx-ingest.js";
 import { runSubtypeCensus } from "./proptx-census.js";
+import { runAutoIngest, ensureStateTable, AUTO_INGEST_CITIES } from "./proptx-auto-ingest.js";
 
 // PROPTX_DISPLAY_ENABLED (added 2026-09-18): master switch for showing
 // PropTx IDX listings to buyers on the public /listings route. Set to
@@ -83,29 +83,6 @@ export default {
         }, null, 2), { headers: { "Content-Type": "application/json", ...corsHeaders(origin) } });
       }
 
-      // ONE-TIME (2026-09-18): deletes the PropTx test rows written by the
-      // first real ingest page, which was run before the residential/For
-      // Sale filter existed (20 of 25 were leases or commercial). Only
-      // rows with source='PROPTX' are touched -- the 11,121 old DDF rows
-      // and anything else are untouched. Delete this route after use.
-      if (url.pathname === "/proptx-reset-test-rows") {
-        const before = await env.DB.prepare("SELECT COUNT(*) as n FROM listings WHERE source='PROPTX'").first();
-        await env.DB.prepare("DELETE FROM listings WHERE source='PROPTX'").run();
-        const after = await env.DB.prepare("SELECT COUNT(*) as n FROM listings WHERE source='PROPTX'").first();
-        const ddf = await env.DB.prepare("SELECT COUNT(*) as n FROM listings WHERE source IS NULL").first();
-        return new Response(JSON.stringify({
-          propTxRowsBefore: before.n,
-          propTxRowsAfter: after.n,
-          oldDdfRowsUntouched: ddf.n,
-        }, null, 2), { headers: { "Content-Type": "application/json", ...corsHeaders(origin) } });
-      }
-
-      // ONE-TIME (2026-09-18): summarizes what the first real PropTx page
-      // actually saved -- transaction type (sale vs lease), property
-      // subtype, and how the existing condo/town/semi/detached
-      // classification treats these rows. Checks whether leases/commercial
-      // slipped in and whether the DDF-era type filters work on PropTx
-      // data. Read-only.
       // TEMPORARY (2026-09-18): read-only census of every PropertySubType
       // label PropTx uses for active residential for-sale listings -- see
       // proptx-census.js. Feeds the home-type sorting and non-home
@@ -118,6 +95,12 @@ export default {
         });
       }
 
+      // ONE-TIME (2026-09-18): summarizes what the first real PropTx page
+      // actually saved -- transaction type (sale vs lease), property
+      // subtype, and how the existing condo/town/semi/detached
+      // classification treats these rows. Checks whether leases/commercial
+      // slipped in and whether the DDF-era type filters work on PropTx
+      // data. Read-only.
       if (url.pathname === "/proptx-first-page-summary") {
         const total = await env.DB.prepare("SELECT COUNT(*) as n FROM listings WHERE source='PROPTX'").first();
         const byTxn = await env.DB.prepare("SELECT transaction_type, COUNT(*) as n FROM listings WHERE source='PROPTX' GROUP BY transaction_type").all();
@@ -137,48 +120,28 @@ export default {
         }, null, 2), { headers: { "Content-Type": "application/json", ...corsHeaders(origin) } });
       }
 
-      // TEST PHASE (2026-09-18): runs the real PropTx ingest module against
-      // ONE test city only (Mississauga), per explicit decision to verify
-      // correctness on a single city before running it across all 43+
-      // HOMEPILOT_CITIES. Writes real rows to D1 with source='PROPTX'.
-      // Updated 2026-09-18 to use the page-based ingestCityPage() after
-      // the original whole-city version hit Cloudflare Error 1102 on its
-      // first real run. Processes exactly ONE page (25 listings) per
-      // call. Pass ?next=<url-encoded nextLink> to continue from where a
-      // previous call left off; omit it to start the city from the
-      // beginning. Delete this route once single-city paging has been
-      // reviewed and the full-city version is wired into the scheduled
-      // handler.
-      if (url.pathname === "/proptx-ingest-test-mississauga") {
-        if (!env.PROPTX_IDX_TOKEN) {
-          return new Response(JSON.stringify({ error: "PROPTX_IDX_TOKEN secret not found on this Worker" }), {
-            status: 500, headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
-          });
+      // Read-only progress check for the automatic PropTx ingest (see
+      // proptx-auto-ingest.js). Replaces the old manual
+      // /proptx-ingest-test-mississauga route (removed 2026-09-18 -- the
+      // cron now does that work). Temporary; remove with the other
+      // /proptx-* routes once ingest is settled.
+      if (url.pathname === "/proptx-ingest-status") {
+        await ensureStateTable(env.DB);
+        const states = await env.DB.prepare("SELECT * FROM proptx_ingest_state ORDER BY city").all();
+        const cities = [];
+        for (const city of AUTO_INGEST_CITIES) {
+          const q = (where) => env.DB.prepare(
+            `SELECT COUNT(*) AS n FROM listings WHERE city = ? AND source = 'PROPTX' AND transaction_type = 'For Sale' AND ${where}`
+          ).bind(city).first();
+          const homes = await q(SHOWN_HOMES_CLAUSE);
+          const nonHomesStillInDb = await q(`NOT (${SHOWN_HOMES_CLAUSE})`);
+          const byButton = {};
+          for (const [button, clause] of Object.entries(PROPERTY_TYPE_FILTERS)) {
+            byButton[button] = (await q(`${SHOWN_HOMES_CLAUSE} AND ${clause}`)).n;
+          }
+          cities.push({ city, homesInDb: homes.n, byButton, nonHomesStillInDb: nonHomesStillInDb.n });
         }
-        const nextParam = url.searchParams.get("next");
-        const pageUrl = nextParam ? decodeURIComponent(nextParam) : null;
-        let result;
-        try {
-          result = await ingestCityPage(env.DB, env.PROPTX_IDX_TOKEN, "Mississauga", pageUrl);
-        } catch (e) {
-          // On failure, report every NOT NULL column in the table so all
-          // remaining DDF-era constraints can be fixed in one pass rather
-          // than discovered one error at a time. db.batch() is atomic, so
-          // a failed page writes nothing.
-          const cols = await env.DB.prepare("PRAGMA table_info(listings)").all();
-          const notNullColumns = (cols.results || []).filter(c => c.notnull === 1).map(c => c.name);
-          return new Response(JSON.stringify({
-            error: String(e.message || e),
-            notNullColumns,
-          }, null, 2), { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders(origin) } });
-        }
-        // Surface the nextLink as a ready-to-click continuation URL in the
-        // response, so testing the next page doesn't require manually
-        // re-encoding anything.
-        const continuationUrl = result.nextLink
-          ? `${url.origin}${url.pathname}?next=${encodeURIComponent(result.nextLink)}`
-          : null;
-        return new Response(JSON.stringify({ ...result, continuationUrl }, null, 2), {
+        return new Response(JSON.stringify({ progress: states.results || [], database: cities }, null, 2), {
           headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
         });
       }
@@ -314,9 +277,12 @@ export default {
     }
   },
 
-  // Cron trigger handler -- see wrangler.jsonc for the schedule. The DDF
-  // runIngest() call was removed here 2026-09-18. Currently a no-op: no
-  // ingest pipeline exists until PropTx is wired in, so the cron fires but
-  // does nothing. Replace with a PropTx-equivalent ingest call once built.
-  async scheduled(event, env, ctx) {},
+  // Cron trigger handler -- see wrangler.jsonc for the schedule (every 2
+  // minutes). Each firing does one bounded unit of the automatic PropTx
+  // ingest (proptx-auto-ingest.js): a few pages, cursor saved, then stop.
+  // When a city is done and fresh, a firing costs one D1 read.
+  async scheduled(event, env, ctx) {
+    if (!env.PROPTX_IDX_TOKEN) return;
+    ctx.waitUntil(runAutoIngest(env.DB, env.PROPTX_IDX_TOKEN));
+  },
 };

@@ -23,12 +23,13 @@
     }
   ],
   "triggers": {
-    // Daily refresh, 8:00 AM UTC (~4:00 AM Toronto during EDT, 3:00 AM EST).
-    // Chosen as an off-peak time, before Ontario buyers would typically be
-    // using the app. Currently a no-op (see scheduled() in src/index.js) --
-    // the DDF ingest this used to trigger was removed 2026-09-18. Left
-    // scheduled so a PropTx ingest call can be dropped in later without a
-    // config change here.
-    "crons": ["0 8 * * *"]
+    // Every 2 minutes (changed 2026-09-18 from the old DDF-era daily
+    // 8:00 UTC run): drives the automatic PropTx ingest in
+    // src/proptx-auto-ingest.js, which does a small bounded amount of work
+    // per firing and resumes from a saved cursor. One cron only, so two
+    // runs can never overlap on the same cursor. Refresh cadence (Article
+    // 6.3's 24-hour rule) is handled in code: a finished city restarts
+    // after REFRESH_AFTER_HOURS.
+    "crons": ["*/2 * * * *"]
   }
 }
