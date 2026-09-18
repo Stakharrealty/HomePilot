@@ -51,6 +51,34 @@ export default {
       // temporary /proptx-metadata-check route used to confirm this has
       // been removed. Real PropTx ingest module goes here next.
 
+      // TEMPORARY (2026-09-18): read-only sample of ONE real, complete
+      // Active listing (no $select restriction, so every field PropTx
+      // actually returns is visible) plus its Media (photos) via $expand.
+      // Used ONLY to verify real PropTx field names/values before
+      // designing the final ingest schema -- no D1 write, nothing stored,
+      // nothing else on the site reads or is affected by this route.
+      // Delete once the field mapping is confirmed.
+      if (url.pathname === "/proptx-sample-listing") {
+        if (!env.PROPTX_IDX_TOKEN) {
+          return new Response(JSON.stringify({ error: "PROPTX_IDX_TOKEN secret not found on this Worker" }), {
+            status: 500, headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
+          });
+        }
+        const headers = {
+          Authorization: `Bearer ${env.PROPTX_IDX_TOKEN}`,
+          Accept: "application/json",
+        };
+        // One Active Mississauga listing (high-volume city, likely to have
+        // a full, well-populated record) with its Media expanded.
+        const filter = encodeURIComponent("StandardStatus eq 'Active' and City eq 'Mississauga'");
+        const sampleUrl = `https://query.ampre.ca/odata/Property?$filter=${filter}&$expand=Media&$top=1`;
+        const resp = await fetch(sampleUrl, { headers });
+        const data = resp.ok ? await resp.json() : { error: await resp.text() };
+        return new Response(JSON.stringify(data, null, 2), {
+          headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
+        });
+      }
+
       // TEMPORARY (2026-09-18): read-only PropTx coverage check. For each
       // of HomePilot's 49 tracked cities, gets an active-listing COUNT
       // ONLY from PropTx ($count=true&$top=0 -- no listing content is
