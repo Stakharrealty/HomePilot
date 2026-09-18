@@ -14,6 +14,16 @@ import { getListingsByCity } from "./db.js";
 import { CITY_ALIASES, PUBLIC_CITY_NAMES, HOMEPILOT_CITIES } from "./cities.js";
 import { ingestCityPage } from "./proptx-ingest.js";
 
+// PROPTX_DISPLAY_ENABLED (added 2026-09-18): master switch for showing
+// PropTx IDX listings to buyers on the public /listings route. Set to
+// false because the PROPTX IDX Data Agreement Article 6.3 notices
+// ("deemed reliable but not guaranteed accurate by PROPTX" and the
+// bona-fide-consumer notice) are not on the listings page yet, and the
+// brokerage line is styled smaller/lighter than the other listing
+// details. Ingest keeps running -- this only controls what buyers see.
+// Flip back to true in the same change that adds the notices.
+const PROPTX_DISPLAY_ENABLED = false;
+
 // The 4 buyer-facing property-type buttons the main app supports. Anything
 // else (including 'all', missing, or unrecognized) means no type filter --
 // see PROPERTY_TYPE_FILTERS in db.js for what each one actually queries.
@@ -269,7 +279,12 @@ export default {
         const budgetParam = parseFloat(url.searchParams.get("budget"));
         const searchBudget = Number.isFinite(budgetParam) && budgetParam > 0 ? budgetParam : null;
 
-        const listings = await getListingsByCity(env.DB, city, limit, propertyType, offset, searchBudget);
+        // PROPTX_DISPLAY_ENABLED gate (added 2026-09-18) -- see its
+        // definition at the top of this file. While false, buyers get the
+        // normal empty state for every city.
+        const listings = PROPTX_DISPLAY_ENABLED
+          ? await getListingsByCity(env.DB, city, limit, propertyType, offset, searchBudget)
+          : [];
         return new Response(
           JSON.stringify({ city: requestedCity, propertyType: propertyType || "all", offset, searchBudget, count: listings.length, listings }, null, 2),
           { headers: { "Content-Type": "application/json", ...corsHeaders(origin) } }

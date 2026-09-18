@@ -16,8 +16,9 @@
     "test:listings-popup-redesign": "node tests/listings_popup_redesign_test.js",
     "test:listings-property-classification": "node --no-warnings tests/listings_property_classification_test.js",
     "test:listings-affordability-budget": "node --no-warnings tests/listings_affordability_budget_test.js",
-    "test:listings": "npm run test:listing-seal-removed && npm run test:listings-frontend && npm run test:listings-popup-redesign && npm run test:listings-property-classification && npm run test:listings-affordability-budget",
-    "test:listings-ci": "npm run test:listing-seal-removed && npm run test:listings-frontend && npm run test:listings-popup-redesign && npm run test:listings-property-classification && npm run test:listings-affordability-budget"
+    "test:listings-proptx-display-gate": "node --no-warnings tests/listings_proptx_display_gate_test.js",
+    "test:listings": "npm run test:listing-seal-removed && npm run test:listings-frontend && npm run test:listings-popup-redesign && npm run test:listings-property-classification && npm run test:listings-affordability-budget && npm run test:listings-proptx-display-gate",
+    "test:listings-ci": "npm run test:listing-seal-removed && npm run test:listings-frontend && npm run test:listings-popup-redesign && npm run test:listings-property-classification && npm run test:listings-affordability-budget && npm run test:listings-proptx-display-gate"
   },
   "devDependencies": {
     "http-server": "^14.1.1",
