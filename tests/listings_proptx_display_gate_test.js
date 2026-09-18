@@ -74,11 +74,11 @@ function makeSqliteD1(sqlite, log) {
     brokerage_name TEXT, photos TEXT, last_updated TEXT, public_remarks TEXT,
     display_address TEXT, year_built INTEGER, lot_size_area REAL, lot_size_units TEXT,
     structure_type TEXT, common_interest TEXT, property_attached INTEGER,
-    source TEXT, transaction_type TEXT
+    source TEXT, transaction_type TEXT, property_subtype TEXT
   )`);
   sqlite.prepare(`INSERT INTO listings (listing_key, list_price, city, listing_url, brokerage_name,
-    photos, last_updated, source, transaction_type)
-    VALUES ('W1', 850000, 'Mississauga', '', 'TEST REALTY', '[]', '2026-09-18T00:00:00Z', 'PROPTX', 'For Sale')`).run();
+    photos, last_updated, source, transaction_type, property_subtype)
+    VALUES ('W1', 850000, 'Mississauga', '', 'TEST REALTY', '[]', '2026-09-18T00:00:00Z', 'PROPTX', 'For Sale', 'Detached')`).run();
 
   // 4. query itself still returns the row
   const dbModule = await import(pathToFileURL(path.join(SRC_DIR, "db.js")).href);

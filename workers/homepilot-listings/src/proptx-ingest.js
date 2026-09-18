@@ -1,3 +1,4 @@
+import { classifySubtype } from "./home-types.js";
 // homepilot-listings — PropTx IDX ingest module
 // Pulls Active listings from PropTx's RESO Web API (query.ampre.ca) for a
 // given city and upserts them into the `listings` D1 table with
@@ -229,7 +230,15 @@ export async function ingestCityPage(db, token, cityName, pageUrl) {
 
   const statements = [];
   const mappingErrors = [];
+  // Non-homes (parking, lockers, land, farms, etc. -- see home-types.js)
+  // pass PropTx's Residential + For Sale filter but are never saved.
+  const skippedNotAHome = {};
   for (const p of listings) {
+    if (!classifySubtype(p.PropertySubType).shown) {
+      const label = p.PropertySubType ?? "(blank)";
+      skippedNotAHome[label] = (skippedNotAHome[label] || 0) + 1;
+      continue;
+    }
     try {
       statements.push(buildUpsertStatement(db, mapPropertyToRow(p)));
     } catch (e) {
@@ -246,6 +255,8 @@ export async function ingestCityPage(db, token, cityName, pageUrl) {
     city: cityName,
     fetchedThisPage: listings.length,
     upsertedThisPage: batchResults.length,
+    skippedNotAHomeCount: Object.values(skippedNotAHome).reduce((a, b) => a + b, 0),
+    skippedNotAHome,
     mappingErrorCount: mappingErrors.length,
     mappingErrors: mappingErrors.slice(0, 5),
     nextLink,

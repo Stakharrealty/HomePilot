@@ -115,23 +115,21 @@ async function main() {
 
   // --- 5. Real SQLite execution: the price ceiling actually filters
   //     correctly, including exact boundary behavior ---
-  const filtersMatch = dbSrc.match(/const PROPERTY_TYPE_FILTERS = \{([\s\S]*?)\n\};/);
-  function extractClause(key) {
-    const m = filtersMatch[1].match(new RegExp(`${key}: \`([^\`]*)\``));
-    return m ? m[1] : null;
-  }
-  const detachedClause = extractClause("detached");
+  // Updated 2026-09-18: PROPERTY_TYPE_FILTERS is now built from
+  // home-types.js (PropTx property_subtype) instead of written as literal
+  // DDF clauses, so the detached clause is read from the exported object
+  // rather than regex-extracted from source.
+  const detachedClause = dbModule.PROPERTY_TYPE_FILTERS.detached;
+  check("detached clause available from db.js export", typeof detachedClause === "string" && detachedClause.length > 0);
 
   const db = new DatabaseSync(":memory:");
   db.exec(`CREATE TABLE listings (
     listing_key TEXT PRIMARY KEY,
     list_price INTEGER,
-    structure_type TEXT,
-    common_interest TEXT,
-    property_attached INTEGER
+    property_subtype TEXT
   )`);
   const insert = db.prepare(
-    "INSERT INTO listings (listing_key, list_price, structure_type, common_interest, property_attached) VALUES (?, ?, ?, ?, ?)"
+    "INSERT INTO listings (listing_key, list_price, property_subtype) VALUES (?, ?, ?)"
   );
   const boundaryListings = [
     { key: "L_under", price: 850000 },
@@ -142,7 +140,7 @@ async function main() {
     { key: "L_way_over", price: 1500000 },
   ];
   for (const l of boundaryListings) {
-    insert.run(l.key, l.price, '["House"]', "Freehold", 0);
+    insert.run(l.key, l.price, "Detached");
   }
 
   const budget = 900000;

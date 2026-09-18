@@ -33,6 +33,10 @@ export const CANDIDATE_SUBTYPES = [
   "Detached Condo", "Semi-Detached Condo", "Leasehold Condo", "Locker",
   "Time Share", "Vacant Land", "Vacant Land Condo", "Farm", "Rural Residential",
   "Cottage", "Mobile Trailer", "Store W Apt/Office", "Other",
+  // Added after the first census run (2026-09-18) -- seen by name in its
+  // uncovered sample. Note the trailing space on "Semi-Detached ": that is
+  // how PropTx actually sends it.
+  "Semi-Detached ", "MobileTrailer", "Timeshare", "Modular Home",
 ];
 
 function q(value) {

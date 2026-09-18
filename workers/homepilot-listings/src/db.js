@@ -1,3 +1,5 @@
+import { BUTTON_TYPES, SHOWN_SUBTYPES, subtypesForButton, sqlInList } from "./home-types.js";
+
 // homepilot-listings — db module
 // D1 read path (getListingsByCity) and property-type classification logic
 // for the `listings` table. Extracted from the single-file index.js during
@@ -65,12 +67,24 @@
 // three; town/semi/detached are separated by structure_type ("Row /
 // Townhouse" vs "House", quote-anchored so they can't collide), and semi
 // vs detached are separated by property_attached (1 vs 0/NULL).
-const PROPERTY_TYPE_FILTERS = {
-  condo: `common_interest = 'Condo/Strata'`,
-  town: `structure_type LIKE '%"Row / Townhouse"%' AND common_interest IN ('Freehold','Leasehold')`,
-  semi: `structure_type LIKE '%"House"%' AND property_attached = 1 AND (common_interest IS NULL OR common_interest != 'Condo/Strata')`,
-  detached: `structure_type LIKE '%"House"%' AND (property_attached = 0 OR property_attached IS NULL) AND (common_interest IS NULL OR common_interest != 'Condo/Strata')`,
-};
+// PROPERTY_TYPE_FILTERS (rebuilt 2026-09-18 for PropTx): the old DDF-era
+// clauses read structure_type / common_interest / property_attached, which
+// PropTx leaves empty ("[]" / NULL on every real row), so every PropTx
+// listing classified as NULL and the 4 buttons returned nothing. Now built
+// from home-types.js -- the same allow-list the ingest uses -- matching
+// on TRIM(property_subtype) because PropTx sends "Semi-Detached " with a
+// trailing space. Each label maps to exactly one button, so the 4 filters
+// are mutually exclusive by construction.
+const SUBTYPE_EXPR = "TRIM(property_subtype)";
+
+export const PROPERTY_TYPE_FILTERS = Object.freeze(Object.fromEntries(
+  BUTTON_TYPES.map((b) => [b, `${SUBTYPE_EXPR} IN ${sqlInList(subtypesForButton(b))}`])
+));
+
+// Only real homes on the allow-list are ever returned -- a parking space,
+// locker, vacant land, commercial unit, or any label PropTx adds later is
+// blocked here even if it's already sitting in D1.
+export const SHOWN_HOMES_CLAUSE = `${SUBTYPE_EXPR} IN ${sqlInList(SHOWN_SUBTYPES)}`;
 
 // STRETCH_MULTIPLIER (added 2026-07-29, affordability-consistency fix):
 // MUST stay in sync with the identical 1.10 stretch tolerance already used
@@ -115,9 +129,8 @@ export async function getListingsByCity(db, city, limit = 20, propertyType = nul
   // separately-written duplicate -- this is deliberate, so the label
   // returned to the frontend and the filter that selected the row can
   // never drift apart into "two classification systems" (the original
-  // audit's core complaint about this codebase). NULL means none of the 4
-  // categories matched (mobile/modular homes, true edge cases -- 201
-  // listings, ~1.7% of D1, confirmed via audit).
+  // audit's core complaint about this codebase). NULL means a shown home with no
+  // button (Duplex/Triplex/Fourplex/Multiplex -- see home-types.js).
   const derivedTypeCase = `CASE
       WHEN ${PROPERTY_TYPE_FILTERS.condo} THEN 'condo'
       WHEN ${PROPERTY_TYPE_FILTERS.town} THEN 'town'
@@ -142,7 +155,7 @@ export async function getListingsByCity(db, city, limit = 20, propertyType = nul
               public_remarks, display_address, year_built, lot_size_area, lot_size_units,
               ${derivedTypeCase}
        FROM listings
-       WHERE city = ? AND source = 'PROPTX' AND transaction_type = 'For Sale'${typeClause}${budgetClause}
+       WHERE city = ? AND source = 'PROPTX' AND transaction_type = 'For Sale' AND ${SHOWN_HOMES_CLAUSE}${typeClause}${budgetClause}
        ORDER BY last_updated DESC
        LIMIT ? OFFSET ?`
     )
