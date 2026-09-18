@@ -12,6 +12,7 @@
 
 import { getListingsByCity } from "./db.js";
 import { CITY_ALIASES, PUBLIC_CITY_NAMES, HOMEPILOT_CITIES } from "./cities.js";
+import { ingestCity } from "./proptx-ingest.js";
 
 // The 4 buyer-facing property-type buttons the main app supports. Anything
 // else (including 'all', missing, or unrecognized) means no type filter --
@@ -35,6 +36,40 @@ export default {
     if (request.method === "OPTIONS") return new Response(null, { headers: corsHeaders(origin) });
 
     try {
+
+      // ONE-TIME (2026-09-18): checks whether `listings` has a UNIQUE
+      // constraint/index on listing_key before running any upsert logic
+      // against it -- the planned ingest module relies on
+      // ON CONFLICT(listing_key), which requires one to exist. Read-only.
+      if (url.pathname === "/proptx-check-unique-constraint") {
+        const indexes = await env.DB.prepare("PRAGMA index_list(listings)").all();
+        const indexDetails = [];
+        for (const idx of indexes.results || []) {
+          const info = await env.DB.prepare(`PRAGMA index_info(${idx.name})`).all();
+          indexDetails.push({ name: idx.name, unique: idx.unique, columns: (info.results || []).map(c => c.name) });
+        }
+        return new Response(JSON.stringify({ indexes: indexDetails }, null, 2), {
+          headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
+        });
+      }
+
+      // TEST PHASE (2026-09-18): runs the real PropTx ingest module against
+      // ONE test city only (Mississauga), per explicit decision to verify
+      // correctness on a single city before running it across all 43+
+      // HOMEPILOT_CITIES. Writes real rows to D1 with source='PROPTX'.
+      // Delete this route once the single-city output has been reviewed
+      // and the full-city version is wired into the scheduled handler.
+      if (url.pathname === "/proptx-ingest-test-mississauga") {
+        if (!env.PROPTX_IDX_TOKEN) {
+          return new Response(JSON.stringify({ error: "PROPTX_IDX_TOKEN secret not found on this Worker" }), {
+            status: 500, headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
+          });
+        }
+        const result = await ingestCity(env.DB, env.PROPTX_IDX_TOKEN, "Mississauga");
+        return new Response(JSON.stringify(result, null, 2), {
+          headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
+        });
+      }
 
       // /test, /metadata, /field-probe, /ingest-probe, /ingest were CREA/DDF
       // diagnostic and ingest routes -- removed 2026-09-18 along with the
