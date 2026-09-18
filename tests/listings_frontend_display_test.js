@@ -1,13 +1,18 @@
-// Phase 6 (DDF) — frontend listing display test.
+// Frontend listing display test.
 //
 // Loads the real index.html via jsdom (same pattern as
 // browser_load_verification.js and smoke_test.js), then exercises the real
 // renderLiveListings()/renderListingCard() functions with mocked fetch data
-// (never calls the real homepilot-listings Worker or CREA analytics) to
-// confirm the actual rendered DOM satisfies CREA's display requirements:
-// price shown, brokerage name shown, "Powered by REALTOR.ca" badge present
-// and links to the real listing, and the required trademark statement is
-// present on the page once listings render.
+// (never calls the real homepilot-listings Worker) to confirm the actual
+// rendered DOM shows what it should: price, brokerage name, a link to the
+// original listing, and safe handling of malicious payloads.
+//
+// DDF REMOVED 2026-09-18: this test previously asserted CREA's DDF display
+// requirements (a "Powered by REALTOR.ca" badge with the REALTOR® logo,
+// and the MLS/CREA trademark statement) were present. Those requirements
+// no longer apply -- see src/listings-display.js's removal notes. This
+// test now asserts those DDF-era elements are gone, and that the
+// replacement plain listing link works and is XSS-safe.
 //
 // Requires: node tests/browser_load_verification.js pattern -- a local
 // static server on :8843 must be running (npx http-server -p 8843 -s).
@@ -154,13 +159,13 @@ const XSS_LISTINGS = {
     "listing with no brokerage name on file doesn't crash, shows a fallback instead",
     html.includes("Brokerage not available")
   );
-  check("'Powered by REALTOR.ca' badge text is present", html.includes("Powered by REALTOR.ca"));
+  check("'Powered by REALTOR.ca' badge is no longer present (DDF removed)", !html.includes("Powered by REALTOR.ca"));
   check(
-    "real REALTOR® logo image is referenced (not a text-only placeholder)",
-    html.includes("src/assets/realtor-r.svg")
+    "REALTOR® logo image is no longer referenced (DDF removed)",
+    !html.includes("src/assets/realtor-r.svg")
   );
   check(
-    "REALTOR.ca badge links to the real listing URL, not a placeholder",
+    "listing links to the real original listing URL, not a placeholder",
     html.includes('href="https://www.realtor.ca/real-estate/TEST111"')
   );
   check(
@@ -172,8 +177,8 @@ const XSS_LISTINGS = {
     html.includes("No photo available")
   );
   check(
-    "required MLS/CREA trademark statement is present on the page",
-    html.includes("MLS") && html.includes("CREA")
+    "DDF's MLS/CREA trademark statement is no longer present on the page",
+    !html.includes("MLS® mark") && !html.includes("REALTORS® and the REALTOR® logo are controlled by CREA")
   );
 
   // --- 3b. XSS: malicious CREA-shaped payloads must be neutralized, not
@@ -206,7 +211,7 @@ const XSS_LISTINGS = {
   );
   check(
     "exactly the expected number of real <img> elements exist (no injected extra one from the city payload)",
-    xssContainer.querySelectorAll("img").length === 3, // card1: photo img + logo img; card2: logo img only (its photo URL was rejected)
+    xssContainer.querySelectorAll("img").length === 1, // card1: photo img only (no logo img since the DDF badge was removed); card2: no photo, no logo
     `found ${xssContainer.querySelectorAll("img").length}`
   );
 
@@ -224,11 +229,11 @@ const XSS_LISTINGS = {
 
   const xssCards = [...xssContainer.querySelectorAll(".listing-card")];
   const brokerUrlCard = xssCards[1];
-  const realtorLink = brokerUrlCard ? brokerUrlCard.querySelector("a.listing-realtor-badge") : null;
+  const sourceLink = brokerUrlCard ? brokerUrlCard.querySelector("a.listing-source-link") : null;
   check(
-    "badge link's real href attribute is not a javascript: URL (checked via DOM property, not string match)",
-    !!realtorLink && !String(realtorLink.getAttribute("href")).toLowerCase().startsWith("javascript:"),
-    `href="${realtorLink && realtorLink.getAttribute("href")}"`
+    "malicious listingUrl (javascript:) is neutralized -- no source link is rendered for it at all",
+    sourceLink === null,
+    `sourceLink=${sourceLink ? sourceLink.outerHTML : "null"}`
   );
   check(
     "listing with a javascript: photo URL falls back to the no-photo state instead of rendering it",

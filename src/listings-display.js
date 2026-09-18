@@ -1,6 +1,6 @@
-// HomePilot — DDF listing display (src/listings-display.js)
-// Added 2026-07-22. Renders real CREA/DDF listings pulled from the
-// homepilot-listings Worker's D1 database, via GET /listings?city=X.
+// HomePilot — listing display (src/listings-display.js)
+// Added 2026-07-22. Renders listings pulled from the homepilot-listings
+// Worker's D1 database, via GET /listings?city=X.
 //
 // INCOM WAS FULLY REMOVED 2026-07-22 (see utils.js). This is the only
 // listings experience in the app -- and as of 2026-07-25, it's no longer
@@ -10,87 +10,25 @@
 // product direction that listings should support HomePilot's
 // recommendation, not become a browsing experience embedded in it.
 //
-// COMPLIANCE NOTE (CREA DDF Policy and Rules, section 6 -- confirmed via
-// the official PDF this session, not assumed): every rendered listing must
-// show a "Powered by REALTOR.ca" mark linking to the listing on REALTOR.ca,
-// the brokerage name in readable text (not hidden behind a click), and
-// must not be wrapped in any advertising/co-branding. This module attempts
-// to satisfy all three. The REALTOR® logo asset (src/assets/realtor-r.svg)
-// and the exact CREA trademark wording were both sourced from the real
-// REALTOR.ca site footer, 2026-07-22 -- not placeholders, not paraphrased.
+// DDF REMOVED 2026-09-18: CREA's DDF Policy and Rules (section 6) required
+// a REALTOR.ca attribution mark, the REALTOR® logo, and a specific CREA
+// trademark statement on every rendered listing. None of that applies now
+// that DDF is gone -- see the removal notes near fetchListings() and
+// renderLiveListings() below. Brokerage name display stayed (it's a
+// source-agnostic, not DDF-specific, requirement). PropTx's IDX Data
+// Agreement has its own required disclaimer wording -- add that once
+// confirmed against the actual agreement text, not this comment.
 
 const LISTINGS_API_BASE = "https://homepilot-listings.stakharrealty.workers.dev";
-const ANALYTICS_ENDPOINT = "https://analytics.crea.ca/LogEvents.svc/LogEvents";
-const DESTINATION_ID = 66674; // Issued by CREA for myhomepilot.ca, case #00258976, 2026-07-22
 
-// --- Analytics: view tracking (mirrors workers/homepilot-listings/src/analytics.js) ---
-//
-// A stable per-browser UUID, per CREA's spec ("This ID should be the same
-// for all requests from a single user/device"). This is a real production
-// website (not a Claude artifact), so localStorage is the correct choice
-// here for cross-session persistence -- unlike a sandboxed artifact
-// preview, real browsers on myhomepilot.ca support it normally.
-function getOrCreateAnalyticsUUID() {
-  const KEY = "hp_analytics_uuid";
-  try {
-    let uuid = localStorage.getItem(KEY);
-    if (!uuid) {
-      uuid = (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
-      localStorage.setItem(KEY, uuid);
-    }
-    return uuid;
-  } catch {
-    // localStorage can throw in rare privacy-mode edge cases -- fall back
-    // to a per-page-load UUID rather than breaking the view entirely.
-    return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  }
-}
-
-// Fire-and-forget per CREA's own spec ("No response handling is required").
-// Uses sendBeacon where available (survives page navigation), falls back to
-// a keepalive fetch. Never awaited by callers, never blocks rendering.
-function trackListingView(listingId) {
-  try {
-    const uuid = getOrCreateAnalyticsUUID();
-    const params = new URLSearchParams({
-      ListingID: String(listingId),
-      DestinationID: String(DESTINATION_ID),
-      EventType: "view",
-      UUID: uuid,
-      LanguageID: (window.currentLang === "fr" ? "2" : "1"),
-    });
-    const url = `${ANALYTICS_ENDPOINT}?${params.toString()}`;
-    if (navigator.sendBeacon) {
-      navigator.sendBeacon(url);
-    } else {
-      fetch(url, { keepalive: true }).catch(() => {});
-    }
-  } catch {
-    // Analytics must never break the listing display itself.
-  }
-}
-
-// Fires a view event once a listing card is actually scrolled into view,
-// not merely rendered off-screen in a scrollable list -- closer to what
-// CREA's "view" event is meant to represent. Fires only once per card.
-function observeForViewTracking(cardEl, listingId) {
-  if (!("IntersectionObserver" in window)) {
-    trackListingView(listingId); // no IO support -- fall back to render-time
-    return;
-  }
-  const observer = new IntersectionObserver(
-    (entries) => {
-      for (const entry of entries) {
-        if (entry.isIntersecting) {
-          trackListingView(listingId);
-          observer.disconnect();
-        }
-      }
-    },
-    { threshold: 0.5 }
-  );
-  observer.observe(cardEl);
-}
+// DDF's mandatory CREA view-tracking analytics call (LogEvents.svc) was
+// removed here along with the rest of the DDF pipeline (2026-09-18). It was
+// a DDF-specific compliance requirement (CREA DDF Policy and Rules, rule
+// 5c), tied to a DestinationID CREA issued specifically for the DDF feed --
+// it does not apply to IDX and there is no PropTx equivalent wired in yet.
+// If PropTx's agreement has its own required tracking/analytics call,
+// implement that separately here once confirmed against the actual PropTx
+// spec -- do not resurrect the CREA endpoint/DestinationID for it.
 
 // --- Data fetching ---
 
@@ -217,10 +155,7 @@ function renderListingCard(listing, searchBudget) {
         ${detailFacts.length ? `<div class="listing-detail-facts">${detailFacts.join(" · ")}</div>` : ""}
         ${remarksEsc ? `<div class="listing-remarks" data-full="${remarksEsc.replace(/"/g, "&quot;")}" data-preview="${(remarksPreview || "").replace(/"/g, "&quot;")}">${remarksPreview}${remarksIsLong ? ` <button type="button" class="listing-remarks-more">Read more</button>` : ""}</div>` : ""}
       </div>` : ""}
-      <a class="listing-realtor-badge" href="${listingUrl || "#"}" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="View this listing's official page on REALTOR.ca">
-        <img class="listing-realtor-badge-logo" src="src/assets/realtor-r.svg" alt="REALTOR® logo" width="14" height="16">
-        <span class="listing-realtor-badge-mark">Powered by REALTOR.ca</span>
-      </a>
+      ${listingUrl ? `<a class="listing-source-link" href="${listingUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()">View original listing</a>` : ""}
     </div>
   `;
 
@@ -247,7 +182,6 @@ function renderListingCard(listing, searchBudget) {
     }
   }
 
-  observeForViewTracking(card, listing.listingKey);
   return card;
 }
 
@@ -353,20 +287,13 @@ async function renderLiveListings(city, containerEl, propertyType, searchBudget)
       containerEl.appendChild(loadMoreBtn);
     }
 
-    // Trademark statement -- required on every page displaying DDF content
-    // (CREA DDF Policy and Rules, section 6). Placed once per rendered
-    // listings section, not per-card. This requirement is a hard
-    // compliance constraint, not a design choice -- it must be carried
-    // over exactly regardless of the surrounding page architecture.
-    const trademark = document.createElement("div");
-    trademark.className = "listings-trademark";
-    // Exact CREA/REALTOR.ca trademark wording, not a paraphrase (per
-    // copyright/trademark accuracy -- confirmed against real REALTOR.ca
-    // site footer text, 2026-07-22).
-    trademark.innerHTML =
-      "The MLS® mark and associated logos identify professional services rendered by REALTOR® members of CREA to effect the purchase, sale and lease of real estate as part of a cooperative selling system.<br>" +
-      "The trademarks REALTOR®, REALTORS® and the REALTOR® logo are controlled by CREA and identify real estate professionals who are members of CREA.";
-    containerEl.appendChild(trademark);
+    // DDF's required CREA/REALTOR.ca trademark statement (CREA DDF Policy
+    // and Rules, section 6) was removed here along with the rest of the DDF
+    // pipeline (2026-09-18) -- it does not apply to IDX. PropTx's IDX Data
+    // Agreement requires its own specific disclaimer wording ("information
+    // is deemed reliable but is not guaranteed accurate by PropTx", plus a
+    // bona-fide-buyer notice) once the source label is confirmed -- add
+    // that here against the actual agreement text, not this placeholder.
   } catch (err) {
     containerEl.innerHTML = `${headerHtml}<div class="listings-error">Couldn't load live listings right now. Please try again shortly.</div>`;
   }

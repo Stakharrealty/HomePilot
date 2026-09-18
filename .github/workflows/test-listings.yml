@@ -1,31 +1,29 @@
-name: Test homepilot-listings (DDF)
+name: Test homepilot-listings
 
-# Trigger matches deploy.yml exactly (main only) -- explicit decision by
-# Sandeep on 2026-07-21, for consistency across both pipelines. Note this
-# means listings tests do NOT run on dev pushes -- only once merged to main.
-# Still separate from deploy.yml itself because:
+# Trigger matches deploy.yml's branch (main only), consistent with the
+# original 2026-07-21 decision to keep listings tests off dev pushes --
+# only once merged to main. Still separate from deploy.yml itself because:
 # - Tests a different Worker (homepilot-listings), not the main app
 # - Does NOT deploy anything. This is test-only until homepilot-listings
-#   has its own real deploy pipeline (not yet built).
-# - listings_metadata_field_test.js calls CREA's live API via the deployed
-#   Worker's /metadata endpoint on every run
+#   has its own real deploy pipeline (deploy-listings.yml handles that
+#   separately, with its own pre-deploy test gate).
+#
+# DDF REMOVED 2026-09-18: every test this workflow used to run was CREA/DDF
+# ingest-specific and has been deleted along with the DDF pipeline itself
+# (see workers/homepilot-listings and decisions-and-learnings.md). This
+# workflow now runs the tests that survived removal. Rebuild PropTx-
+# specific test coverage and re-add matching path triggers once that
+# integration is wired in.
 
 on:
   push:
     branches: [main]
     paths:
       - "workers/homepilot-listings/**"
-      - "tests/listings_module_load_test.js"
-      - "tests/listings_query_node_limit_test.js"
-      - "tests/listings_price_floor_test.js"
-      - "tests/listings_stale_removal_test.js"
-      - "tests/listings_city_fairness_test.js"
-      - "tests/listings_display_backend_test.js"
-      - "tests/listings_metadata_field_test.js"
-      - "tests/listings_office_lookup_failure_test.js"
-      - "tests/listings_property_type_filter_test.js"
-      - "tests/listings_standard_status_filter_test.js"
-      - "tests/listings_detail_fields_test.js"
+      - "tests/listing_verified_seal_removed_test.js"
+      - "tests/listings_popup_redesign_test.js"
+      - "tests/listings_property_classification_test.js"
+      - "tests/listings_affordability_budget_test.js"
 
 jobs:
   test-listings:
@@ -39,35 +37,17 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Module load verification (no network required)
-        run: node tests/listings_module_load_test.js
+      - name: Install dependencies
+        run: npm install
 
-      - name: Query node-count limit test (no network required)
-        run: node tests/listings_query_node_limit_test.js
+      - name: Listing seal/badge removal test (no network required)
+        run: node tests/listing_verified_seal_removed_test.js
 
-      - name: Price floor test (no network required)
-        run: node tests/listings_price_floor_test.js
+      - name: Popup redesign test (no network required)
+        run: node tests/listings_popup_redesign_test.js
 
-      - name: Stale listing removal test (no network required, uses in-memory fake D1)
-        run: node tests/listings_stale_removal_test.js
+      - name: Property-type classification test (no network required, real SQLite)
+        run: node --no-warnings tests/listings_property_classification_test.js
 
-      - name: Per-city fair coverage test (no network required)
-        run: node tests/listings_city_fairness_test.js
-
-      - name: Listing display backend test (office lookup, analytics URL, photos -- no network required)
-        run: node tests/listings_display_backend_test.js
-
-      - name: Metadata field verification test (calls live CREA API via deployed Worker)
-        run: node tests/listings_metadata_field_test.js
-
-      - name: Office lookup failure visibility test (no network required, mocked fetch)
-        run: node tests/listings_office_lookup_failure_test.js
-
-      - name: Property-type filtering + city-alias test (no network required, fake D1)
-        run: node tests/listings_property_type_filter_test.js
-
-      - name: StandardStatus $filter outage regression test (no network required)
-        run: node tests/listings_standard_status_filter_test.js
-
-      - name: Real listing detail fields test -- URL fix, description, consent-gated address (no network required, fake D1)
-        run: node tests/listings_detail_fields_test.js
+      - name: Affordability budget test (no network required)
+        run: node --no-warnings tests/listings_affordability_budget_test.js

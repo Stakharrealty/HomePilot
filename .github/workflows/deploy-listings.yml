@@ -1,20 +1,20 @@
-name: Deploy homepilot-listings (DDF Worker)
+name: Deploy homepilot-listings
 
 # Deploys the homepilot-listings Worker via wrangler, using the same
 # CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID secrets already configured
 # for the main app's deploy.yml pipeline (same Cloudflare account).
 #
-# IMPORTANT: DDF_CLIENT_ID and DDF_CLIENT_SECRET are set directly on the
-# Worker via the Cloudflare dashboard (wrangler secret / dashboard secrets),
-# NOT declared here -- those persist independently across `wrangler deploy`
-# runs and are not touched by this workflow. The D1 binding IS declared in
-# wrangler.jsonc, which is required -- any binding not declared there gets
-# stripped on deploy.
+# IMPORTANT: DDF_CLIENT_ID and DDF_CLIENT_SECRET secrets are stale leftovers
+# from the removed DDF integration (2026-09-18) -- no code references them
+# anymore. Safe to delete from the Cloudflare dashboard whenever convenient;
+# not required for this workflow to keep working. The D1 binding IS
+# declared in wrangler.jsonc, which is required -- any binding not
+# declared there gets stripped on deploy.
 #
-# Runs the 4 listings tests first (module load, node-count, price-floor,
-# stale-removal -- all no-network) as a safety gate. Does NOT run the
-# metadata-fields test here since that needs the Worker already live to
-# call /metadata against.
+# Runs the listings tests that survived DDF removal (frontend display,
+# popup redesign, property classification, affordability budget, seal
+# removal) as a safety gate. Does NOT run a metadata-fields test here since
+# there is no ingest pipeline live yet (PropTx not wired in).
 
 on:
   workflow_dispatch: {}
@@ -40,12 +40,10 @@ jobs:
 
       - name: Pre-deploy tests (no network required)
         run: |
-          node tests/listings_module_load_test.js
-          node tests/listings_query_node_limit_test.js
-          node tests/listings_price_floor_test.js
-          node tests/listings_stale_removal_test.js
-          node tests/listings_city_fairness_test.js
-          node tests/listings_display_backend_test.js
+          node tests/listing_verified_seal_removed_test.js
+          node tests/listings_popup_redesign_test.js
+          node --no-warnings tests/listings_property_classification_test.js
+          node --no-warnings tests/listings_affordability_budget_test.js
 
       - name: Deploy to Cloudflare Workers (homepilot-listings)
         run: npx wrangler deploy

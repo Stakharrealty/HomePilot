@@ -1,5 +1,10 @@
 -- Migration 0001: source attribution columns for the DDF observability audit
--- (2026-07-28). Adds columns to `listings` so every future ingested row can
+-- (2026-07-28). DDF was fully removed 2026-09-18 -- these columns are now
+-- unused dead weight (harmless NULLs going forward) rather than deleted,
+-- since dropping a live D1 column needs its own forward migration
+-- (0002_...), not an edit to this already-applied one. Revisit dropping
+-- them once PropTx is confirmed not to need any of them either.
+-- Adds columns to `listings` so every future ingested row can
 -- answer "where did this listing come from?" -- currently NOTHING in the
 -- schema captures this (confirmed via PRAGMA table_info(listings) during
 -- the audit that preceded this migration).
