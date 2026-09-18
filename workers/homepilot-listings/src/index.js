@@ -72,6 +72,31 @@ export default {
         }, null, 2), { headers: { "Content-Type": "application/json", ...corsHeaders(origin) } });
       }
 
+      // ONE-TIME (2026-09-18): summarizes what the first real PropTx page
+      // actually saved -- transaction type (sale vs lease), property
+      // subtype, and how the existing condo/town/semi/detached
+      // classification treats these rows. Checks whether leases/commercial
+      // slipped in and whether the DDF-era type filters work on PropTx
+      // data. Read-only.
+      if (url.pathname === "/proptx-first-page-summary") {
+        const total = await env.DB.prepare("SELECT COUNT(*) as n FROM listings WHERE source='PROPTX'").first();
+        const byTxn = await env.DB.prepare("SELECT transaction_type, COUNT(*) as n FROM listings WHERE source='PROPTX' GROUP BY transaction_type").all();
+        const bySub = await env.DB.prepare("SELECT property_subtype, COUNT(*) as n FROM listings WHERE source='PROPTX' GROUP BY property_subtype").all();
+        const visible = await getListingsByCity(env.DB, "Mississauga", 50, null, 0, null);
+        const typeCounts = {};
+        for (const l of (visible.listings || visible || [])) {
+          typeCounts[l.propertyType] = (typeCounts[l.propertyType] || 0) + 1;
+        }
+        const samples = await env.DB.prepare("SELECT listing_key, list_price, transaction_type, property_subtype, structure_type, list_office_name, tax_annual_amount, association_fee, latitude, longitude FROM listings WHERE source='PROPTX' LIMIT 25").all();
+        return new Response(JSON.stringify({
+          totalPropTxRows: total.n,
+          byTransactionType: byTxn.results,
+          byPropertySubtype: bySub.results,
+          howSiteClassifiesThem: typeCounts,
+          rows: samples.results,
+        }, null, 2), { headers: { "Content-Type": "application/json", ...corsHeaders(origin) } });
+      }
+
       // TEST PHASE (2026-09-18): runs the real PropTx ingest module against
       // ONE test city only (Mississauga), per explicit decision to verify
       // correctness on a single city before running it across all 43+
