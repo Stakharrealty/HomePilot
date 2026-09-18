@@ -96,6 +96,18 @@ export const SHOWN_HOMES_CLAUSE = `${SUBTYPE_EXPR} IN ${sqlInList(SHOWN_SUBTYPES
 // about what counts as "reasonably affordable".
 const STRETCH_MULTIPLIER = 1.10;
 
+// PROPTX IDX Data Agreement Article 6.3(b): a consumer may view at most
+// 100 listings in response to one inquiry. idxCappedLimit trims a page
+// request so offset + limit never passes the 100th listing of a search;
+// returns 0 once the cap is reached (the /listings route then returns an
+// empty page without querying).
+export const IDX_MAX_LISTINGS_PER_SEARCH = 100;
+export function idxCappedLimit(limit, offset) {
+  const l = Number.isFinite(limit) ? limit : 0;
+  const o = Number.isFinite(offset) ? offset : 0;
+  return Math.max(0, Math.min(l, IDX_MAX_LISTINGS_PER_SEARCH - o));
+}
+
 // Read path for the public /listings endpoint (added 2026-07-22, listing
 // display UI). Returns listings for a given city, most recently updated
 // first, capped at `limit` starting at `offset`. Parses the photos JSON

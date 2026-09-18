@@ -10,7 +10,7 @@
 // in here -- until then, /listings will correctly return an empty result
 // for every city (no fallback, per explicit product decision).
 
-import { getListingsByCity, SHOWN_HOMES_CLAUSE, PROPERTY_TYPE_FILTERS } from "./db.js";
+import { getListingsByCity, idxCappedLimit, SHOWN_HOMES_CLAUSE, PROPERTY_TYPE_FILTERS } from "./db.js";
 import { CITY_ALIASES, PUBLIC_CITY_NAMES, HOMEPILOT_CITIES } from "./cities.js";
 import { runSubtypeCensus } from "./proptx-census.js";
 import { runAutoIngest, ensureStateTable, AUTO_INGEST_CITIES } from "./proptx-auto-ingest.js";
@@ -24,6 +24,7 @@ import { runAutoIngest, ensureStateTable, AUTO_INGEST_CITIES } from "./proptx-au
 // details. Ingest keeps running -- this only controls what buyers see.
 // Flip back to true in the same change that adds the notices.
 const PROPTX_DISPLAY_ENABLED = false;
+
 
 // The 4 buyer-facing property-type buttons the main app supports. Anything
 // else (including 'all', missing, or unrecognized) means no type filter --
@@ -244,6 +245,10 @@ export default {
         // being capped at the first `limit` rows.
         const offsetParam = parseInt(url.searchParams.get("offset") || "0", 10);
         const offset = Number.isFinite(offsetParam) ? Math.max(offsetParam, 0) : 0;
+        // PROPTX IDX Data Agreement Article 6.3(b): at most 100 listings
+        // per consumer inquiry. Paging (offset) can never reach past the
+        // 100th listing of a search; limit is trimmed so offset+limit <= 100.
+        const cappedLimit = idxCappedLimit(limit, offset);
 
         // budget (added 2026-07-29, affordability-consistency fix): the
         // recommended price the buyer was shown -- see openListingsWindow()
@@ -258,8 +263,8 @@ export default {
         // PROPTX_DISPLAY_ENABLED gate (added 2026-09-18) -- see its
         // definition at the top of this file. While false, buyers get the
         // normal empty state for every city.
-        const listings = PROPTX_DISPLAY_ENABLED
-          ? await getListingsByCity(env.DB, city, limit, propertyType, offset, searchBudget)
+        const listings = PROPTX_DISPLAY_ENABLED && cappedLimit > 0
+          ? await getListingsByCity(env.DB, city, cappedLimit, propertyType, offset, searchBudget)
           : [];
         return new Response(
           JSON.stringify({ city: requestedCity, propertyType: propertyType || "all", offset, searchBudget, count: listings.length, listings }, null, 2),

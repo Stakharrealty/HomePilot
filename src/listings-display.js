@@ -38,6 +38,39 @@ const LISTINGS_API_BASE = "https://homepilot-listings.stakharrealty.workers.dev"
 // city/type via the Load More button (see loadMoreListings() below).
 const PAGE_LIMIT = 24;
 
+// IDX_MAX_LISTINGS_PER_SEARCH (added 2026-09-18): PROPTX IDX Data
+// Agreement Article 6.3(b) -- a buyer may view at most 100 listings in
+// response to one inquiry. Enforced server-side in the listings Worker
+// (the real limit); mirrored here so "Load more" stops at 100 with a
+// clear note instead of an empty click.
+const IDX_MAX_LISTINGS_PER_SEARCH = 100;
+
+// Required PropTx notices, worded per the signed PROPTX IDX Data
+// Agreement: Article 6.3(i) (deemed reliable, not guaranteed by PROPTX)
+// and 6.3(k) (bona fide interest -- the agreement's own suggested wording,
+// verbatim). Shown with every set of listings. Do not reword.
+const IDX_NOTICE_RELIABLE = "Listing information is deemed reliable but is not guaranteed accurate by PROPTX.";
+const IDX_NOTICE_BONA_FIDE = "The information provided herein must only be used by consumers that have a bona fide interest in the purchase, sale, or lease of real estate and may not be used for any commercial purpose or any other purpose.";
+
+function renderIdxNotice() {
+  const el = document.createElement("div");
+  el.className = "listings-idx-notice";
+  const p1 = document.createElement("p");
+  p1.textContent = IDX_NOTICE_RELIABLE;
+  const p2 = document.createElement("p");
+  p2.textContent = IDX_NOTICE_BONA_FIDE;
+  el.appendChild(p1);
+  el.appendChild(p2);
+  return el;
+}
+
+function renderCapNote() {
+  const el = document.createElement("div");
+  el.className = "listings-cap-note";
+  el.textContent = `That's the most homes one search can show (${IDX_MAX_LISTINGS_PER_SEARCH}). Pick a home type to narrow it down.`;
+  return el;
+}
+
 // searchBudget (added 2026-07-29, affordability-consistency fix): when
 // provided, the API applies the SAME 10%-stretch ceiling already used
 // elsewhere in the app (see STRETCH_MULTIPLIER in db.js) -- e.g.
@@ -201,13 +234,20 @@ async function loadMoreListings(buttonEl) {
 
   try {
     const nextOffset = state.offset + PAGE_LIMIT;
-    const listings = await fetchListings(state.city, state.propertyType, nextOffset, PAGE_LIMIT, state.searchBudget);
+    const requested = Math.min(PAGE_LIMIT, IDX_MAX_LISTINGS_PER_SEARCH - nextOffset);
+    if (requested <= 0) {
+      buttonEl.replaceWith(renderCapNote());
+      return;
+    }
+    const listings = await fetchListings(state.city, state.propertyType, nextOffset, requested, state.searchBudget);
     for (const listing of listings) {
       state.grid.appendChild(renderListingCard(listing, state.searchBudget));
     }
     state.offset = nextOffset;
-    if (listings.length < PAGE_LIMIT) {
+    if (listings.length < requested) {
       buttonEl.remove(); // that was the last page -- nothing more to load
+    } else if (nextOffset + listings.length >= IDX_MAX_LISTINGS_PER_SEARCH) {
+      buttonEl.replaceWith(renderCapNote()); // Article 6.3(b) 100-listing limit reached
     } else {
       buttonEl.disabled = false;
       buttonEl.textContent = "Load more homes";
@@ -274,7 +314,7 @@ async function renderLiveListings(city, containerEl, propertyType, searchBudget)
     // can pick up where this left off.
     containerEl._hpListingsState = { city, propertyType, offset: 0, grid, searchBudget };
 
-    if (listings.length === PAGE_LIMIT) {
+    if (listings.length === PAGE_LIMIT && PAGE_LIMIT < IDX_MAX_LISTINGS_PER_SEARCH) {
       // A full page came back -- there may be more. Rather than firing an
       // extra COUNT query, the button itself resolves this: clicking it
       // fetches the next page, and removes itself once a short page proves
@@ -287,13 +327,9 @@ async function renderLiveListings(city, containerEl, propertyType, searchBudget)
       containerEl.appendChild(loadMoreBtn);
     }
 
-    // DDF's required CREA/REALTOR.ca trademark statement (CREA DDF Policy
-    // and Rules, section 6) was removed here along with the rest of the DDF
-    // pipeline (2026-09-18) -- it does not apply to IDX. PropTx's IDX Data
-    // Agreement requires its own specific disclaimer wording ("information
-    // is deemed reliable but is not guaranteed accurate by PropTx", plus a
-    // bona-fide-buyer notice) once the source label is confirmed -- add
-    // that here against the actual agreement text, not this placeholder.
+    // PropTx Article 6.3(i) and 6.3(k) notices -- always under the
+    // listings (and below "Load more", which stays above them).
+    containerEl.appendChild(renderIdxNotice());
   } catch (err) {
     containerEl.innerHTML = `${headerHtml}<div class="listings-error">Couldn't load live listings right now. Please try again shortly.</div>`;
   }
