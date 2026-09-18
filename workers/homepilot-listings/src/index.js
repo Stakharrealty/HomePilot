@@ -51,6 +51,59 @@ export default {
       // temporary /proptx-metadata-check route used to confirm this has
       // been removed. Real PropTx ingest module goes here next.
 
+      // TEMPORARY (2026-09-18): checks how often ListAgentFullName is
+      // actually populated across a broad real sample (20 Active listings
+      // each from 5 different cities/property mixes), since the single
+      // sample listing checked earlier had it empty while ListOfficeName
+      // was present. Returns only presence counts and a few examples --
+      // not full listing content. No D1 write. Delete once resolved.
+      if (url.pathname === "/proptx-agent-field-check") {
+        if (!env.PROPTX_IDX_TOKEN) {
+          return new Response(JSON.stringify({ error: "PROPTX_IDX_TOKEN secret not found on this Worker" }), {
+            status: 500, headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
+          });
+        }
+        const headers = {
+          Authorization: `Bearer ${env.PROPTX_IDX_TOKEN}`,
+          Accept: "application/json",
+        };
+        const sampleCities = ["Mississauga", "Brampton", "Hamilton", "Vaughan", "Markham"];
+        const select = encodeURIComponent("ListingKey,City,PropertyType,PropertySubType,ListAgentFullName,ListOfficeName,ListAOR");
+        let total = 0, agentPresent = 0, officePresent = 0;
+        const examples = [];
+        for (const city of sampleCities) {
+          const filter = encodeURIComponent(`StandardStatus eq 'Active' and City eq '${city}'`);
+          const url2 = `https://query.ampre.ca/odata/Property?$filter=${filter}&$select=${select}&$top=20`;
+          const resp = await fetch(url2, { headers });
+          if (!resp.ok) continue;
+          const data = await resp.json();
+          for (const row of data.value || []) {
+            total++;
+            const hasAgent = row.ListAgentFullName != null && row.ListAgentFullName !== "";
+            const hasOffice = row.ListOfficeName != null && row.ListOfficeName !== "";
+            if (hasAgent) agentPresent++;
+            if (hasOffice) officePresent++;
+            if (examples.length < 10) {
+              examples.push({
+                ListingKey: row.ListingKey,
+                City: row.City,
+                PropertyType: row.PropertyType,
+                ListAgentFullName: row.ListAgentFullName,
+                ListOfficeName: row.ListOfficeName,
+              });
+            }
+          }
+        }
+        return new Response(JSON.stringify({
+          totalListingsChecked: total,
+          agentNamePresentCount: agentPresent,
+          agentNamePresentPercent: total > 0 ? Math.round((agentPresent / total) * 100) : null,
+          officeNamePresentCount: officePresent,
+          officeNamePresentPercent: total > 0 ? Math.round((officePresent / total) * 100) : null,
+          examples,
+        }, null, 2), { headers: { "Content-Type": "application/json", ...corsHeaders(origin) } });
+      }
+
       // TEMPORARY (2026-09-18): read-only sample of ONE real, complete
       // Active listing (no $select restriction, so every field PropTx
       // actually returns is visible) plus its Media (photos) via $expand.
