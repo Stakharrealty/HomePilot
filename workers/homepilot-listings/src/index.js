@@ -11,7 +11,7 @@
 // for every city (no fallback, per explicit product decision).
 
 import { getListingsByCity } from "./db.js";
-import { CITY_ALIASES, PUBLIC_CITY_NAMES } from "./cities.js";
+import { CITY_ALIASES, PUBLIC_CITY_NAMES, HOMEPILOT_CITIES } from "./cities.js";
 
 // The 4 buyer-facing property-type buttons the main app supports. Anything
 // else (including 'all', missing, or unrecognized) means no type filter --
@@ -50,6 +50,56 @@ export default {
       // present as expected under the us.ampre.webapi namespace). The
       // temporary /proptx-metadata-check route used to confirm this has
       // been removed. Real PropTx ingest module goes here next.
+
+      // TEMPORARY (2026-09-18): read-only PropTx coverage check. For each
+      // of HomePilot's 49 tracked cities, gets an active-listing COUNT
+      // ONLY from PropTx ($count=true&$top=0 -- no listing content is
+      // fetched, stored, or displayed). Batches cities in groups of 12 per
+      // request to stay well under PropTx/AMPRE's OData node limit on
+      // chained 'or' filters (CREA DDF hit the same kind of limit above
+      // ~15-20 chained clauses). Delete this route once the real ingest
+      // module is built and coverage is confirmed.
+      if (url.pathname === "/proptx-coverage-check") {
+        if (!env.PROPTX_IDX_TOKEN) {
+          return new Response(JSON.stringify({ error: "PROPTX_IDX_TOKEN secret not found on this Worker" }), {
+            status: 500, headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
+          });
+        }
+        const BATCH_SIZE = 12;
+        const results = {};
+        const errors = [];
+        for (let i = 0; i < HOMEPILOT_CITIES.length; i += BATCH_SIZE) {
+          const batch = HOMEPILOT_CITIES.slice(i, i + BATCH_SIZE);
+          for (const city of batch) {
+            // Escape single quotes for OData string literal safety.
+            const safeCity = city.replace(/'/g, "''");
+            const filter = encodeURIComponent(`City eq '${safeCity}' and StandardStatus eq 'Active'`);
+            const queryUrl = `https://query.ampre.ca/odata/Property?$filter=${filter}&$count=true&$top=0`;
+            try {
+              const resp = await fetch(queryUrl, {
+                headers: {
+                  Authorization: `Bearer ${env.PROPTX_IDX_TOKEN}`,
+                  Accept: "application/json",
+                },
+              });
+              if (!resp.ok) {
+                const errText = await resp.text();
+                errors.push({ city, status: resp.status, error: errText.slice(0, 300) });
+                results[city] = null;
+                continue;
+              }
+              const data = await resp.json();
+              results[city] = data["@odata.count"] ?? null;
+            } catch (e) {
+              errors.push({ city, error: String(e) });
+              results[city] = null;
+            }
+          }
+        }
+        return new Response(JSON.stringify({ cityCounts: results, errors, totalCitiesChecked: HOMEPILOT_CITIES.length }, null, 2), {
+          headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
+        });
+      }
 
       if (url.pathname === "/listings") {
         const requestedCity = url.searchParams.get("city");
