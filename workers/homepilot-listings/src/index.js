@@ -11,7 +11,7 @@
 // for every city (no fallback, per explicit product decision).
 
 import { districtsForRegion } from "./toronto-districts.js";
-import { getListingsByCity, cityMatchClause, idxCappedLimit, SHOWN_HOMES_CLAUSE, PROPERTY_TYPE_FILTERS } from "./db.js";
+import { getListingsByCity, getListingByKey, cityMatchClause, idxCappedLimit, SHOWN_HOMES_CLAUSE, PROPERTY_TYPE_FILTERS } from "./db.js";
 import { CITY_ALIASES, PUBLIC_CITY_NAMES, HOMEPILOT_CITIES } from "./cities.js";
 import { runSubtypeCensus } from "./proptx-census.js";
 import { runAutoIngest, ensureStateTable, AUTO_INGEST_CITIES } from "./proptx-auto-ingest.js";
@@ -216,6 +216,28 @@ export default {
       //   must treat every field beyond ListingKey/ListPrice/City/
       //   StandardStatus as optional
       // Real PropTx ingest module goes here next.
+
+      // Single listing for the listing detail page (listing.html?key=...).
+      // Same visibility rules as /listings (PROPTX, For Sale, allow-listed
+      // home types) and the same PROPTX_DISPLAY_ENABLED master switch: a
+      // listing that wouldn't be shown in a list is "not found" here too.
+      if (url.pathname === "/listing") {
+        const key = url.searchParams.get("key");
+        if (!key) {
+          return new Response(JSON.stringify({ error: "Missing required 'key' query param" }), {
+            status: 400, headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
+          });
+        }
+        const listing = PROPTX_DISPLAY_ENABLED ? await getListingByKey(env.DB, key) : null;
+        if (!listing) {
+          return new Response(JSON.stringify({ error: "Listing not found" }), {
+            status: 404, headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
+          });
+        }
+        return new Response(JSON.stringify({ listing }, null, 2), {
+          headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
+        });
+      }
 
       if (url.pathname === "/listings") {
         const requestedCity = url.searchParams.get("city");

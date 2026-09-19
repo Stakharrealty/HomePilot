@@ -13,7 +13,7 @@ function check(name, ok, detail) {
 }
 
 const NEW_COLS = ["parking_spaces", "tax_annual_amount", "tax_year", "association_fee", "association_fee_frequency",
-  "garage_type", "basement", "cooling", "virtual_tour_url", "latitude", "longitude"];
+  "garage_type", "basement", "cooling", "heat_type", "virtual_tour_url"];
 
 (async () => {
   // ---------- 1. db.js: SELECT + mapping ----------
@@ -24,7 +24,7 @@ const NEW_COLS = ["parking_spaces", "tax_annual_amount", "tax_year", "associatio
     parking_total: 2, parking_spaces: 1, listing_url: "", brokerage_name: "B", photos: "[]", last_updated: "2026-09-19",
     public_remarks: "r", display_address: "1 Main St", year_built: 2001, lot_size_area: 30, lot_size_units: "Feet",
     tax_annual_amount: 4200.5, tax_year: 2025, association_fee: 512, association_fee_frequency: "Monthly",
-    garage_type: "Attached", basement: "Finished", cooling: "Central Air", virtual_tour_url: "https://tour.example.com/1",
+    garage_type: "Attached", basement: "Finished", cooling: "Central Air", heat_type: "Forced Air", virtual_tour_url: "https://tour.example.com/1",
     latitude: 43.59, longitude: -79.64, derived_property_type: "condo",
   };
   const fakeD1 = { prepare(sql) { capturedSql = sql; return { bind() { return { all: async () => ({ results: [row] }) }; } }; } };
@@ -33,7 +33,9 @@ const NEW_COLS = ["parking_spaces", "tax_annual_amount", "tax_year", "associatio
   check("mapped camelCase keys carry the stored values",
     m.taxAnnualAmount === 4200.5 && m.taxYear === 2025 && m.associationFee === 512 && m.associationFeeFrequency === "Monthly" &&
     m.garageType === "Attached" && m.basement === "Finished" && m.cooling === "Central Air" &&
-    m.virtualTourUrl === "https://tour.example.com/1" && m.parkingSpaces === 1 && m.latitude === 43.59 && m.longitude === -79.64);
+    m.virtualTourUrl === "https://tour.example.com/1" && m.parkingSpaces === 1 && m.heatType === "Forced Air");
+  check("latitude/longitude are NOT returned (held back until a map + address consent exist)",
+    !("latitude" in m) && !("longitude" in m) && !/latitude|longitude/.test(capturedSql));
   check("existing fields still mapped (parkingTotal, propertyType)", m.parkingTotal === 2 && m.propertyType === "condo");
   const bareRow = { listing_key: "K2", list_price: 1, photos: null };
   const bareD1 = { prepare() { return { bind() { return { all: async () => ({ results: [bareRow] }) }; } }; } };

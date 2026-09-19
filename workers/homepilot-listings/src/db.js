@@ -150,6 +150,22 @@ export function cityMatchClause(city, districts = null) {
   return { sql: "city = ?", binds: [city] };
 }
 
+const LISTING_COLUMNS = `listing_key, list_price, city, postal_code, bedrooms, bathrooms,
+              parking_total, parking_spaces, listing_url, brokerage_name, photos, last_updated,
+              public_remarks, display_address, year_built, lot_size_area, lot_size_units,
+              tax_annual_amount, tax_year, association_fee, association_fee_frequency,
+              garage_type, basement, cooling, heat_type, virtual_tour_url`;
+
+function buildDerivedTypeCase() {
+  return `CASE
+      WHEN ${PROPERTY_TYPE_FILTERS.condo} THEN 'condo'
+      WHEN ${PROPERTY_TYPE_FILTERS.town} THEN 'town'
+      WHEN ${PROPERTY_TYPE_FILTERS.semi} THEN 'semi'
+      WHEN ${PROPERTY_TYPE_FILTERS.detached} THEN 'detached'
+      ELSE NULL
+    END AS derived_property_type`;
+}
+
 export async function getListingsByCity(db, city, limit = 20, propertyType = null, offset = 0, searchBudget = null, districts = null) {
   const cityMatch = cityMatchClause(city, districts);
   const typeClause = propertyType && PROPERTY_TYPE_FILTERS[propertyType]
@@ -166,13 +182,7 @@ export async function getListingsByCity(db, city, limit = 20, propertyType = nul
   // never drift apart into "two classification systems" (the original
   // audit's core complaint about this codebase). NULL means a shown home with no
   // button (Duplex/Triplex/Fourplex/Multiplex -- see home-types.js).
-  const derivedTypeCase = `CASE
-      WHEN ${PROPERTY_TYPE_FILTERS.condo} THEN 'condo'
-      WHEN ${PROPERTY_TYPE_FILTERS.town} THEN 'town'
-      WHEN ${PROPERTY_TYPE_FILTERS.semi} THEN 'semi'
-      WHEN ${PROPERTY_TYPE_FILTERS.detached} THEN 'detached'
-      ELSE NULL
-    END AS derived_property_type`;
+  const derivedTypeCase = buildDerivedTypeCase();
 
   // Bind params must be positional, in the EXACT order their `?`
   // placeholders appear in the SQL string above: city first, then the
@@ -185,11 +195,7 @@ export async function getListingsByCity(db, city, limit = 20, propertyType = nul
 
   const result = await db
     .prepare(
-      `SELECT listing_key, list_price, city, postal_code, bedrooms, bathrooms,
-              parking_total, parking_spaces, listing_url, brokerage_name, photos, last_updated,
-              public_remarks, display_address, year_built, lot_size_area, lot_size_units,
-              tax_annual_amount, tax_year, association_fee, association_fee_frequency,
-              garage_type, basement, cooling, virtual_tour_url, latitude, longitude,
+      `SELECT ${LISTING_COLUMNS},
               ${derivedTypeCase}
        FROM listings
        WHERE ${cityMatch.sql} AND source = 'PROPTX' AND transaction_type = 'For Sale' AND ${SHOWN_HOMES_CLAUSE}${typeClause}${budgetClause}
@@ -199,7 +205,13 @@ export async function getListingsByCity(db, city, limit = 20, propertyType = nul
     .bind(...bindParams)
     .all();
 
-  return (result.results || []).map((row) => ({
+  return (result.results || []).map(mapListingRow);
+}
+
+// One D1 row -> the listing object the API returns. Shared by the list
+// query and the single-listing query so the two can never drift apart.
+function mapListingRow(row) {
+  return {
     listingKey: row.listing_key,
     listPrice: row.list_price,
     city: row.city,
@@ -240,8 +252,40 @@ export async function getListingsByCity(db, city, limit = 20, propertyType = nul
     basement: row.basement,
     cooling: row.cooling,
     virtualTourUrl: row.virtual_tour_url,
-    latitude: row.latitude,
-    longitude: row.longitude,
+    heatType: row.heat_type,
+    // latitude/longitude are deliberately NOT returned: exact coordinates
+    // would reveal the address even where displayAddress is withheld, and
+    // PropTx's address-display consent fields were never requested. Hold
+    // until a map feature exists AND that consent question is answered.
     propertyType: row.derived_property_type || null,
-  }));
+  };
+}
+
+// Single listing by key, for the listing detail page. Same visibility rules
+// as the list query: PROPTX rows only, For Sale, allow-listed home types --
+// anything else is "not found", never served. Returns the full untruncated
+// remarks and the full photo set where the ingest stored them (Article
+// 6.3(f): content shown verbatim), falling back to the list columns.
+export async function getListingByKey(db, listingKey) {
+  if (typeof listingKey !== "string" || !/^[A-Za-z0-9_-]{1,40}$/.test(listingKey)) return null;
+  const derivedTypeCase = buildDerivedTypeCase();
+  const result = await db
+    .prepare(
+      `SELECT ${LISTING_COLUMNS}, public_remarks_full, photos_full,
+              ${derivedTypeCase}
+       FROM listings
+       WHERE listing_key = ? AND source = 'PROPTX' AND transaction_type = 'For Sale' AND ${SHOWN_HOMES_CLAUSE}
+       LIMIT 1`
+    )
+    .bind(listingKey)
+    .all();
+  const row = (result.results || [])[0];
+  if (!row) return null;
+  const listing = mapListingRow(row);
+  listing.publicRemarks = row.public_remarks_full || row.public_remarks || null;
+  try {
+    const full = JSON.parse(row.photos_full || "[]");
+    if (Array.isArray(full) && full.length > 0) listing.photos = full;
+  } catch { /* keep the list-column photos */ }
+  return listing;
 }
