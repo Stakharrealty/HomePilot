@@ -12,6 +12,6 @@ const lw = html.match(/\.lw\{([^}]*)\}/);
 const maxW = lw && lw[1].match(/max-width:(\d+)px/);
 check(".lw is not width-capped (no px max-width below 1400px)", !!lw && (!maxW || +maxW[1] >= 1400));
 const grid = html.match(/\.listings-grid\{([^}]*)\}/);
-check(".listings-grid uses repeat(auto-fill,minmax(...))", !!grid && /repeat\(auto-fill,minmax\(\d+px,1fr\)\)/.test(grid[1]));
+check(".listings-grid uses repeat(auto-fill,minmax(min(Npx,100%),1fr)) with N in 420-520 (about 3 large cards on desktop)", !!grid && (function(m){return !!m && +m[1] >= 420 && +m[1] <= 520;})(grid[1].match(/repeat\(auto-fill,minmax\(min\((\d+)px,100%\),1fr\)\)/)));
 check(".lw keeps horizontal padding on small screens", !!lw && /padding:[^;]*\s1rem\s/.test(lw[1]));
 process.exit(failed ? 1 : 0);
