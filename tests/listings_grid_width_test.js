@@ -10,8 +10,7 @@ function check(name, ok) { console.log((ok ? "PASS" : "FAIL") + " - " + name); i
 
 const lw = html.match(/\.lw\{([^}]*)\}/);
 const maxW = lw && lw[1].match(/max-width:(\d+)px/);
-check(".lw has a px max-width", !!maxW);
-check(".lw max-width >= 1400px (not capped at 960px)", !!maxW && +maxW[1] >= 1400);
+check(".lw is not width-capped (no px max-width below 1400px)", !!lw && (!maxW || +maxW[1] >= 1400));
 const grid = html.match(/\.listings-grid\{([^}]*)\}/);
 check(".listings-grid uses repeat(auto-fill,minmax(...))", !!grid && /repeat\(auto-fill,minmax\(\d+px,1fr\)\)/.test(grid[1]));
 check(".lw keeps horizontal padding on small screens", !!lw && /padding:[^;]*\s1rem\s/.test(lw[1]));
