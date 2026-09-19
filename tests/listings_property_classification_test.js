@@ -95,6 +95,9 @@ const CENSUS = [
     bedrooms INTEGER, bathrooms INTEGER, parking_total INTEGER, listing_url TEXT,
     brokerage_name TEXT, photos TEXT, last_updated TEXT, public_remarks TEXT,
     display_address TEXT, year_built INTEGER, lot_size_area REAL, lot_size_units TEXT,
+    tax_annual_amount REAL, tax_year INTEGER, association_fee REAL, association_fee_frequency TEXT,
+    garage_type TEXT, basement TEXT, cooling TEXT, virtual_tour_url TEXT, parking_spaces INTEGER,
+    latitude REAL, longitude REAL,
     property_subtype TEXT, source TEXT, transaction_type TEXT
   )`);
   const ins = sqlite.prepare(`INSERT INTO listings (listing_key, list_price, city, listing_url, brokerage_name, photos,

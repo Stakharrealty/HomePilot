@@ -186,8 +186,10 @@ export async function getListingsByCity(db, city, limit = 20, propertyType = nul
   const result = await db
     .prepare(
       `SELECT listing_key, list_price, city, postal_code, bedrooms, bathrooms,
-              parking_total, listing_url, brokerage_name, photos, last_updated,
+              parking_total, parking_spaces, listing_url, brokerage_name, photos, last_updated,
               public_remarks, display_address, year_built, lot_size_area, lot_size_units,
+              tax_annual_amount, tax_year, association_fee, association_fee_frequency,
+              garage_type, basement, cooling, virtual_tour_url, latitude, longitude,
               ${derivedTypeCase}
        FROM listings
        WHERE ${cityMatch.sql} AND source = 'PROPTX' AND transaction_type = 'For Sale' AND ${SHOWN_HOMES_CLAUSE}${typeClause}${budgetClause}
@@ -205,6 +207,7 @@ export async function getListingsByCity(db, city, limit = 20, propertyType = nul
     bedrooms: row.bedrooms,
     bathrooms: row.bathrooms,
     parkingTotal: row.parking_total,
+    parkingSpaces: row.parking_spaces,
     listingUrl: row.listing_url,
     brokerageName: row.brokerage_name,
     photos: (() => {
@@ -227,6 +230,18 @@ export async function getListingsByCity(db, city, limit = 20, propertyType = nul
     yearBuilt: row.year_built,
     lotSizeArea: row.lot_size_area,
     lotSizeUnits: row.lot_size_units,
+    // Stored PropTx fields exposed to the frontend (already populated by
+    // the ingest; null when PropTx didn't supply them -- never guessed).
+    taxAnnualAmount: row.tax_annual_amount,
+    taxYear: row.tax_year,
+    associationFee: row.association_fee,
+    associationFeeFrequency: row.association_fee_frequency,
+    garageType: row.garage_type,
+    basement: row.basement,
+    cooling: row.cooling,
+    virtualTourUrl: row.virtual_tour_url,
+    latitude: row.latitude,
+    longitude: row.longitude,
     propertyType: row.derived_property_type || null,
   }));
 }

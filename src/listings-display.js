@@ -113,6 +113,26 @@ function safeUrl(url) {
   return /^https:\/\//i.test(trimmed) ? trimmed : "";
 }
 
+// factOrOmit: a plain fact that simply doesn't appear when the value is
+// absent -- never "N/A" / "Not available". Returns escaped text or null.
+function factOrOmit(label, value) {
+  if (value === null || value === undefined) return null;
+  const text = String(value).trim();
+  return text === "" ? null : `${label}: ${escapeHtml(text)}`;
+}
+
+// moneyFactOrEstimate: for financial figures only (property tax, condo
+// fee). The real value wins; if it's missing (null/undefined/non-numeric/
+// not positive), an estimate supplied by the caller is shown and labelled
+// "(estimated)"; if neither exists, null (omitted). formatFn turns a number
+// into display text; its output is escaped here.
+function moneyFactOrEstimate(label, realValue, estimateValue, formatFn) {
+  const usable = (v) => v !== null && v !== undefined && v !== "" && Number.isFinite(Number(v)) && Number(v) > 0;
+  if (usable(realValue)) return `${label}: ${escapeHtml(formatFn(Number(realValue)))}`;
+  if (usable(estimateValue)) return `${label} (estimated): ${escapeHtml(formatFn(Number(estimateValue)))}`;
+  return null;
+}
+
 // searchBudget (added 2026-07-29): the same recommended-price number the
 // buyer was shown on the card that opened this listings view (or their
 // overall buyPower, for the "all types" city-level entry point -- see
@@ -168,7 +188,25 @@ function renderListingCard(listing, searchBudget) {
     detailFacts.push(`Lot ${escapeHtml(String(listing.lotSizeArea))}${unit ? " " + unit : ""}`);
   }
 
-  const hasExpandableDetail = !!(remarksEsc || detailFacts.length);
+  // Stored PropTx fields (Garage / Basement / Cooling / Parking spaces are
+  // omitted when absent; tax and condo fee fall back to a caller-supplied
+  // estimate, labelled "(estimated)", when the real figure is missing).
+  const propertyTypeKey = listing.propertyType || null;
+  const yearSuffix = listing.taxYear ? ` (${listing.taxYear})` : "";
+  const feeSuffix = listing.associationFeeFrequency ? `/${String(listing.associationFeeFrequency).toLowerCase()}` : "/mo";
+  [
+    factOrOmit("Garage", listing.garageType),
+    factOrOmit("Basement", listing.basement),
+    factOrOmit("Cooling", listing.cooling),
+    factOrOmit("Parking spaces", listing.parkingSpaces),
+    moneyFactOrEstimate("Property tax", listing.taxAnnualAmount, listing.estimatedTaxAnnual, (v) => `${fmtPrice(v)}/yr${yearSuffix}`),
+    propertyTypeKey === "condo"
+      ? moneyFactOrEstimate("Condo fee", listing.associationFee, listing.estimatedCondoFee, (v) => `${fmtPrice(v)}${feeSuffix}`)
+      : null,
+  ].forEach((f) => { if (f) detailFacts.push(f); });
+  const virtualTourUrl = safeUrl(listing.virtualTourUrl);
+
+  const hasExpandableDetail = !!(remarksEsc || detailFacts.length || virtualTourUrl);
 
   const card = document.createElement("div");
   card.className = "listing-card";
@@ -193,6 +231,7 @@ function renderListingCard(listing, searchBudget) {
       </button>
       <div class="listing-details-panel" hidden>
         ${detailFacts.length ? `<div class="listing-detail-facts">${detailFacts.join(" · ")}</div>` : ""}
+        ${virtualTourUrl ? `<a class="listing-virtual-tour" href="${virtualTourUrl}" target="_blank" rel="noopener noreferrer">Virtual tour</a>` : ""}
         ${remarksEsc ? `<div class="listing-remarks" data-full="${remarksEsc.replace(/"/g, "&quot;")}" data-preview="${(remarksPreview || "").replace(/"/g, "&quot;")}">${remarksPreview}${remarksIsLong ? ` <button type="button" class="listing-remarks-more">Read more</button>` : ""}</div>` : ""}
       </div>` : ""}
       ${listingUrl ? `<a class="listing-source-link" href="${listingUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()">View original listing</a>` : ""}
