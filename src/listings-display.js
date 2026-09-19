@@ -208,6 +208,14 @@ function renderListingCard(listing, searchBudget) {
 
   const hasExpandableDetail = !!(remarksEsc || detailFacts.length || virtualTourUrl);
 
+  // Link to this listing's HomePilot detail page. Same-window navigation (no
+  // target=_blank / noopener): the buyer's numbers travel in sessionStorage,
+  // which a noopener new tab would not receive. The budget is the price the
+  // buyer was shown on the card that led here -- not personal data.
+  const detailKey = /^[A-Za-z0-9_-]{1,40}$/.test(String(listing.listingKey || "")) ? String(listing.listingKey) : "";
+  const detailBudget = Number.isFinite(searchBudget) && searchBudget > 0 ? `&budget=${encodeURIComponent(String(searchBudget))}` : "";
+  const detailHref = detailKey ? `listing.html?key=${encodeURIComponent(detailKey)}${detailBudget}` : "";
+
   const card = document.createElement("div");
   card.className = "listing-card";
   card.innerHTML = `
@@ -234,6 +242,7 @@ function renderListingCard(listing, searchBudget) {
         ${virtualTourUrl ? `<a class="listing-virtual-tour" href="${virtualTourUrl}" target="_blank" rel="noopener noreferrer">Virtual tour</a>` : ""}
         ${remarksEsc ? `<div class="listing-remarks" data-full="${remarksEsc.replace(/"/g, "&quot;")}" data-preview="${(remarksPreview || "").replace(/"/g, "&quot;")}">${remarksPreview}${remarksIsLong ? ` <button type="button" class="listing-remarks-more">Read more</button>` : ""}</div>` : ""}
       </div>` : ""}
+      ${detailHref ? `<a class="listing-detail-link" href="${escapeHtml(detailHref)}">View full details &rarr;</a>` : ""}
       ${listingUrl ? `<a class="listing-source-link" href="${listingUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()">View original listing</a>` : ""}
     </div>
   `;
@@ -464,6 +473,10 @@ const DESKTOP_BREAKPOINT_PX = 1024;
 // Optional/validated -- an invalid or missing value just omits the budget
 // param entirely, matching prior behavior (no price ceiling) exactly.
 function openListingsWindow(city, propertyType, searchBudget) {
+  // Hand the buyer's own numbers to the listing detail page (sessionStorage,
+  // synchronous, never the URL -- see buyer-profile.js). Written BEFORE the
+  // window opens because a popup gets a copy of sessionStorage at open time.
+  if (typeof saveBuyerProfile === "function") saveBuyerProfile();
   const paramsObj = { city, type: propertyType || "all" };
   if (Number.isFinite(searchBudget) && searchBudget > 0) paramsObj.budget = String(searchBudget);
   const params = new URLSearchParams(paramsObj);

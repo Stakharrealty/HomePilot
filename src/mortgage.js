@@ -89,14 +89,29 @@ function calcBP(inc,dn,dbt){
 // condo fees in GDS/TDS), the dynamic stress rate, and amortization based on the real
 // down-payment ratio for this specific price. This is the accurate check; calcBP() above
 // is a fast general-purpose ceiling shown before a city/property is chosen.
-function qualifiesForProperty(inc, dn, dbt, price, propType, cityName){
+// _hpRealOverride: reads an OPTIONAL real-figure override ({taxAnnual,
+// condoFeeMonthly}) passed by the listing detail page, which knows one
+// specific listing's real PropTx tax/condo fee. Returns the number if it is
+// finite and positive, else null (meaning "use the usual estimate"). The
+// city-level calculator and results page never pass overrides, so for them
+// this is always null and nothing below changes.
+function _hpRealOverride(overrides, key){
+  const v = overrides ? overrides[key] : null;
+  return (typeof v === 'number' && Number.isFinite(v) && v > 0) ? v : null;
+}
+
+function qualifiesForProperty(inc, dn, dbt, price, propType, cityName, overrides){
   const city = M.find(c=>c.n===cityName);
   const taxRate = city ? city.tx : 0.0105;
   const mi = inc/12;
-  const monthlyTax = price*taxRate/12;
+  const realTax = _hpRealOverride(overrides,'taxAnnual');
+  const monthlyTax = realTax!==null ? realTax/12 : price*taxRate/12;
   const heat = 150;
   let condoFeeQual = 0;
-  if(propType==='condo'){
+  const realCondoFee = propType==='condo' ? _hpRealOverride(overrides,'condoFeeMonthly') : null;
+  if(realCondoFee!==null){
+    condoFeeQual = realCondoFee*0.5; // lenders include 50% of condo fees in GDS/TDS
+  } else if(propType==='condo'){
     const base = CONDO_FEES[cityName]||500;
     const anchor = (PT[cityName]&&PT[cityName].condo)||price;
     const ratio = anchor>0?price/anchor:1;
@@ -133,7 +148,12 @@ const UTIL_BY_TYPE={
   detached: {1:285,2:335,3:405,4:465,5:525},
 };
 
-function calcCosts(m,price,fam,dn,propType){
+// overrides (optional, added for the listing detail page): {taxAnnual,
+// condoFeeMonthly} -- one real listing's PropTx property tax and condo fee.
+// When present and valid they replace the city-rate tax estimate and the
+// formula condo fee (condo fee only for condos). Omitted -> exactly the
+// same behavior as before, so every existing caller is unaffected.
+function calcCosts(m,price,fam,dn,propType,overrides){
   const r=customMortgageRate/12,ln=Math.max(0,price-dn);
   const dpRatio=price>0?dn/price:1;
   // Amortization must match the same eligibility rule used for qualification
@@ -156,7 +176,8 @@ function calcCosts(m,price,fam,dn,propType){
 
   // Property tax: city-level rate × price (scales correctly with price; consistent across property types in a city)
   const pt=propType||'detached';
-  const taxAnnual=price*m.tx;
+  const realTax=_hpRealOverride(overrides,'taxAnnual');
+  const taxAnnual=realTax!==null?realTax:price*m.tx;
   const tax=Math.round(taxAnnual/12);
 
   // Insurance — recalibrated July 6, 2026 against Rates.ca Home Insuramap 2026 report
@@ -182,7 +203,10 @@ function calcCosts(m,price,fam,dn,propType){
   // price with a 0.5 dampening factor (fees correlate with unit size/price but not 1:1).
   // Example: city base $520 at typical $540K -> a $700K condo shows ~$597, a $430K one ~$467.
   let condoFee=0;
-  if(pt==='condo'){
+  const realCondoFee=pt==='condo'?_hpRealOverride(overrides,'condoFeeMonthly'):null;
+  if(realCondoFee!==null){
+    condoFee=Math.round(realCondoFee);
+  } else if(pt==='condo'){
     const baseFee=CONDO_FEES[m.n]||500;
     const anchorPrice=(PT[m.n]&&PT[m.n].condo)||price;
     const ratio=anchorPrice>0?price/anchorPrice:1;

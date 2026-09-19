@@ -1,5 +1,5 @@
 import { BUTTON_TYPES, SHOWN_SUBTYPES, subtypesForButton, sqlInList } from "./home-types.js";
-import { isDistrictCode } from "./toronto-districts.js";
+import { isDistrictCode, regionForCity } from "./toronto-districts.js";
 
 // homepilot-listings — db module
 // D1 read path (getListingsByCity) and property-type classification logic
@@ -215,6 +215,10 @@ function mapListingRow(row) {
     listingKey: row.listing_key,
     listPrice: row.list_price,
     city: row.city,
+    // HomePilot's own market name for this listing ("Toronto - North York"
+    // for a "Toronto C07" row; null outside Toronto). Lets the detail page
+    // pick the right city record for its cost math.
+    cityRegion: regionForCity(row.city),
     postalCode: row.postal_code,
     bedrooms: row.bedrooms,
     bathrooms: row.bathrooms,

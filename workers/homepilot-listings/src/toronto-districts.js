@@ -90,3 +90,19 @@ export function parseTorontoDistrict(cityValue) {
 export function isDistrictCode(code) {
   return typeof code === "string" && DISTRICT_CODE.test(code);
 }
+
+/**
+ * The HomePilot Toronto card a stored city value belongs to:
+ * "Toronto C07" -> "Toronto - North York". Null for non-Toronto cities and
+ * for district codes not in the table. Used so the listing detail page can
+ * find the right market record (the app has six Toronto cards, no plain
+ * "Toronto").
+ */
+export function regionForCity(cityValue) {
+  const code = parseTorontoDistrict(cityValue);
+  if (!code) return null;
+  for (const [name, codes] of Object.entries(TORONTO_REGION_DISTRICTS)) {
+    if (codes.includes(code)) return name;
+  }
+  return null;
+}
