@@ -101,7 +101,9 @@ function makeFakePropTx(log, failPages = new Set()) {
 
 (async () => {
   const auto = await import(pathToFileURL(path.join(SRC_DIR, "proptx-auto-ingest.js")).href);
-  check("scope is Mississauga only for this phase", JSON.stringify(auto.AUTO_INGEST_CITIES) === '["Mississauga"]');
+  check("scope is Mississauga, Hamilton, Guelph, Toronto (Toronto last)", JSON.stringify(auto.AUTO_INGEST_CITIES) === JSON.stringify(["Mississauga", "Hamilton", "Guelph", "Toronto"]));
+  // The behavior checks below exercise one city at a time so page sequences stay readable.
+  const ONE_CITY = { cities: ["Mississauga"] };
 
   const sqlite = new DatabaseSync(":memory:");
   sqlite.exec("CREATE TABLE listings (listing_key TEXT PRIMARY KEY)");
@@ -120,7 +122,7 @@ function makeFakePropTx(log, failPages = new Set()) {
     // Use a small page cap for this test so resume is exercised over
     // several firings: temporarily run with cities override + many firings.
     // 1. First firing
-    const r1 = await auto.runAutoIngest(db, "tok", { now });
+    const r1 = await auto.runAutoIngest(db, "tok", { now, ...ONE_CITY });
     const st1 = await auto.getState(db, "Mississauga");
     const pagesFirst = Math.min(MAX, PAGES);
     check("first firing does at most MAX_PAGES_PER_RUN pages", log.length === pagesFirst, `fetched pages ${JSON.stringify(log)}`);
@@ -141,13 +143,13 @@ function makeFakePropTx(log, failPages = new Set()) {
     // 4. Done and fresh -> zero PropTx calls
     log.length = 0;
     clock += 60 * 60 * 1000; // +1h
-    const r2 = await auto.runAutoIngest(db, "tok", { now });
+    const r2 = await auto.runAutoIngest(db, "tok", { now, ...ONE_CITY });
     check("done + fresh: zero PropTx calls", log.length === 0, `${log.length}`);
     check("done + fresh: reported idle", r2[0].action === "idle");
 
     // 5. Done for REFRESH_AFTER_HOURS -> restart from page 1
     clock += auto.REFRESH_AFTER_HOURS * 3600 * 1000;
-    const r3 = await auto.runAutoIngest(db, "tok", { now });
+    const r3 = await auto.runAutoIngest(db, "tok", { now, ...ONE_CITY });
     check("after REFRESH_AFTER_HOURS: restarts from page 1", log[0] === 1 && log.length === PAGES, JSON.stringify(log));
     check("refresh re-upserts, no duplicate rows", sqlite.prepare("SELECT COUNT(*) AS n FROM listings").get().n === homes);
 
@@ -162,7 +164,7 @@ function makeFakePropTx(log, failPages = new Set()) {
     const firings = [];
     for (let i = 0; i < 10; i++) {
       const before = log.length;
-      await auto.runAutoIngest(db2, "tok", { now: slowNow });
+      await auto.runAutoIngest(db2, "tok", { now: slowNow, ...ONE_CITY });
       firings.push(log.slice(before));
       const st = await auto.getState(db2, "Mississauga");
       if (st.status === "done") break;
@@ -184,15 +186,15 @@ function makeFakePropTx(log, failPages = new Set()) {
     const log3 = [];
     const failing = new Set([3]);
     globalThis.fetch = makeFakePropTx(log3, failing);
-    await auto.runAutoIngest(db3, "tok", { now: now3 });
+    await auto.runAutoIngest(db3, "tok", { now: now3, ...ONE_CITY });
     let st3 = await auto.getState(db3, "Mississauga");
     check("failing page: cursor stays on that page", st3.pages_done === 2 && /page=3/.test(st3.next_link), JSON.stringify({ p: st3.pages_done, n: st3.next_link }));
     check("failing page: error recorded, status still running", st3.consecutive_errors === 1 && st3.status === "running" && /503/.test(st3.last_error));
-    for (let i = 0; i < 3; i++) await auto.runAutoIngest(db3, "tok", { now: now3 });
+    for (let i = 0; i < 3; i++) await auto.runAutoIngest(db3, "tok", { now: now3, ...ONE_CITY });
     st3 = await auto.getState(db3, "Mississauga");
     check("4 failures in a row: still running", st3.consecutive_errors === 4 && st3.status === "running");
     failing.clear();
-    await auto.runAutoIngest(db3, "tok", { now: now3 });
+    await auto.runAutoIngest(db3, "tok", { now: now3, ...ONE_CITY });
     st3 = await auto.getState(db3, "Mississauga");
     check("a success resets the error count and continues from page 3", st3.consecutive_errors === 0 && st3.last_error === null && st3.status === "done");
 
@@ -200,12 +202,12 @@ function makeFakePropTx(log, failPages = new Set()) {
     sqlite4.exec("CREATE TABLE listings (listing_key TEXT PRIMARY KEY)");
     const db4 = makeD1(sqlite4);
     globalThis.fetch = makeFakePropTx([], new Set([1]));
-    for (let i = 0; i < auto.MAX_CONSECUTIVE_ERRORS; i++) await auto.runAutoIngest(db4, "tok", { now: now3 });
+    for (let i = 0; i < auto.MAX_CONSECUTIVE_ERRORS; i++) await auto.runAutoIngest(db4, "tok", { now: now3, ...ONE_CITY });
     const st4 = await auto.getState(db4, "Mississauga");
     check(`${auto.MAX_CONSECUTIVE_ERRORS} failures in a row: status 'error'`, st4.status === "error", st4.status);
     const log4 = [];
     globalThis.fetch = makeFakePropTx(log4);
-    await auto.runAutoIngest(db4, "tok", { now: now3 });
+    await auto.runAutoIngest(db4, "tok", { now: now3, ...ONE_CITY });
     check("'error' city waits (no calls) until the refresh window", log4.length === 0);
 
     // 8. Wiring

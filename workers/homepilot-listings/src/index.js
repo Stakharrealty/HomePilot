@@ -10,7 +10,8 @@
 // in here -- until then, /listings will correctly return an empty result
 // for every city (no fallback, per explicit product decision).
 
-import { getListingsByCity, idxCappedLimit, SHOWN_HOMES_CLAUSE, PROPERTY_TYPE_FILTERS } from "./db.js";
+import { districtsForRegion } from "./toronto-districts.js";
+import { getListingsByCity, cityMatchClause, idxCappedLimit, SHOWN_HOMES_CLAUSE, PROPERTY_TYPE_FILTERS } from "./db.js";
 import { CITY_ALIASES, PUBLIC_CITY_NAMES, HOMEPILOT_CITIES } from "./cities.js";
 import { runSubtypeCensus } from "./proptx-census.js";
 import { runAutoIngest, ensureStateTable, AUTO_INGEST_CITIES } from "./proptx-auto-ingest.js";
@@ -132,8 +133,8 @@ export default {
         const cities = [];
         for (const city of AUTO_INGEST_CITIES) {
           const q = (where) => env.DB.prepare(
-            `SELECT COUNT(*) AS n FROM listings WHERE city = ? AND source = 'PROPTX' AND transaction_type = 'For Sale' AND ${where}`
-          ).bind(city).first();
+            `SELECT COUNT(*) AS n FROM listings WHERE ${cityMatchClause(city).sql} AND source = 'PROPTX' AND transaction_type = 'For Sale' AND ${where}`
+          ).bind(...cityMatchClause(city).binds).first();
           const homes = await q(SHOWN_HOMES_CLAUSE);
           const nonHomesStillInDb = await q(`NOT (${SHOWN_HOMES_CLAUSE})`);
           const byButton = {};
@@ -234,6 +235,10 @@ export default {
         }
         // Resolve to the real city D1 rows are actually stored under.
         const city = CITY_ALIASES[requestedCity] || requestedCity;
+        // Toronto sub-region cards narrow to their TRREB districts (null
+        // for every other request, including plain "Toronto"). See
+        // toronto-districts.js for the mapping.
+        const torontoDistricts = districtsForRegion(requestedCity);
 
         const rawType = url.searchParams.get("type");
         const propertyType = VALID_PROPERTY_TYPES.has(rawType) ? rawType : null;
@@ -264,7 +269,7 @@ export default {
         // definition at the top of this file. While false, buyers get the
         // normal empty state for every city.
         const listings = PROPTX_DISPLAY_ENABLED && cappedLimit > 0
-          ? await getListingsByCity(env.DB, city, cappedLimit, propertyType, offset, searchBudget)
+          ? await getListingsByCity(env.DB, city, cappedLimit, propertyType, offset, searchBudget, torontoDistricts)
           : [];
         return new Response(
           JSON.stringify({ city: requestedCity, propertyType: propertyType || "all", offset, searchBudget, count: listings.length, listings }, null, 2),

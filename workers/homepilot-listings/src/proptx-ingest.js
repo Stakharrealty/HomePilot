@@ -1,4 +1,5 @@
 import { classifySubtype } from "./home-types.js";
+import { parseTorontoDistrict } from "./toronto-districts.js";
 // homepilot-listings — PropTx IDX ingest module
 // Pulls Active listings from PropTx's RESO Web API (query.ampre.ca) for a
 // given city and upserts them into the `listings` D1 table with
@@ -38,8 +39,8 @@ import { classifySubtype } from "./home-types.js";
 // - YearBuilt and other fields are inconsistently present -- every field
 //   beyond ListingKey/ListPrice/City/StandardStatus is treated as optional
 // - Toronto requires startswith(City,'Toronto') rather than an exact
-//   match (its own city_district handling), not implemented in this
-//   single-test-city phase -- Mississauga uses a plain exact match
+//   match -- handled in buildCityFilter(); every other city uses a plain
+//   exact match. The district code is also stored in city_district.
 // - property_subtype (existing DDF-era column, no underscore) is reused
 //   for PropTx's PropertySubType per explicit decision -- NOT the
 //   redundant property_sub_type column added by migration 0002
@@ -73,16 +74,21 @@ const PROPERTY_SELECT_FIELDS = [
 
 /**
  * Builds the OData $filter clause for a single city, exact match.
- * NOTE: Toronto needs startswith(City,'Toronto') instead -- not handled
- * here yet, this function is for the single-test-city (Mississauga) phase.
+ * Toronto uses startswith(City,'Toronto') (district-coded City values).
  */
-function buildCityFilter(cityName) {
+export function buildCityFilter(cityName) {
   const safeCity = cityName.replace(/'/g, "''");
+  // Toronto is stored by PropTx as TRREB district-coded values ("Toronto
+  // C07", "Toronto W04"), never plain "Toronto" -- an exact match returns
+  // nothing. See toronto-districts.js.
+  const cityClause = cityName === "Toronto"
+    ? "startswith(City,'Toronto')"
+    : `City eq '${safeCity}'`;
   // Residential + For Sale only (fixed 2026-09-18): the first real page
   // for Mississauga came back 20/25 leases or commercial (retail units,
   // offices, land, a business for sale, lease prices like $15/sqft).
   // HomePilot is for home buyers -- only residential homes for sale.
-  return `StandardStatus eq 'Active' and City eq '${safeCity}' and TransactionType eq 'For Sale' and startswith(PropertyType,'Residential')`;
+  return `StandardStatus eq 'Active' and ${cityClause} and TransactionType eq 'For Sale' and startswith(PropertyType,'Residential')`;
 }
 
 /**
@@ -143,7 +149,7 @@ function extractPublicPhotoUrls(mediaArray) {
  * fallback guessing, ever (confirmed necessary: YearBuilt, condo fields,
  * etc. are inconsistently present even on real, complete listings).
  */
-function mapPropertyToRow(p) {
+export function mapPropertyToRow(p) {
   const photos = extractPublicPhotoUrls(p.Media);
   return {
     listing_key: p.ListingKey,
@@ -160,6 +166,8 @@ function mapPropertyToRow(p) {
     created_at: new Date().toISOString(), // excluded from the ON CONFLICT update below, so it keeps the first-seen time
     list_price: p.ListPrice ?? null,
     city: p.City ?? null,
+    // Bare TRREB district code for Toronto rows ("C07"); NULL elsewhere.
+    city_district: parseTorontoDistrict(p.City),
     postal_code: p.PostalCode ?? null,
     display_address: p.UnparsedAddress ?? null,
     bedrooms: p.BedroomsTotal ?? null,

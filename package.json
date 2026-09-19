@@ -15,6 +15,7 @@
     "test:listings-frontend": "node tests/listings_frontend_display_test.js",
     "test:listings-grid-width": "node tests/listings_grid_width_test.js",
     "test:listings-card-carousel": "node tests/listings_card_photo_carousel_test.js",
+    "test:listings-toronto-hamilton-guelph": "node --no-warnings tests/listings_toronto_hamilton_guelph_test.js",
     "test:listings-popup-redesign": "node tests/listings_popup_redesign_test.js",
     "test:listings-property-classification": "node --no-warnings tests/listings_property_classification_test.js",
     "test:listings-affordability-budget": "node --no-warnings tests/listings_affordability_budget_test.js",
@@ -23,8 +24,8 @@
     "test:listings-proptx-ingest-homes": "node --no-warnings tests/listings_proptx_ingest_homes_only_test.js",
     "test:listings-proptx-auto-ingest": "node --no-warnings tests/listings_proptx_auto_ingest_test.js",
     "test:listings-proptx-idx-notices": "node --no-warnings tests/listings_proptx_idx_notices_test.js",
-    "test:listings": "npm run test:listing-seal-removed && npm run test:listings-frontend && npm run test:listings-grid-width && npm run test:listings-card-carousel && npm run test:listings-popup-redesign && npm run test:listings-property-classification && npm run test:listings-affordability-budget && npm run test:listings-proptx-display-gate && npm run test:listings-proptx-census && npm run test:listings-proptx-ingest-homes && npm run test:listings-proptx-auto-ingest && npm run test:listings-proptx-idx-notices",
-    "test:listings-ci": "npm run test:listing-seal-removed && npm run test:listings-frontend && npm run test:listings-grid-width && npm run test:listings-card-carousel && npm run test:listings-popup-redesign && npm run test:listings-property-classification && npm run test:listings-affordability-budget && npm run test:listings-proptx-display-gate && npm run test:listings-proptx-census && npm run test:listings-proptx-ingest-homes && npm run test:listings-proptx-auto-ingest && npm run test:listings-proptx-idx-notices"
+    "test:listings": "npm run test:listing-seal-removed && npm run test:listings-frontend && npm run test:listings-grid-width && npm run test:listings-card-carousel && npm run test:listings-toronto-hamilton-guelph && npm run test:listings-popup-redesign && npm run test:listings-property-classification && npm run test:listings-affordability-budget && npm run test:listings-proptx-display-gate && npm run test:listings-proptx-census && npm run test:listings-proptx-ingest-homes && npm run test:listings-proptx-auto-ingest && npm run test:listings-proptx-idx-notices",
+    "test:listings-ci": "npm run test:listing-seal-removed && npm run test:listings-frontend && npm run test:listings-grid-width && npm run test:listings-card-carousel && npm run test:listings-toronto-hamilton-guelph && npm run test:listings-popup-redesign && npm run test:listings-property-classification && npm run test:listings-affordability-budget && npm run test:listings-proptx-display-gate && npm run test:listings-proptx-census && npm run test:listings-proptx-ingest-homes && npm run test:listings-proptx-auto-ingest && npm run test:listings-proptx-idx-notices"
   },
   "devDependencies": {
     "http-server": "^14.1.1",

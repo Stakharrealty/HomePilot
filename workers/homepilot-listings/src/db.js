@@ -1,4 +1,5 @@
 import { BUTTON_TYPES, SHOWN_SUBTYPES, subtypesForButton, sqlInList } from "./home-types.js";
+import { isDistrictCode } from "./toronto-districts.js";
 
 // homepilot-listings — db module
 // D1 read path (getListingsByCity) and property-type classification logic
@@ -128,7 +129,29 @@ export function idxCappedLimit(limit, offset) {
 // Optional and defensively validated (must be a finite positive number) --
 // missing/invalid means no price ceiling at all, matching prior behavior
 // exactly for any caller that doesn't pass it.
-export async function getListingsByCity(db, city, limit = 20, propertyType = null, offset = 0, searchBudget = null) {
+// cityMatchClause: how a city name matches the stored `city` column.
+// Every city is an exact match EXCEPT Toronto, which PropTx stores as
+// district-coded values ("Toronto C07", "Toronto W04") -- plain "Toronto"
+// matches all of them (and a bare "Toronto" row if one ever exists).
+// `districts` (optional, Toronto only) narrows to one sub-region card's
+// TRREB district codes via the city_district column; codes are validated
+// and inlined as literals, never user input. Returns the SQL plus the
+// positional binds it needs (none for Toronto, one for everyone else).
+export function cityMatchClause(city, districts = null) {
+  if (city === "Toronto") {
+    const base = "(city = 'Toronto' OR city LIKE 'Toronto %')";
+    if (Array.isArray(districts) && districts.length > 0) {
+      const codes = districts.filter(isDistrictCode);
+      if (codes.length !== districts.length) throw new Error("Invalid Toronto district code");
+      return { sql: `${base} AND city_district IN (${codes.map((c) => `'${c}'`).join(", ")})`, binds: [] };
+    }
+    return { sql: base, binds: [] };
+  }
+  return { sql: "city = ?", binds: [city] };
+}
+
+export async function getListingsByCity(db, city, limit = 20, propertyType = null, offset = 0, searchBudget = null, districts = null) {
+  const cityMatch = cityMatchClause(city, districts);
   const typeClause = propertyType && PROPERTY_TYPE_FILTERS[propertyType]
     ? ` AND ${PROPERTY_TYPE_FILTERS[propertyType]}`
     : "";
@@ -156,7 +179,7 @@ export async function getListingsByCity(db, city, limit = 20, propertyType = nul
   // optional budget ceiling (only present when budgetClause was added),
   // then limit/offset last -- get this order wrong and D1 silently binds
   // the wrong value to the wrong placeholder, no error, just wrong results.
-  const bindParams = [city];
+  const bindParams = [...cityMatch.binds];
   if (hasBudget) bindParams.push(searchBudget * STRETCH_MULTIPLIER);
   bindParams.push(limit, offset);
 
@@ -167,7 +190,7 @@ export async function getListingsByCity(db, city, limit = 20, propertyType = nul
               public_remarks, display_address, year_built, lot_size_area, lot_size_units,
               ${derivedTypeCase}
        FROM listings
-       WHERE city = ? AND source = 'PROPTX' AND transaction_type = 'For Sale' AND ${SHOWN_HOMES_CLAUSE}${typeClause}${budgetClause}
+       WHERE ${cityMatch.sql} AND source = 'PROPTX' AND transaction_type = 'For Sale' AND ${SHOWN_HOMES_CLAUSE}${typeClause}${budgetClause}
        ORDER BY last_updated DESC
        LIMIT ? OFFSET ?`
     )

@@ -18,16 +18,17 @@
 //     run; MAX_CONSECUTIVE_ERRORS in a row -> status 'error', the city
 //     stops until the next refresh window restarts it
 //
-// Scope: Mississauga only (single-city test phase, approved 2026-09-18).
-// Other cities get added to AUTO_INGEST_CITIES once Mississauga checks
-// out -- Toronto and the renamed cities need their own filter handling
-// in proptx-ingest.js first.
-//
-// Not in this step yet: removing listings PropTx no longer has as active.
+// Scope: Mississauga, Hamilton, Guelph, Toronto (Toronto uses its own
+// startswith filter -- see buildCityFilter() in proptx-ingest.js). More
+// cities get added here as each is verified.
 
 import { ingestCityPage } from "./proptx-ingest.js";
 
-export const AUTO_INGEST_CITIES = ["Mississauga"];
+// Order matters: a run works through cities in this order until its time
+// budget is spent, so the small cities go before Toronto (~9x Mississauga)
+// and a Toronto refresh can never starve them. Each city resumes from its
+// saved cursor, so Toronto spreads across many cron firings by design.
+export const AUTO_INGEST_CITIES = ["Mississauga", "Hamilton", "Guelph", "Toronto"];
 export const MAX_PAGES_PER_RUN = 20;
 export const TIME_BUDGET_MS = 20000;
 export const MAX_CONSECUTIVE_ERRORS = 5;

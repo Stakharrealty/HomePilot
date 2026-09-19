@@ -82,24 +82,24 @@ async function main() {
   }
 
   const calls1 = [];
-  await dbModule.getListingsByCity(makeFakeD1(calls1), "Toronto", 24, "detached", 0, 900000);
+  await dbModule.getListingsByCity(makeFakeD1(calls1), "Mississauga", 24, "detached", 0, 900000);
   const sql1 = calls1[0].sql;
   const args1 = calls1[0].args;
   check("with searchBudget: SQL includes 'AND list_price <= ?'", /AND list_price <= \?/.test(sql1), sql1);
   check(
     "with searchBudget: bind args are in correct positional order (city, budget*1.10, limit, offset)",
-    args1[0] === "Toronto" && Math.abs(args1[1] - 990000) < 0.001 && args1[2] === 24 && args1[3] === 0,
+    args1[0] === "Mississauga" && Math.abs(args1[1] - 990000) < 0.001 && args1[2] === 24 && args1[3] === 0,
     JSON.stringify(args1)
   );
 
   const calls2 = [];
-  await dbModule.getListingsByCity(makeFakeD1(calls2), "Toronto", 24, "detached", 0, null);
+  await dbModule.getListingsByCity(makeFakeD1(calls2), "Mississauga", 24, "detached", 0, null);
   const sql2 = calls2[0].sql;
   const args2 = calls2[0].args;
   check("WITHOUT searchBudget: SQL does NOT include a price clause", !/list_price <=/.test(sql2), sql2);
   check(
     "WITHOUT searchBudget: bind args unchanged from before this fix (city, limit, offset only)",
-    args2.length === 3 && args2[0] === "Toronto" && args2[1] === 24 && args2[2] === 0,
+    args2.length === 3 && args2[0] === "Mississauga" && args2[1] === 24 && args2[2] === 0,
     JSON.stringify(args2)
   );
 
@@ -178,7 +178,7 @@ async function main() {
   );
   // Updated 2026-09-18: the route now passes cappedLimit (PropTx Article
   // 6.3(b), 100 per search) instead of the raw limit.
-  check("index.js passes searchBudget into getListingsByCity", /getListingsByCity\(env\.DB, city, cappedLimit, propertyType, offset, searchBudget\)/.test(indexSrc));
+  check("index.js passes searchBudget into getListingsByCity", /getListingsByCity\(env\.DB, city, cappedLimit, propertyType, offset, searchBudget, torontoDistricts\)/.test(indexSrc));
 
   // --- 8. listings-display.js: fetchListings/openListingsWindow wiring ---
   const displaySrc = fs.readFileSync(path.join(__dirname, "..", "src", "listings-display.js"), "utf8");

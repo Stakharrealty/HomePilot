@@ -138,7 +138,7 @@ function makeListings(start, count) {
   const idx = fs.readFileSync(path.join(SRC_DIR, "index.js"), "utf8");
   check("/listings route passes the capped limit to the query",
     /const cappedLimit = idxCappedLimit\(limit, offset\);/.test(idx) &&
-    /getListingsByCity\(env\.DB, city, cappedLimit, propertyType, offset, searchBudget\)/.test(idx));
+    /getListingsByCity\(env\.DB, city, cappedLimit, propertyType, offset, searchBudget, torontoDistricts\)/.test(idx));
 
   console.log(`\n=== RESULT: ${passed} passed, ${failed} failed ===`);
   if (failed > 0) process.exit(1);
