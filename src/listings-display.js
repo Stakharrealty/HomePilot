@@ -123,8 +123,11 @@ function safeUrl(url) {
 // means no budget context was passed (e.g. an older bookmarked listings.html
 // URL) -- no badge is shown in that case, not a guessed one.
 function renderListingCard(listing, searchBudget) {
-  const rawPhoto = listing.photos && listing.photos.length > 0 ? listing.photos[0] : null;
-  const photo = safeUrl(rawPhoto);
+  // Every photo the API returned (no cap), https-only. The card renders ONE
+  // <img> and swaps its src on demand (arrows / swipe), so only the photo
+  // being viewed is ever downloaded -- never the whole set up front.
+  const photos = (Array.isArray(listing.photos) ? listing.photos : []).map(safeUrl).filter(Boolean);
+  const photo = photos[0] || "";
   const beds = listing.bedrooms != null ? `${listing.bedrooms} bd` : null;
   const baths = listing.bathrooms != null ? `${listing.bathrooms} ba` : null;
   const bedsBaths = escapeHtml([beds, baths].filter(Boolean).join(" · "));
@@ -174,6 +177,10 @@ function renderListingCard(listing, searchBudget) {
       ${photo
         ? `<img class="listing-photo" src="${photo}" alt="Photo of listing in ${cityEsc}" loading="lazy">`
         : `<div class="listing-photo listing-photo-empty">No photo available</div>`}
+      ${photos.length > 1 ? `
+      <button type="button" class="listing-photo-nav listing-photo-prev" aria-label="Previous photo">‹</button>
+      <button type="button" class="listing-photo-nav listing-photo-next" aria-label="Next photo">›</button>
+      <span class="listing-photo-counter" aria-live="polite">1/${photos.length}</span>` : ""}
     </div>
     <div class="listing-body">
       <div class="listing-price">${fmtPrice(listing.listPrice)}${affordabilityBadge ? ` <span class="listing-affordability-badge ${affordabilityBadge.cls}">${affordabilityBadge.label}</span>` : ""}</div>
@@ -191,6 +198,8 @@ function renderListingCard(listing, searchBudget) {
       ${listingUrl ? `<a class="listing-source-link" href="${listingUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()">View original listing</a>` : ""}
     </div>
   `;
+
+  if (photos.length > 1) attachPhotoCarousel(card, photos, cityEsc);
 
   if (hasExpandableDetail) {
     const toggle = card.querySelector(".listing-details-toggle");
@@ -216,6 +225,41 @@ function renderListingCard(listing, searchBudget) {
   }
 
   return card;
+}
+
+// Card-level photo carousel: prev/next buttons (shown on hover in CSS) and
+// horizontal swipe on touch. Swaps the single <img>'s src to photos[i]; the
+// browser fetches only that one file. Wraps around at both ends. No
+// preloading of neighbours, by design (see renderListingCard).
+const SWIPE_MIN_PX = 40;
+function attachPhotoCarousel(card, photos, cityEsc) {
+  const wrap = card.querySelector(".listing-photo-wrap");
+  const img = wrap.querySelector("img.listing-photo");
+  const counter = wrap.querySelector(".listing-photo-counter");
+  let idx = 0;
+
+  function show(i) {
+    idx = (i + photos.length) % photos.length;
+    img.src = photos[idx];
+    img.alt = `Photo ${idx + 1} of ${photos.length} of listing in ${cityEsc}`;
+    counter.textContent = `${idx + 1}/${photos.length}`;
+  }
+
+  wrap.querySelector(".listing-photo-prev").addEventListener("click", (e) => { e.stopPropagation(); show(idx - 1); });
+  wrap.querySelector(".listing-photo-next").addEventListener("click", (e) => { e.stopPropagation(); show(idx + 1); });
+
+  let startX = null, startY = null;
+  wrap.addEventListener("touchstart", (e) => {
+    const t = e.touches[0];
+    startX = t.clientX; startY = t.clientY;
+  }, { passive: true });
+  wrap.addEventListener("touchend", (e) => {
+    if (startX === null) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - startX, dy = t.clientY - startY;
+    startX = startY = null;
+    if (Math.abs(dx) >= SWIPE_MIN_PX && Math.abs(dx) > Math.abs(dy)) show(dx < 0 ? idx + 1 : idx - 1);
+  }, { passive: true });
 }
 
 const TYPE_LABELS_PLURAL = { condo: "Condos", town: "Townhomes", semi: "Semi-Detached Homes", detached: "Detached Homes", all: "Homes" };
