@@ -153,7 +153,6 @@ function renderListingCard(listing, searchBudget) {
   const bedsBaths = escapeHtml([beds, baths].filter(Boolean).join(" · "));
   const brokerage = escapeHtml(listing.brokerageName || "Brokerage not available");
   const cityEsc = escapeHtml(listing.city || "");
-  const listingUrl = safeUrl(listing.listingUrl) || "";
 
   // affordabilityBadge (product decision, Sandeep): the 10% price ceiling is
   // enforced first and is unchanged (server-side in getListingsByCity, and
@@ -215,6 +214,9 @@ function renderListingCard(listing, searchBudget) {
   const detailKey = /^[A-Za-z0-9_-]{1,40}$/.test(String(listing.listingKey || "")) ? String(listing.listingKey) : "";
   const detailBudget = Number.isFinite(searchBudget) && searchBudget > 0 ? `&budget=${encodeURIComponent(String(searchBudget))}` : "";
   const detailHref = detailKey ? `listing.html?key=${encodeURIComponent(detailKey)}${detailBudget}` : "";
+  // "View Details": the full-listing page (every stored field, all photos), in a
+  // new tab. Built from the listing key alone -- PropTx listings have no listingUrl.
+  const fullHref = detailKey ? `listing-full.html?key=${encodeURIComponent(detailKey)}` : "";
 
   const card = document.createElement("div");
   card.className = "listing-card";
@@ -243,7 +245,7 @@ function renderListingCard(listing, searchBudget) {
         ${remarksEsc ? `<div class="listing-remarks" data-full="${remarksEsc.replace(/"/g, "&quot;")}" data-preview="${(remarksPreview || "").replace(/"/g, "&quot;")}">${remarksPreview}${remarksIsLong ? ` <button type="button" class="listing-remarks-more">Read more</button>` : ""}</div>` : ""}
       </div>` : ""}
       ${detailHref ? `<a class="listing-detail-link" href="${escapeHtml(detailHref)}">View full details &rarr;</a>` : ""}
-      ${listingUrl ? `<a class="listing-source-link" href="${listingUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()">View original listing</a>` : ""}
+      ${fullHref ? `<a class="listing-source-link" href="${escapeHtml(fullHref)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">View Details</a>` : ""}
     </div>
   `;
 

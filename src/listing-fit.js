@@ -119,3 +119,16 @@ function listingFit(listing, profile, budget) {
   if (!profile) return null;
   return ldFitFor(listing, computeListingCosts(listing, profile), profile, budget);
 }
+
+// Shared by listing.html and listing-full.html (moved here from listing-detail.js).
+const LD_TYPE_LABELS = { condo: "Condo", town: "Townhouse", semi: "Semi-detached", detached: "Detached" };
+
+// Real-or-estimated tax/condo-fee figures for Section 2, independent of the
+// buyer profile (the estimates only need the market and the price).
+function ldEstimates(listing) {
+  const price = Number(listing.listPrice);
+  if (!(price > 0)) return { taxAnnual: null, condoFee: null };
+  const { market } = ldResolveMarket(listing);
+  const est = calcCosts(market, price, 3, 0, listing.propertyType || "detached");
+  return { taxAnnual: Math.round(price * market.tx), condoFee: listing.propertyType === "condo" ? est.condoFee : null };
+}

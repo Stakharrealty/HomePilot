@@ -20,8 +20,6 @@
 // renderIdxNotice, LISTINGS_API_BASE), listing-fit.js (the cost + fit-tier
 // math shared with the listing card).
 
-const LD_TYPE_LABELS = { condo: "Condo", town: "Townhouse", semi: "Semi-detached", detached: "Detached" };
-
 // Section 1's numbers. `profile` is the validated buyer profile (or null);
 // `budget` is the price the buyer was shown on the card that led here (the
 // same number the listing badges compare against), or null.
@@ -55,16 +53,6 @@ function buildHomePilotView(listing, profile, budget) {
   const fit = ldFitFor(listing, computed, profile, budget);
   if (fit) { view.verdict = fit.cls; view.verdictLabel = fit.lbl; }
   return view;
-}
-
-// Real-or-estimated tax/condo-fee figures for Section 2, independent of the
-// buyer profile (the estimates only need the market and the price).
-function ldEstimates(listing) {
-  const price = Number(listing.listPrice);
-  if (!(price > 0)) return { taxAnnual: null, condoFee: null };
-  const { market } = ldResolveMarket(listing);
-  const est = calcCosts(market, price, 3, 0, listing.propertyType || "detached");
-  return { taxAnnual: Math.round(price * market.tx), condoFee: listing.propertyType === "condo" ? est.condoFee : null };
 }
 
 // Section 2, in the agreed priority order. Plain facts use factOrOmit (shown

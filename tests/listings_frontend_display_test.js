@@ -165,8 +165,8 @@ const XSS_LISTINGS = {
     !html.includes("src/assets/realtor-r.svg")
   );
   check(
-    "listing links to the real original listing URL, not a placeholder",
-    html.includes('href="https://www.realtor.ca/real-estate/TEST111"')
+    "listing's link is 'View Details' -> the full-listing page for its key, not the (empty for PropTx) listingUrl",
+    html.includes('href="listing-full.html?key=TEST111"') && html.includes(">View Details</a>") && !html.includes("realtor.ca/real-estate/TEST111")
   );
   check(
     "listing with a photo renders an <img> with the real photo URL",
@@ -231,8 +231,8 @@ const XSS_LISTINGS = {
   const brokerUrlCard = xssCards[1];
   const sourceLink = brokerUrlCard ? brokerUrlCard.querySelector("a.listing-source-link") : null;
   check(
-    "malicious listingUrl (javascript:) is neutralized -- no source link is rendered for it at all",
-    sourceLink === null,
+    "malicious listingUrl (javascript:) is never used -- the link is the key-based full-listing page",
+    !!sourceLink && sourceLink.getAttribute("href") === "listing-full.html?key=XSS-BROKER-URL" && !/javascript:/i.test(sourceLink.outerHTML),
     `sourceLink=${sourceLink ? sourceLink.outerHTML : "null"}`
   );
   check(
