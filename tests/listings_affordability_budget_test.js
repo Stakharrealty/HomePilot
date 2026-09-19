@@ -6,7 +6,7 @@
 // searchBudget * STRETCH_MULTIPLIER (1.10, matching the SAME stretch
 // tolerance already used on the main results page) are now excluded
 // server-side, and every listing at/under that ceiling gets a visible
-// "Within Budget" or "Stretch Option" badge -- never silently mixed.
+// fit-tier badge (getFit(): Great fit / Good Fit / Stretch, see listing-fit.js) -- never silently mixed.
 //
 // Why real SQLite (node:sqlite), not a mocked D1 stub: the price-ceiling
 // clause changes db.js's bind() from a fixed 3-arg call to a dynamically-
@@ -158,17 +158,16 @@ async function main() {
   check("boundary: listing way over budget is EXCLUDED", !returnedKeys.includes("L_way_over"));
   check("exactly 4 of 6 boundary listings returned", returnedKeys.length === 4, JSON.stringify(returnedKeys));
 
-  // --- 6. Badge logic (mirrors listings-display.js's renderListingCard) ---
-  function computeBadge(listPrice, searchBudget) {
-    if (!Number.isFinite(searchBudget) || searchBudget <= 0 || !Number.isFinite(listPrice)) return null;
-    return listPrice <= searchBudget ? "within" : "stretch";
-  }
-  check("badge: at/under budget -> 'within'", computeBadge(850000, 900000) === "within");
-  check("badge: exactly at budget -> 'within' (<=, not <)", computeBadge(900000, 900000) === "within");
-  check("badge: above budget but within stretch -> 'stretch'", computeBadge(950000, 900000) === "stretch");
-  check("badge: exactly at ceiling -> 'stretch'", computeBadge(990000, 900000) === "stretch");
-  check("badge: no searchBudget -> null (no badge, not guessed)", computeBadge(850000, null) === null);
-  check("badge: invalid searchBudget (0) -> null", computeBadge(850000, 0) === null);
+  // --- 6. Badge logic (changed by product decision): the 10% price ceiling is
+  // still the hard wall, applied first; for a listing inside it the badge is
+  // now getFit()'s cost-vs-take-home tier, not a price-vs-budget comparison.
+  // The full behaviour (three tiers, ceiling, cards == detail page) is
+  // exercised for real in tests/listing_detail_page_test.js; here we pin the
+  // constants that must never drift apart. ---
+  const fitSrc = fs.readFileSync(path.join(__dirname, "..", "src", "listing-fit.js"), "utf8");
+  check("server-side STRETCH_MULTIPLIER is still 1.10 (the actual price wall)", /const STRETCH_MULTIPLIER = 1\.10;/.test(dbSrc));
+  check("client-side LD_STRETCH_MULTIPLIER is still 1.10 (same ceiling)", /const LD_STRETCH_MULTIPLIER = 1\.10;/.test(fitSrc));
+  check("ceiling is checked BEFORE getFit() (past it: no badge)", fitSrc.indexOf("price > b * LD_STRETCH_MULTIPLIER") > -1 && fitSrc.indexOf("price > b * LD_STRETCH_MULTIPLIER") < fitSrc.indexOf("getFit(computed.costs.total"));
 
   // --- 7. index.js: /listings route parses and validates the budget param ---
   check("index.js parses 'budget' query param", /searchParams\.get\("budget"\)/.test(indexSrc));
@@ -191,11 +190,10 @@ async function main() {
     /paramsObj\.budget = String\(searchBudget\)/.test(displaySrc)
   );
   check(
-    "renderListingCard computes an affordabilityBadge from searchBudget vs listing.listPrice",
-    /affordabilityBadge = listing\.listPrice <= searchBudget/.test(displaySrc)
+    "renderListingCard gets its badge from listingFit(listing, profile, searchBudget) (getFit tier)",
+    /listingFit\(listing, loadBuyerProfile\(\), searchBudget\)/.test(displaySrc)
   );
-  check("Within-budget badge label is '✅ Within Budget'", /label: "✅ Within Budget"/.test(displaySrc));
-  check("Stretch badge label is '⚠️ Stretch Option'", /label: "⚠️ Stretch Option"/.test(displaySrc));
+  check("the old price-vs-budget within/stretch comparison is gone", !/listing\.listPrice <= searchBudget/.test(displaySrc) && !/Within Budget|Stretch Option/.test(displaySrc));
 
   // --- 9. listings.html: reads budget from URL and passes it through ---
   const listingsHtmlSrc = fs.readFileSync(path.join(__dirname, "..", "listings.html"), "utf8");
@@ -206,11 +204,14 @@ async function main() {
   );
 
   // --- 10. CSS: badge classes exist in all 3 pages that load listings-display.js ---
-  for (const htmlFile of ["listings.html", "index.html", "calculator.html"]) {
+  for (const htmlFile of ["listings.html", "index.html", "calculator.html", "listing.html"]) {
     const htmlSrc = fs.readFileSync(path.join(__dirname, "..", htmlFile), "utf8");
     check(
-      `${htmlFile} defines .listing-badge-within and .listing-badge-stretch CSS`,
-      /\.listing-badge-within\{/.test(htmlSrc) && /\.listing-badge-stretch\{/.test(htmlSrc)
+      `${htmlFile} defines the three fit-tier badge classes (results-page colours)`,
+      /\.listing-fit-fg\{background:#E1F5EE;color:#085041\}/.test(htmlSrc) &&
+      /\.listing-fit-fo\{background:#E6F1FB;color:#0C447C\}/.test(htmlSrc) &&
+      /\.listing-fit-fs\{background:#FAEEDA;color:#633806\}/.test(htmlSrc) &&
+      !/\.listing-badge-within\{/.test(htmlSrc)
     );
   }
 

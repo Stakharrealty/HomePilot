@@ -6,7 +6,7 @@
 <title>Listing — HomePilot</title>
 <!--
   listing.html — one listing, in HomePilot's fixed order:
-    1. HomePilot view (what this home costs THIS buyer)
+    1. HomePilot view (what this home costs THIS buyer, and its fit tier)
     2. Property snapshot (the important facts)
     (3. Compare and 4. Full listing follow in later releases)
   then the brokerage line and PROPTX notices.
@@ -50,8 +50,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;bac
 .ld-facts li{font-size:15px;padding:6px 0;border-bottom:1px solid #f0f0f0}
 
 .listing-affordability-badge{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;vertical-align:middle;margin-left:6px}
-.listing-badge-within{background:#E3F5EC;color:#1D6B3F}
-.listing-badge-stretch{background:#FFF4E5;color:#8A5A00}
+.listing-fit-fg{background:#E1F5EE;color:#085041}
+.listing-fit-fo{background:#E6F1FB;color:#0C447C}
+.listing-fit-fs{background:#FAEEDA;color:#633806}
 
 .ld-compliance{margin-top:18px}
 .listing-brokerage{font-size:15px;color:#333;margin-top:2px}
@@ -73,12 +74,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;bac
 </div>
 
 <script src="src/config.js"></script>
+<script src="src/listing-page-globals.js"></script>
 <script src="src/cities.js"></script>
 <script src="src/mortgage.js"></script>
 <script src="src/utils.js"></script>
+<script src="src/i18n.js"></script>
+<script src="src/explainability.js"></script>
 <script src="src/ai.js"></script>
 <script src="src/buyer-profile.js"></script>
 <script src="src/listings-display.js"></script>
+<script src="src/listing-fit.js"></script>
 <script src="src/listing-detail.js"></script>
 </body>
 </html>

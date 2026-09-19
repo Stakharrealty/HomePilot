@@ -155,19 +155,19 @@ function renderListingCard(listing, searchBudget) {
   const cityEsc = escapeHtml(listing.city || "");
   const listingUrl = safeUrl(listing.listingUrl) || "";
 
-  // affordabilityBadge: "Within Budget" if this listing's price is at or
-  // under the exact number the buyer was shown; "Stretch Option" if it's
-  // above that but still within the enforced 10% ceiling (the only way a
-  // listing reaches this function above searchBudget at all, since the
-  // backend already excludes anything past the stretch range). Never
-  // computed when searchBudget is missing/invalid -- no badge, not a
+  // affordabilityBadge (product decision, Sandeep): the 10% price ceiling is
+  // enforced first and is unchanged (server-side in getListingsByCity, and
+  // again in listingFit()); for a listing inside it, the badge is the app's
+  // own getFit() tier -- monthly cost as a share of the buyer's net take-home:
+  // "Great fit" / "Good Fit" / "Stretch" -- the same tiers, colours and i18n
+  // labels as the results page, and identical to the badge on the detail page
+  // (both come from listingFit() in listing-fit.js). No buyer profile (a
+  // shared link, blocked storage) or no budget means no badge, never a
   // guessed one.
-  let affordabilityBadge = null;
-  if (Number.isFinite(searchBudget) && searchBudget > 0 && Number.isFinite(listing.listPrice)) {
-    affordabilityBadge = listing.listPrice <= searchBudget
-      ? { cls: "listing-badge-within", label: "✅ Within Budget" }
-      : { cls: "listing-badge-stretch", label: "⚠️ Stretch Option" };
-  }
+  const fit = typeof listingFit === "function" && typeof loadBuyerProfile === "function"
+    ? listingFit(listing, loadBuyerProfile(), searchBudget)
+    : null;
+  const affordabilityBadge = fit ? { cls: "listing-fit-" + fit.cls, label: fit.lbl } : null;
 
   // displayAddress is already consent-gated server-side (see
   // consentGatedAddress() in db.js) -- truthy here means CREA explicitly
@@ -229,7 +229,7 @@ function renderListingCard(listing, searchBudget) {
       <span class="listing-photo-counter" aria-live="polite">1/${photos.length}</span>` : ""}
     </div>
     <div class="listing-body">
-      <div class="listing-price">${fmtPrice(listing.listPrice)}${affordabilityBadge ? ` <span class="listing-affordability-badge ${affordabilityBadge.cls}">${affordabilityBadge.label}</span>` : ""}</div>
+      <div class="listing-price">${fmtPrice(listing.listPrice)}${affordabilityBadge ? ` <span class="listing-affordability-badge ${affordabilityBadge.cls}">${escapeHtml(affordabilityBadge.label)}</span>` : ""}</div>
       ${addressEsc ? `<div class="listing-address">${addressEsc}</div>` : ""}
       ${bedsBaths ? `<div class="listing-meta">${bedsBaths}</div>` : ""}
       <div class="listing-brokerage">Listed by ${brokerage}</div>
@@ -367,7 +367,7 @@ window.loadMoreListings = loadMoreListings;
 // card/context opened this view -- see openListingsWindow() below for how
 // it's chosen (card's own displayed price vs. overall buyPower). Threaded
 // through to fetchListings (server-side price ceiling) and every rendered
-// card (client-side "Within Budget"/"Stretch Option" badge).
+// card (client-side fit-tier badge from getFit(); see listing-fit.js).
 async function renderLiveListings(city, containerEl, propertyType, searchBudget) {
   const cityEsc = escapeHtml(city);
   const typeLabelPlural = TYPE_LABELS_PLURAL[propertyType] || "Homes";

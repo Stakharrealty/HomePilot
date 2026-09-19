@@ -13,106 +13,47 @@
 // (PropTx IDX Data Agreement Article 6.2(k)); a test enforces that this file
 // makes no such call.
 //
-// Depends on (loaded before it in listing.html): config.js, cities.js,
-// mortgage.js, utils.js, ai.js (escapeHtml), buyer-profile.js,
+// Depends on (loaded before it in listing.html): config.js,
+// listing-page-globals.js, cities.js, mortgage.js, utils.js, i18n.js,
+// explainability.js (getFit), ai.js (escapeHtml), buyer-profile.js,
 // listings-display.js (fmtPrice, safeUrl, factOrOmit, moneyFactOrEstimate,
-// renderIdxNotice, LISTINGS_API_BASE).
-
-// mortgage.js reads these two as globals (in the main app they live in
-// main.js). This page has no calculator, so it owns them and sets them from
-// the buyer's saved profile before running the engine.
-let customMortgageRate = DEFAULT_MORTGAGE_RATE_PCT / 100;
-let firstTimeBuyer = false;
-
-// Same 10% stretch tolerance the listings API and results page use (see
-// STRETCH_MULTIPLIER in the worker's db.js).
-const LD_STRETCH_MULTIPLIER = 1.10;
+// renderIdxNotice, LISTINGS_API_BASE), listing-fit.js (the cost + fit-tier
+// math shared with the listing card).
 
 const LD_TYPE_LABELS = { condo: "Condo", town: "Townhouse", semi: "Semi-detached", detached: "Detached" };
-
-// PropTx AssociationFee -> a monthly amount. A missing frequency is treated
-// as monthly (Ontario condo fees are monthly, and the listing card already
-// shows it that way); an unrecognised frequency returns null so the caller
-// falls back to the labelled estimate instead of guessing.
-function ldFeeToMonthly(fee, frequency) {
-  const n = Number(fee);
-  if (!Number.isFinite(n) || n <= 0) return null;
-  const f = String(frequency || "monthly").trim().toLowerCase();
-  if (f === "monthly") return n;
-  if (f === "annually" || f === "annual" || f === "yearly") return n / 12;
-  if (f === "quarterly") return n / 3;
-  if (f === "weekly") return (n * 52) / 12;
-  return null;
-}
-
-// The market record calcCosts()/qualifiesForProperty() need. Toronto rows
-// resolve through cityRegion ("Toronto - North York") because the app has
-// six Toronto cards and no plain "Toronto". A city the app has no record
-// for gets the same defaults qualifiesForProperty() already uses for an
-// unknown city, so the page still works -- its tax/insurance are estimates
-// either way.
-function ldResolveMarket(listing) {
-  const name = listing.cityRegion || listing.city;
-  const found = M.find((c) => c.n === name);
-  if (found) return { market: found, known: true };
-  return { market: { n: name, tx: 0.0105, ins: 100, avg: Number(listing.listPrice) || 0, min: 0, max: 0 }, known: false };
-}
-
-// The real PropTx figures, when present, that replace the engine's own
-// estimates. Condo fee only ever applies to condos.
-function ldOverrides(listing) {
-  const o = {};
-  const tax = Number(listing.taxAnnualAmount);
-  if (Number.isFinite(tax) && tax > 0) o.taxAnnual = tax;
-  if (listing.propertyType === "condo") {
-    const fee = ldFeeToMonthly(listing.associationFee, listing.associationFeeFrequency);
-    if (fee) o.condoFeeMonthly = fee;
-  }
-  return o;
-}
 
 // Section 1's numbers. `profile` is the validated buyer profile (or null);
 // `budget` is the price the buyer was shown on the card that led here (the
 // same number the listing badges compare against), or null.
 // Returns null when there is nothing to compute (no valid price).
+//
+// The verdict badge is decided in listing-fit.js -- the 10% price ceiling
+// first (past it: no badge), then the app's own getFit() for the tier -- so
+// this page and the listing card always show the same badge.
 function buildHomePilotView(listing, profile, budget) {
   const price = Number(listing.listPrice);
   if (!(price > 0)) return null;
   const type = listing.propertyType || null;
-  const { market, known } = ldResolveMarket(listing);
-  const overrides = ldOverrides(listing);
   const view = {
     price,
     type,
-    marketKnown: known,
-    taxIsReal: overrides.taxAnnual !== undefined,
-    feeIsReal: overrides.condoFeeMonthly !== undefined,
+    marketKnown: ldResolveMarket(listing).known,
+    taxIsReal: ldOverrides(listing).taxAnnual !== undefined,
+    feeIsReal: ldOverrides(listing).condoFeeMonthly !== undefined,
     isCondo: type === "condo",
     costs: null,
     net: null,
     remaining: null,
-    verdict: null,
+    verdict: null,      // "fg" | "fo" | "fs" (getFit's cls) or null
+    verdictLabel: null, // getFit's label, from i18n
   };
-  if (!profile) return view;
-
-  customMortgageRate = profile.mortgageRate || DEFAULT_MORTGAGE_RATE_PCT / 100;
-  firstTimeBuyer = profile.firstTimeBuyer === true;
-  view.costs = calcCosts(market, price, profile.familySize, profile.downPayment, type || "detached", overrides);
-  const net = profile.netMonthlyIncome > 0
-    ? profile.netMonthlyIncome
-    : estimateOntarioNetAnnual(profile.grossMonthlyIncome * 12) / 12;
-  view.net = net;
-  view.remaining = net - view.costs.total;
-
-  // Verdict uses the SAME rule and the SAME badge copy as the listing card:
-  // at or under the budget the buyer was shown = Within Budget; above it but
-  // inside the 10% stretch range = Stretch Option. Anything past the stretch
-  // range gets no badge (the remaining-income line still tells the truth).
-  const b = Number(budget);
-  if (Number.isFinite(b) && b > 0) {
-    if (price <= b) view.verdict = "within";
-    else if (price <= b * LD_STRETCH_MULTIPLIER) view.verdict = "stretch";
-  }
+  const computed = profile ? computeListingCosts(listing, profile) : null;
+  if (!computed) return view;
+  view.costs = computed.costs;
+  view.net = computed.net;
+  view.remaining = computed.net - computed.costs.total;
+  const fit = ldFitFor(listing, computed, profile, budget);
+  if (fit) { view.verdict = fit.cls; view.verdictLabel = fit.lbl; }
   return view;
 }
 
@@ -152,11 +93,6 @@ function snapshotFacts(listing) {
   ].filter(Boolean);
 }
 
-const LD_VERDICT = {
-  within: { cls: "listing-badge-within", label: "✅ Within Budget" },
-  stretch: { cls: "listing-badge-stretch", label: "⚠️ Stretch Option" },
-};
-
 function ldRow(label, amount, cls) {
   return `<div class="ld-row${cls ? " " + cls : ""}"><span>${label}</span><span>${amount}</span></div>`;
 }
@@ -170,7 +106,7 @@ function renderHomePilotSection(view) {
     return sec;
   }
   const badge = view.verdict
-    ? ` <span class="listing-affordability-badge ${LD_VERDICT[view.verdict].cls}">${LD_VERDICT[view.verdict].label}</span>`
+    ? ` <span class="listing-affordability-badge listing-fit-${view.verdict}">${escapeHtml(view.verdictLabel)}</span>`
     : "";
   let html = `<h2>HomePilot view</h2><div class="ld-price">${escapeHtml(fmtPrice(view.price))}${badge}</div>`;
   if (!view.costs) {

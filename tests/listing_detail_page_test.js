@@ -111,8 +111,19 @@ async function openPage({ listing, status = 200, profile, budget, search, fetchT
     !/insights|anthropic|haiku|claude|openai|gpt|XMLHttpRequest|sendBeacon|analytics/i.test(detailSrc.replace(/\/\/[^\n]*|\/\*[\s\S]*?\*\//g, "") + profileSrc.replace(/\/\/[^\n]*/g, "")));
   check("listing-detail.js makes exactly one network call, to the listings API", (detailSrc.match(/\bfetch\(/g) || []).length === 1 && /fetch\(`\$\{LISTINGS_API_BASE\}\/listing\?key=/.test(detailSrc));
   const scripts = [...pageSrc.matchAll(/<script src="([^"]+)"/g)].map((x) => x[1]);
-  check("listing.html loads only the expected scripts (no leadform / AI / insights modules)",
-    JSON.stringify(scripts) === JSON.stringify(["src/config.js", "src/cities.js", "src/mortgage.js", "src/utils.js", "src/ai.js", "src/buyer-profile.js", "src/listings-display.js", "src/listing-detail.js"]), scripts.join());
+  check("listing.html loads only the expected scripts, in order (no leadform / AI / insights modules)",
+    JSON.stringify(scripts) === JSON.stringify(["src/config.js", "src/listing-page-globals.js", "src/cities.js", "src/mortgage.js", "src/utils.js", "src/i18n.js", "src/explainability.js", "src/ai.js", "src/buyer-profile.js", "src/listings-display.js", "src/listing-fit.js", "src/listing-detail.js"]), scripts.join());
+  const scriptsOf = (f) => [...read(f).matchAll(/<script src="([^"]+)"/g)].map((x) => x[1]);
+  const before = (arr, a, b) => arr.indexOf(a) > -1 && arr.indexOf(b) > -1 && arr.indexOf(a) < arr.indexOf(b);
+  check("listings.html: globals file after config.js and before mortgage/explainability; fit + profile before listings-display",
+    ["src/config.js", "src/listing-page-globals.js", "src/mortgage.js", "src/explainability.js"].every((x, k, a) => k === 0 || before(scriptsOf("listings.html"), a[k - 1], x)) &&
+    before(scriptsOf("listings.html"), "src/listing-fit.js", "src/listings-display.js") && before(scriptsOf("listings.html"), "src/buyer-profile.js", "src/listings-display.js") &&
+    ["src/cities.js", "src/utils.js", "src/i18n.js"].every((x) => scriptsOf("listings.html").includes(x)));
+  check("index.html and calculator.html (which own the engine globals in main.js) load listing-fit + buyer-profile before listings-display, and NEVER the globals file",
+    ["index.html", "calculator.html"].every((f) => !scriptsOf(f).includes("src/listing-page-globals.js") && before(scriptsOf(f), "src/buyer-profile.js", "src/listings-display.js") && before(scriptsOf(f), "src/listing-fit.js", "src/listings-display.js")));
+  const renderSrc = read("src/render.js");
+  check("fit-tier badge colours are the results page's own (render.js fitColor/fitBg)", ["#085041", "#E1F5EE", "#0C447C", "#E6F1FB", "#633806", "#FAEEDA"].every((c) => renderSrc.includes(c)));
+  check("the 10% ceiling constants are untouched (server 1.10 and client 1.10)", /const STRETCH_MULTIPLIER = 1\.10;/.test(read("workers/homepilot-listings/src/db.js")) && /const LD_STRETCH_MULTIPLIER = 1\.10;/.test(read("src/listing-fit.js")));
   check("deploy.yml copies listing.html into the deploy folder", /cp listing\.html deploy\//.test(read(".github/workflows/deploy.yml")));
   const display = read("src/listings-display.js");
   const ow = display.slice(display.indexOf("function openListingsWindow("));
@@ -140,8 +151,12 @@ async function openPage({ listing, status = 200, profile, budget, search, fetchT
     [["Mortgage", exp.mort], ["Property tax", exp.tax], ["Insurance", exp.ins], ["Utilities", exp.util], ["Maintenance", exp.maint], ["Total per month", exp.total]].every(([l, v]) => has(t1, l + fmt(v))), t1);
   check("(A) real tax is NOT labelled estimated; detached shows no condo fee", !has(t1, "Property tax (estimated)") && !has(t1, "Condo fee"));
   check("(A) take-home and remaining income = net income minus total", has(t1, "Estimated take-home income" + fmt(9800) + "/mo") && has(t1, "Remaining after this home" + fmt(9800 - exp.total) + "/mo"), t1);
+  const LBL = { fg: A.w.eval("T.en.fit_great_lbl"), fo: A.w.eval("T.en.fit_good_lbl"), fs: A.w.eval("T.en.fit_stretch_lbl") };
+  const tierFor = (ratio) => (ratio < 0.35 ? "fg" : ratio < 0.45 ? "fo" : "fs");
   const badge = sec1.querySelector(".listing-affordability-badge");
-  check("(A) verdict reuses the card's Within Budget badge class and copy", !!badge && badge.classList.contains("listing-badge-within") && badge.textContent === "✅ Within Budget");
+  const tierA = tierFor(exp.total / 9800);
+  check("(A) verdict is getFit tier for cost vs take-home, with the results-page colour class",
+    !!badge && badge.classList.contains("listing-fit-" + tierA) && badge.textContent === LBL[tierA], badge && badge.className + " | " + badge.textContent);
   const factsText = [...sec2.querySelectorAll("li")].map((li) => li.textContent);
   check("(A) snapshot in priority order: Beds, Baths, Property type, Parking, Basement, Year built, Property tax, Heating",
     JSON.stringify(factsText) === JSON.stringify(["Beds: 4", "Baths: 3", "Property type: Detached", "Parking: 2", "Basement: Finished", "Year built: 2005", "Property tax: " + fmt(4200) + "/yr (2025)", "Heating: Forced Air"]), JSON.stringify(factsText));
@@ -175,14 +190,57 @@ async function openPage({ listing, status = 200, profile, budget, search, fetchT
   const C4 = await openPage({ listing: { ...CONDO, associationFee: 600, associationFeeFrequency: "Fortnightly" }, profile: PROFILE, budget: 600000 });
   check("(C4) an unrecognised fee frequency is not guessed: falls back to the labelled estimate", has(C4.text, "Condo fee (estimated)"));
 
-  // =============== 6. verdicts ===============
-  const S = await openPage({ listing: BASE, profile: PROFILE, budget: 800000 });
-  const sb = S.doc.querySelector("#ldHomePilot .listing-affordability-badge");
-  check("(D1) over the shown budget but inside the 10% range -> Stretch Option badge", !!sb && sb.classList.contains("listing-badge-stretch") && sb.textContent === "⚠️ Stretch Option");
+  // =============== 6. verdicts: 10% ceiling first, then getFit() tier ===============
+  check("(D0) labels come from i18n: 'Great fit' / 'Good Fit' / 'Stretch'", LBL.fg === "Great fit" && LBL.fo === "Good Fit" && LBL.fs === "Stretch", JSON.stringify(LBL));
+  const tierPages = {};
+  for (const [want, ratio] of [["fg", 0.30], ["fo", 0.40], ["fs", 0.50]]) {
+    const net = exp.total / ratio;
+    const pg = await openPage({ listing: BASE, profile: { ...PROFILE, netMonthlyIncome: net }, budget: 900000 });
+    tierPages[want] = { pg, net };
+    const tb = pg.doc.querySelector("#ldHomePilot .listing-affordability-badge");
+    check(`(D1-${want}) housing cost at ${Math.round(ratio * 100)}% of take-home -> "${LBL[want]}" badge (getFit tier, results-page colours)`,
+      !!tb && tb.classList.contains("listing-fit-" + want) && tb.textContent === LBL[want], tb && tb.className + " | " + tb.textContent);
+  }
+  const inside = await openPage({ listing: BASE, profile: PROFILE, budget: 800000 });
+  const ib = inside.doc.querySelector("#ldHomePilot .listing-affordability-badge");
+  check("(D2) over the shown budget but inside the 10% ceiling -> a fit tier, no longer the old 'Stretch Option'",
+    !!ib && /listing-fit-f[gos]/.test(ib.className) && !/Stretch Option|Within Budget/.test(inside.text));
+  const edgeIn = await openPage({ listing: BASE, profile: PROFILE, budget: 772728 }); // 772728 x 1.10 = 850000.8 >= 850000
+  const edgeOut = await openPage({ listing: BASE, profile: PROFILE, budget: 772727 }); // 772727 x 1.10 = 849999.7 <  850000
+  check("(D3) exactly inside the 10% ceiling -> badge", !!edgeIn.doc.querySelector("#ldHomePilot .listing-affordability-badge"));
+  check("(D3) $1 past the 10% ceiling -> NO badge (ceiling unchanged), costs and remaining income still shown",
+    !edgeOut.doc.querySelector("#ldHomePilot .listing-affordability-badge") && has(edgeOut.text, "Total per month") && has(edgeOut.text, "Remaining after this home"));
   const O = await openPage({ listing: BASE, profile: PROFILE, budget: 500000 });
-  check("(D2) past the stretch range -> no badge, but the remaining-income line is still shown", !O.doc.querySelector("#ldHomePilot .listing-affordability-badge") && has(O.text, "Remaining after this home"));
+  check("(D4) far past the ceiling -> no badge", !O.doc.querySelector("#ldHomePilot .listing-affordability-badge") && has(O.text, "Remaining after this home"));
   const NB = await openPage({ listing: BASE, profile: PROFILE });
-  check("(D3) no budget in the URL -> no badge, costs still shown", !NB.doc.querySelector("#ldHomePilot .listing-affordability-badge") && has(NB.text, "Total per month"));
+  check("(D5) no budget in the URL -> no badge, costs still shown", !NB.doc.querySelector("#ldHomePilot .listing-affordability-badge") && has(NB.text, "Total per month"));
+
+  // ---- the listing CARD (listings.html) must show the identical badge
+  const cvc = new VirtualConsole(); const cerrors = []; cvc.on("jsdomError", (e) => { if (!/maps-key.js/.test(e.message)) cerrors.push(e.message); }); // maps-key.js is generated at deploy time; the page handles its absence
+  const cardDom = await JSDOM.fromURL("http://localhost:8843/listings.html?city=Mississauga", {
+    runScripts: "dangerously", resources: "usable", virtualConsole: cvc, pretendToBeVisual: true,
+    beforeParse(w) { w.fetch = async () => ({ ok: true, status: 200, json: async () => ({ listings: [], count: 0 }) }); },
+  });
+  await new Promise((r) => setTimeout(r, 1500));
+  const cw = cardDom.window;
+  check("(K0) listings.html loads with the engine scripts and no script errors", cerrors.length === 0 && typeof cw.listingFit === "function", cerrors.join(" | "));
+  const cardBadge = (profile, budget, listing = BASE) => {
+    cw.sessionStorage.clear();
+    if (profile) cw.sessionStorage.setItem("hp_buyer_profile_v1", JSON.stringify(profile));
+    const b = cw.renderListingCard(listing, budget).querySelector(".listing-affordability-badge");
+    return b ? { cls: b.className, text: b.textContent } : null;
+  };
+  for (const want of ["fg", "fo", "fs"]) {
+    const { pg, net } = tierPages[want];
+    const detail = pg.doc.querySelector("#ldHomePilot .listing-affordability-badge");
+    const card = cardBadge({ ...PROFILE, netMonthlyIncome: net }, 900000);
+    check(`(K1-${want}) card badge is identical to the detail-page badge ("${LBL[want]}")`,
+      !!card && !!detail && card.text === detail.textContent && card.cls.includes("listing-fit-" + want) && detail.className.includes("listing-fit-" + want), JSON.stringify(card));
+  }
+  check("(K2) card: no buyer profile -> no badge (never a guessed one)", cardBadge(null, 900000) === null);
+  check("(K3) card: no budget -> no badge", cardBadge(PROFILE, undefined) === null && cardBadge(PROFILE, 0) === null);
+  check("(K4) card: past the 10% ceiling -> no badge; exactly inside -> badge", cardBadge(PROFILE, 772727) === null && cardBadge(PROFILE, 772728) !== null);
+  check("(K5) card badge label is escaped text from i18n", cardBadge(PROFILE, 900000).text === LBL[tierFor(exp.total / 9800)]);
 
   // =============== 7. no profile / bad profile ===============
   const N = await openPage({ listing: BASE });
@@ -240,6 +298,14 @@ async function openPage({ listing, status = 200, profile, budget, search, fetchT
   check("(J4) no budget -> link without a budget param", noBudget.querySelector("a.listing-detail-link").getAttribute("href") === "listing.html?key=W124");
   const evil = w.renderListingCard({ listingKey: 'x"><script>alert(1)</script>', listPrice: 1, city: "X", brokerageName: "B", photos: [] }, 1);
   check("(J5) an unsafe listing key produces no link at all", !evil.querySelector("a.listing-detail-link"));
+
+  // ---- computing a card's badge must not disturb the main app's live state
+  w.eval("netMonthlyIncome = 1234; customMortgageRate = 0.0777; firstTimeBuyer = true;");
+  w.sessionStorage.setItem("hp_buyer_profile_v1", JSON.stringify(PROFILE)); // profile rate 4.19% / not first-time: differs from the live values
+  const idxBadge = w.renderListingCard(BASE, 900000).querySelector(".listing-affordability-badge");
+  check("(L1) index.html cards get the fit-tier badge too", !!idxBadge && /listing-fit-f[gos]/.test(idxBadge.className), idxBadge && idxBadge.className);
+  check("(L2) computing it leaves the live app's rate / net income / first-time-buyer values exactly as they were",
+    w.eval("netMonthlyIncome") === 1234 && w.eval("customMortgageRate") === 0.0777 && w.eval("firstTimeBuyer") === true, w.eval("[netMonthlyIncome, customMortgageRate, firstTimeBuyer]").join());
 
   console.log(`=== RESULT: ${passed} passed, ${failed} failed ===`);
   process.exit(failed ? 1 : 0);
