@@ -3,7 +3,7 @@
 -- mls_number: PropTx's public listing ID (RESO ListingId, e.g. "W1234567"),
 --   distinct from listing_key (ListingKey, the internal record ID used in
 --   ?key= URLs).
--- listed_date: when the listing went on the market (RESO ListingContractDate).
+-- listed_date: when the listing went on the market (PropTx OriginalEntryTimestamp; ListingContractDate is always null in the IDX feed).
 --
 -- Purely additive and nullable. Existing rows stay NULL until the next ingest
 -- refresh upserts them; the card omits the MLS segment / listed date when NULL.

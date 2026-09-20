@@ -133,11 +133,22 @@ function moneyFactOrEstimate(label, realValue, estimateValue, formatFn) {
   return null;
 }
 
-// Listed date for the card's facts row. PropTx supplies an ISO date or
-// timestamp; only the calendar date is used (no timezone shift), rendered
-// like "Sep 12, 2026". Anything unparseable is treated as absent.
+// Listed date for the card's facts row, rendered like "Sep 12, 2026".
+// PropTx's OriginalEntryTimestamp is UTC ("2026-01-08T17:33:04Z"), so a
+// timestamp is converted to the Toronto calendar day (a late-evening entry
+// must not show as the next day). A bare date is used as-is. Anything
+// unparseable is treated as absent.
 function formatListedDate(value) {
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value == null ? "" : value).trim());
+  const str = String(value == null ? "" : value).trim();
+  if (/^\d{4}-\d{2}-\d{2}[T ].*(Z|[+-]\d{2}:?\d{2})$/i.test(str)) {
+    const t = new Date(str);
+    if (!Number.isNaN(t.getTime())) {
+      const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Toronto", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(t);
+      const p = Object.fromEntries(parts.map((x) => [x.type, x.value]));
+      return formatListedDate(`${p.year}-${p.month}-${p.day}`);
+    }
+  }
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(str);
   if (!m) return null;
   const mon = Number(m[2]), day = Number(m[3]);
   if (mon < 1 || mon > 12 || day < 1 || day > 31) return null;

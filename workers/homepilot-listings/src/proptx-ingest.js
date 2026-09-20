@@ -70,9 +70,12 @@ const PROPERTY_SELECT_FIELDS = [
   "HeatType", "Cooling", "Basement", "GarageType",
   "VirtualTourURLBranded", "ListOfficeName", "ListAOR",
   "ModificationTimestamp",
-  // MLS number + listed date (migration 0004). RESO names -- must be confirmed
-  // against PropTx $metadata: an unknown field in $select makes PropTx answer 400.
-  "ListingId", "ListingContractDate",
+  // MLS number + listed date (migration 0004). Confirmed live 2026-09-20 by
+  // probing PropTx: ListingId and ListingContractDate are valid but always
+  // null in the IDX feed; OriginalEntryTimestamp (when the listing was
+  // entered) is populated, so it is the listed date. An unknown field in
+  // $select makes PropTx answer 400.
+  "ListingId", "OriginalEntryTimestamp",
 ].join(",");
 
 /**
@@ -199,7 +202,7 @@ export function mapPropertyToRow(p) {
     list_aor: p.ListAOR ?? null,
     modification_timestamp: p.ModificationTimestamp ?? null,
     mls_number: p.ListingId ?? null,
-    listed_date: p.ListingContractDate ?? null,
+    listed_date: p.OriginalEntryTimestamp ?? null,
     photos: JSON.stringify(photos),
     photos_full: JSON.stringify(photos),
     brokerage_name: p.ListOfficeName ?? null,

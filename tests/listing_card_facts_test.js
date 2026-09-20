@@ -27,10 +27,10 @@ const read = (f) => fs.readFileSync(path.join(ROOT, f), "utf8");
 
   const ingest = await import(pathToFileURL(path.join(SRC, "proptx-ingest.js")).href);
   const ingestSrc = read("workers/homepilot-listings/src/proptx-ingest.js");
-  const selectBlock = (ingestSrc.match(/PROPERTY_SELECT_FIELDS = \[([\s\S]*?)\]\.join/) || [])[1] || "";
-  check("ingest $select requests ListingId and ListingContractDate, keeps ListingKey", /"ListingId"/.test(selectBlock) && /"ListingContractDate"/.test(selectBlock) && /"ListingKey"/.test(selectBlock));
-  const withBoth = ingest.mapPropertyToRow({ ListingKey: "123", ListingId: "W1234567", ListingContractDate: "2026-09-12" });
-  check("mapPropertyToRow stores mls_number from ListingId (not ListingKey) and listed_date", withBoth.mls_number === "W1234567" && withBoth.listing_key === "123" && withBoth.listed_date === "2026-09-12");
+  const selectBlock = ((ingestSrc.match(/PROPERTY_SELECT_FIELDS = \[([\s\S]*?)\]\.join/) || [])[1] || "").replace(/\/\/[^\n]*/g, "");
+  check("ingest $select requests ListingId and OriginalEntryTimestamp (ListingContractDate is always null in the feed), keeps ListingKey", /"ListingId"/.test(selectBlock) && /"OriginalEntryTimestamp"/.test(selectBlock) && !/ListingContractDate/.test(selectBlock) && /"ListingKey"/.test(selectBlock));
+  const withBoth = ingest.mapPropertyToRow({ ListingKey: "123", ListingId: "W1234567", OriginalEntryTimestamp: "2026-09-12T14:00:00Z" });
+  check("mapPropertyToRow stores mls_number from ListingId (not ListingKey) and listed_date", withBoth.mls_number === "W1234567" && withBoth.listing_key === "123" && withBoth.listed_date === "2026-09-12T14:00:00Z");
   const without = ingest.mapPropertyToRow({ ListingKey: "124" });
   check("mapPropertyToRow: absent fields are null, never guessed", without.mls_number === null && without.listed_date === null);
 
@@ -80,7 +80,8 @@ const read = (f) => fs.readFileSync(path.join(ROOT, f), "utf8");
   check("zero beds (studio) is a real value, not omitted", txt(render({ bedrooms: 0, bathrooms: 1 }), ".listing-facts-row") === "Beds: 0 · Baths: 1");
   const none = render({});
   check("nothing stored: no facts row at all (no empty line, no N/A)", !none.querySelector(".listing-facts-row") && !/N\/A|null|undefined/.test(none.textContent.replace("Brokerage not available", "")));
-  check("ISO timestamp uses the calendar date only (no timezone shift)", txt(render({ listedDate: "2026-09-12T00:00:00Z" }), ".listing-facts-row") === "Listed: Sep 12, 2026" && txt(render({ listedDate: "2026-12-31T23:59:59-05:00" }), ".listing-facts-row") === "Listed: Dec 31, 2026");
+  check("UTC timestamp shows the Toronto calendar day (real PropTx sample 2026-02-01T04:00:48Z was Jan 31, 11pm in Toronto)", txt(render({ listedDate: "2026-02-01T04:00:48Z" }), ".listing-facts-row") === "Listed: Jan 31, 2026" && txt(render({ listedDate: "2026-01-08T17:33:04Z" }), ".listing-facts-row") === "Listed: Jan 8, 2026" && txt(render({ listedDate: "2026-07-15T03:30:00Z" }), ".listing-facts-row") === "Listed: Jul 14, 2026" && txt(render({ listedDate: "2026-12-31T23:59:59-05:00" }), ".listing-facts-row") === "Listed: Dec 31, 2026");
+  check("a bare date is used as-is", txt(render({ listedDate: "2026-09-12" }), ".listing-facts-row") === "Listed: Sep 12, 2026");
   check("an unparseable date is omitted, not shown raw", !render({ listedDate: "yesterday" }).querySelector(".listing-facts-row") && !render({ listedDate: "2026-13-40" }).querySelector(".listing-facts-row"));
   check("square footage is not on the card", !/sq|sqft|square/i.test(full.textContent));
 
