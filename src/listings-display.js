@@ -133,26 +133,48 @@ function moneyFactOrEstimate(label, realValue, estimateValue, formatFn) {
   return null;
 }
 
-// Listed date for the card's facts row, rendered like "Sep 12, 2026".
+// Listed date -> { y, m, d } (the Toronto calendar day), or null.
 // PropTx's OriginalEntryTimestamp is UTC ("2026-01-08T17:33:04Z"), so a
 // timestamp is converted to the Toronto calendar day (a late-evening entry
 // must not show as the next day). A bare date is used as-is. Anything
 // unparseable is treated as absent.
-function formatListedDate(value) {
+function listedDateParts(value) {
   const str = String(value == null ? "" : value).trim();
+  let ymd = str;
   if (/^\d{4}-\d{2}-\d{2}[T ].*(Z|[+-]\d{2}:?\d{2})$/i.test(str)) {
     const t = new Date(str);
-    if (!Number.isNaN(t.getTime())) {
-      const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Toronto", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(t);
-      const p = Object.fromEntries(parts.map((x) => [x.type, x.value]));
-      return formatListedDate(`${p.year}-${p.month}-${p.day}`);
-    }
+    if (Number.isNaN(t.getTime())) return null;
+    const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Toronto", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(t);
+    const p = Object.fromEntries(parts.map((x) => [x.type, x.value]));
+    ymd = `${p.year}-${p.month}-${p.day}`;
   }
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(str);
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(ymd);
   if (!m) return null;
-  const mon = Number(m[2]), day = Number(m[3]);
+  const y = Number(m[1]), mon = Number(m[2]), day = Number(m[3]);
   if (mon < 1 || mon > 12 || day < 1 || day > 31) return null;
-  return `${["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][mon - 1]} ${day}, ${m[1]}`;
+  return { y, m: mon, d: day };
+}
+
+// Listed date for the card, rendered like "Sep 12, 2026".
+function formatListedDate(value) {
+  const p = listedDateParts(value);
+  if (!p) return null;
+  return `${["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][p.m - 1]} ${p.d}, ${p.y}`;
+}
+
+// How long ago the listing was listed, computed live from the listed date at
+// render time: "Listed Today" (0 days, or a date in the future from timezone
+// edges), "1 Day Ago", "N Days Ago". Whole Toronto calendar days, so it
+// matches the date shown. null when there is no listed date -- never invented.
+// `now` is injectable for tests.
+function listedDaysAgoText(value, now = new Date()) {
+  const p = listedDateParts(value);
+  if (!p) return null;
+  const t = Object.fromEntries(new Intl.DateTimeFormat("en-CA", { timeZone: "America/Toronto", year: "numeric", month: "2-digit", day: "2-digit" })
+    .formatToParts(now).map((x) => [x.type, x.value]));
+  const days = Math.max(0, Math.round((Date.UTC(Number(t.year), Number(t.month) - 1, Number(t.day)) - Date.UTC(p.y, p.m - 1, p.d)) / 86400000));
+  if (days === 0) return "Listed Today";
+  return days === 1 ? "1 Day Ago" : `${days} Days Ago`;
 }
 
 // searchBudget (added 2026-07-29): the same recommended-price number the
@@ -170,15 +192,18 @@ function renderListingCard(listing, searchBudget) {
   // being viewed is ever downloaded -- never the whole set up front.
   const photos = (Array.isArray(listing.photos) ? listing.photos : []).map(safeUrl).filter(Boolean);
   const photo = photos[0] || "";
-  // Permanent one-line facts row under the thumbnail: beds, baths, listed date.
-  // factOrOmit drops any that aren't stored (never "N/A"). Everything else
-  // (garage, basement, tax, fee, tour, description ...) lives only on
-  // listing-full.html now -- the card has no expandable panel.
-  const factsRow = [
+  // Card facts. factOrOmit drops any that aren't stored (never "N/A").
+  // Everything else (garage, basement, tax, fee, tour, description ...) lives
+  // only on listing-full.html -- the card has no expandable panel.
+  //   - bedsBathsRow: its own row under the address.
+  //   - listedDateFact + listedDateAgo: top-right, beside the price; the age
+  //     ("16 Days Ago") is computed live from the listed date on every render.
+  const bedsBathsRow = [
     factOrOmit("Beds", listing.bedrooms),
     factOrOmit("Baths", listing.bathrooms),
-    factOrOmit("Listed", formatListedDate(listing.listedDate)),
   ].filter(Boolean).join(" · ");
+  const listedDateFact = factOrOmit("Listed", formatListedDate(listing.listedDate));
+  const listedDateAgo = listedDateFact ? listedDaysAgoText(listing.listedDate) : null;
   // MLS segment is omitted until the row has been backfilled by an ingest.
   const mlsText = listing.mlsNumber == null ? "" : String(listing.mlsNumber).trim();
   const mlsFact = mlsText ? escapeHtml(mlsText) : null;
@@ -230,9 +255,17 @@ function renderListingCard(listing, searchBudget) {
       <span class="listing-photo-counter" aria-live="polite">1/${photos.length}</span>` : ""}
     </div>
     <div class="listing-body">
-      ${factsRow ? `<div class="listing-meta listing-facts-row">${factsRow}</div>` : ""}
-      <div class="listing-price">${fmtPrice(listing.listPrice)}${affordabilityBadge ? ` <span class="listing-affordability-badge ${affordabilityBadge.cls}">${escapeHtml(affordabilityBadge.label)}</span>` : ""}</div>
+      <div class="listing-price-row">
+        <span class="listing-price">${fmtPrice(listing.listPrice)}${affordabilityBadge ? ` <span class="listing-affordability-badge ${affordabilityBadge.cls}">${escapeHtml(affordabilityBadge.label)}</span>` : ""}</span>
+        ${listedDateFact ? `
+          <span class="listing-listed-date-group">
+            <span class="listing-listed-date">${listedDateFact}</span>
+            ${listedDateAgo ? `<span class="listing-listed-date-ago">${listedDateAgo}</span>` : ""}
+          </span>
+        ` : ""}
+      </div>
       ${addressEsc ? `<div class="listing-address">${addressEsc}</div>` : ""}
+      ${bedsBathsRow ? `<div class="listing-meta listing-facts-row">${bedsBathsRow}</div>` : ""}
       ${detailHref || fullHref ? `<div class="listing-links">
         ${detailHref ? `<a class="listing-detail-link" href="${escapeHtml(detailHref)}">View full details &rarr;</a>` : ""}
         ${fullHref ? `<a class="listing-source-link" href="${escapeHtml(fullHref)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">View Details</a>` : ""}

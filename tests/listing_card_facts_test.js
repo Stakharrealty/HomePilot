@@ -1,5 +1,5 @@
-// Listing card redesign: permanent facts row (beds, baths, listed date) under
-// the thumbnail, MLS® number + brokerage on the last line, no expandable
+// Listing card redesign: price row (price left, listed date + "N Days Ago" right),
+// then address, then beds/baths, MLS number + brokerage on the last line, no expandable
 // panel; plus the mls_number / listed_date plumbing (migration, ingest
 // $select + mapper, db.js SELECT + mapping).
 //
@@ -60,29 +60,74 @@ const read = (f) => fs.readFileSync(path.join(ROOT, f), "utf8");
   const txt = (el, sel) => { const n = el.querySelector(sel); return n ? n.textContent : null; };
 
   const full = render({ bedrooms: 3, bathrooms: 2, listedDate: "2026-09-12", mlsNumber: "W1234567", brokerageName: "RE/MAX Realty Specialists Inc." });
-  check("facts row: beds, baths and listed date on one line", txt(full, ".listing-facts-row") === "Beds: 3 · Baths: 2 · Listed: Sep 12, 2026", txt(full, ".listing-facts-row"));
+  check("beds/baths row holds only beds and baths (the date moved up beside the price)", txt(full, ".listing-facts-row") === "Beds: 3 · Baths: 2", txt(full, ".listing-facts-row"));
   check("bottom line: MLS number + brokerage together on one line (no 'MLS®' label)", txt(full, ".listing-brokerage") === "W1234567 · Listed by RE/MAX Realty Specialists Inc.", txt(full, ".listing-brokerage"));
   const body = full.querySelector(".listing-body");
   const kids = [...body.children];
-  check("order: facts row first (under the thumbnail, above price)", kids[0].classList.contains("listing-facts-row") && kids[1].classList.contains("listing-price"));
-  check("order: the MLS + brokerage line is the last element on the card", kids[kids.length - 1].classList.contains("listing-brokerage"));
+  check("order: price row, then address (when present), then beds/baths, ..., MLS + brokerage last",
+    kids[0].classList.contains("listing-price-row") && kids[1].classList.contains("listing-facts-row") && kids[kids.length - 1].classList.contains("listing-brokerage"), kids.map((k) => k.className).join(" | "));
+  const addrCard = render({ displayAddress: "12 Example St", bedrooms: 2, bathrooms: 1, brokerageName: "B" });
+  check("order with an address: price row -> address -> beds/baths -> pill links -> MLS/brokerage",
+    [...addrCard.querySelector(".listing-body").children].map((k) => k.className.split(" ")[0]).join(",") === "listing-price-row,listing-address,listing-meta,listing-links,listing-brokerage");
+  check("price row: price on the left, listed date group on the right", (() => {
+    const row = full.querySelector(".listing-price-row");
+    return row.children[0].classList.contains("listing-price") && row.children[1].classList.contains("listing-listed-date-group");
+  })());
+  check("listed date group: 'Listed: <date>' on top, age line below it", (() => {
+    const g = full.querySelector(".listing-listed-date-group");
+    return g.children[0].className === "listing-listed-date" && g.children[0].textContent === "Listed: Sep 12, 2026" && g.children[1].className === "listing-listed-date-ago";
+  })());
+  check("no beds/baths and no listed date on the price row's left side", !/Beds|Baths|Listed/.test(txt(full, ".listing-price")));
+  check("no MLS# on the price/facts lines", !/MLS/.test(txt(full, ".listing-facts-row")) && !/MLS/.test(txt(full, ".listing-price-row")));
   check("brokerage line keeps the .listing-brokerage class (13px, same as .listing-meta -- Article 6.3(c))",
     kids[kids.length - 1].className === "listing-brokerage" && /\.listing-brokerage\{font-size:13px/.test(read("listings.html")) && /\.listing-meta\{font-size:13px/.test(read("listings.html")));
-  check("no MLS# on the price/facts lines", !/MLS/.test(txt(full, ".listing-facts-row")));
 
   check("MLS absent: line is exactly 'Listed by <brokerage>' (segment silently omitted)",
     txt(render({ brokerageName: "B" }), ".listing-brokerage") === "Listed by B");
   check("MLS blank / whitespace / null is treated as absent", ["", "   ", null, undefined].every((v) => txt(render({ brokerageName: "B", mlsNumber: v }), ".listing-brokerage") === "Listed by B"));
   check("brokerage missing but MLS present: 'W1 · Listed by Brokerage not available' (no 'MLS®' label)", txt(render({ mlsNumber: "W1" }), ".listing-brokerage") === "W1 · Listed by Brokerage not available");
 
-  check("date missing: row is just beds and baths", txt(render({ bedrooms: 2, bathrooms: 1 }), ".listing-facts-row") === "Beds: 2 · Baths: 1");
-  check("beds missing: baths and date remain", txt(render({ bathrooms: 1, listedDate: "2026-01-05" }), ".listing-facts-row") === "Baths: 1 · Listed: Jan 5, 2026");
+  check("date missing: row is just beds and baths, and there is no date group or age", (() => {
+    const c = render({ bedrooms: 2, bathrooms: 1 });
+    return txt(c, ".listing-facts-row") === "Beds: 2 · Baths: 1" && !c.querySelector(".listing-listed-date-group, .listing-listed-date, .listing-listed-date-ago");
+  })());
+  check("beds missing: only baths on the row; the date stays top-right", (() => {
+    const c = render({ bathrooms: 1, listedDate: "2026-01-05" });
+    return txt(c, ".listing-facts-row") === "Baths: 1" && txt(c, ".listing-listed-date") === "Listed: Jan 5, 2026";
+  })());
   check("zero beds (studio) is a real value, not omitted", txt(render({ bedrooms: 0, bathrooms: 1 }), ".listing-facts-row") === "Beds: 0 · Baths: 1");
   const none = render({});
-  check("nothing stored: no facts row at all (no empty line, no N/A)", !none.querySelector(".listing-facts-row") && !/N\/A|null|undefined/.test(none.textContent.replace("Brokerage not available", "")));
-  check("UTC timestamp shows the Toronto calendar day (real PropTx sample 2026-02-01T04:00:48Z was Jan 31, 11pm in Toronto)", txt(render({ listedDate: "2026-02-01T04:00:48Z" }), ".listing-facts-row") === "Listed: Jan 31, 2026" && txt(render({ listedDate: "2026-01-08T17:33:04Z" }), ".listing-facts-row") === "Listed: Jan 8, 2026" && txt(render({ listedDate: "2026-07-15T03:30:00Z" }), ".listing-facts-row") === "Listed: Jul 14, 2026" && txt(render({ listedDate: "2026-12-31T23:59:59-05:00" }), ".listing-facts-row") === "Listed: Dec 31, 2026");
-  check("a bare date is used as-is", txt(render({ listedDate: "2026-09-12" }), ".listing-facts-row") === "Listed: Sep 12, 2026");
-  check("an unparseable date is omitted, not shown raw", !render({ listedDate: "yesterday" }).querySelector(".listing-facts-row") && !render({ listedDate: "2026-13-40" }).querySelector(".listing-facts-row"));
+  check("nothing stored: no facts row, no date group (no empty line, no N/A)", !none.querySelector(".listing-facts-row, .listing-listed-date-group") && !/N\/A|null|undefined/.test(none.textContent.replace("Brokerage not available", "")));
+  const dateOf = (v) => txt(render({ listedDate: v }), ".listing-listed-date");
+  check("UTC timestamp shows the Toronto calendar day (real PropTx sample 2026-02-01T04:00:48Z was Jan 31, 11pm in Toronto)", dateOf("2026-02-01T04:00:48Z") === "Listed: Jan 31, 2026" && dateOf("2026-01-08T17:33:04Z") === "Listed: Jan 8, 2026" && dateOf("2026-07-15T03:30:00Z") === "Listed: Jul 14, 2026" && dateOf("2026-12-31T23:59:59-05:00") === "Listed: Dec 31, 2026");
+  check("a bare date is used as-is", dateOf("2026-09-12") === "Listed: Sep 12, 2026");
+  check("an unparseable date is omitted, not shown raw", !render({ listedDate: "yesterday" }).querySelector(".listing-listed-date-group") && !render({ listedDate: "2026-13-40" }).querySelector(".listing-listed-date-group"));
+
+  // ---- relative age ("N Days Ago"), computed live from the listed date ----
+  const ago = win.eval("listedDaysAgoText");
+  const NOW = new Date("2026-09-20T15:00:00Z"); // Sep 20, 11am in Toronto
+  check("age: same Toronto day -> 'Listed Today'", ago("2026-09-20", NOW) === "Listed Today" && ago("2026-09-20T04:30:00Z", NOW) === "Listed Today");
+  check("age: 1 day -> '1 Day Ago' (singular)", ago("2026-09-19", NOW) === "1 Day Ago");
+  check("age: N days -> 'N Days Ago' (16, 2, 30)", ago("2026-09-04", NOW) === "16 Days Ago" && ago("2026-09-18", NOW) === "2 Days Ago" && ago("2026-08-21", NOW) === "30 Days Ago");
+  check("age: counts whole Toronto calendar days across a month and a year boundary", ago("2026-01-01", NOW) === "262 Days Ago" && ago("2025-09-20", NOW) === "365 Days Ago");
+  check("age: a listed date in the future (timezone edge) is clamped to 'Listed Today', never negative", ago("2026-09-21", NOW) === "Listed Today" && ago("2027-01-01", NOW) === "Listed Today");
+  check("age: late-evening Toronto entry is measured from its Toronto day (2026-09-19T03:30Z was Sep 18 in Toronto)", ago("2026-09-19T03:30:00Z", NOW) === "2 Days Ago");
+  check("age: DST changeover does not skew the day count (Mar 8 -> Mar 15, 2026)", ago("2026-03-08", new Date("2026-03-15T16:00:00Z")) === "7 Days Ago");
+  check("age: no listed date -> null (never invented)", ago(null, NOW) === null && ago(undefined, NOW) === null && ago("", NOW) === null && ago("yesterday", NOW) === null);
+  // rendered end to end against the real clock (today's Toronto date, minus N calendar days)
+  const torontoToday = Object.fromEntries(new Intl.DateTimeFormat("en-CA", { timeZone: "America/Toronto", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date()).map((x) => [x.type, x.value]));
+  const daysBack = (n) => new Date(Date.UTC(Number(torontoToday.year), Number(torontoToday.month) - 1, Number(torontoToday.day) - n)).toISOString().slice(0, 10);
+  const agoOf = (n) => txt(render({ listedDate: daysBack(n) }), ".listing-listed-date-ago");
+  check("rendered live: today -> 'Listed Today', 1 -> '1 Day Ago', 16 -> '16 Days Ago', 45 -> '45 Days Ago'", agoOf(0) === "Listed Today" && agoOf(1) === "1 Day Ago" && agoOf(16) === "16 Days Ago" && agoOf(45) === "45 Days Ago", [agoOf(0), agoOf(1), agoOf(16), agoOf(45)].join(" / "));
+  check("the age is computed at render time, not hardcoded", !/16 Days Ago|"\d+ Days Ago"/.test(read("src/listings-display.js").replace(/\/\/[^\n]*/g, "")));
+  check("age is escaped/inert and only appears with a real listed date", !render({ bedrooms: 1 }).querySelector(".listing-listed-date-ago") && !render({ listedDate: "<b>x</b>" }).querySelector(".listing-listed-date-ago"));
+  check("card CSS for the new row exists in index.html, listings.html and calculator.html",
+    ["index.html", "listings.html", "calculator.html"].every((p) => {
+      const h = read(p);
+      return /\.listing-price-row\{display:flex;justify-content:space-between;align-items:flex-start/.test(h) &&
+        /\.listing-listed-date-group\{display:flex;flex-direction:column;align-items:flex-end;text-align:right/.test(h) &&
+        /\.listing-listed-date-ago\{font-size:11px/.test(h) && /\.listing-listed-date\{font-size:12px/.test(h);
+    }));
   check("square footage is not on the card", !/sq|sqft|square/i.test(full.textContent));
 
   check("expandable panel is gone: no toggle, panel, remarks, facts, tour on the card", !full.querySelector(".listing-details-toggle, .listing-details-panel, .listing-remarks, .listing-detail-facts, .listing-virtual-tour, .listing-remarks-more"));

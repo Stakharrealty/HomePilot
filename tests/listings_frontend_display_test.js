@@ -154,6 +154,12 @@ const XSS_LISTINGS = {
 
   // --- 3. Compliance checks on the ACTUAL rendered output ---
   check("rendered price is formatted as real currency ($725,000)", html.includes("$725,000"));
+  check(
+    "price sits in the card's top .listing-price-row (price left; beds/baths are a separate row below)",
+    !!cards[0].querySelector(".listing-body > .listing-price-row > .listing-price") &&
+      cards[0].querySelector(".listing-price").textContent.includes("$725,000") &&
+      cards[0].querySelector(".listing-body").firstElementChild.classList.contains("listing-price-row")
+  );
   check("rendered brokerage name is shown in visible text (RE/MAX Realty Specialists)", html.includes("RE/MAX Realty Specialists"));
   check(
     "listing with no brokerage name on file doesn't crash, shows a fallback instead",
