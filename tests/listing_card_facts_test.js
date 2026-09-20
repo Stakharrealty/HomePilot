@@ -44,8 +44,10 @@ const read = (f) => fs.readFileSync(path.join(ROOT, f), "utf8");
   check("getListingsByCity selects mls_number and listed_date", /\bmls_number\b/.test(selPart(sqlList)) && /\blisted_date\b/.test(selPart(sqlList)));
   check("getListingByKey selects mls_number and listed_date", /\bmls_number\b/.test(selPart(sqlOne)) && /\blisted_date\b/.test(selPart(sqlOne)));
   check("both return mlsNumber / listedDate", l1.mlsNumber === "W1234567" && l1.listedDate === "2026-09-12" && l2.mlsNumber === "W1234567" && l2.listedDate === "2026-09-12");
+  const [fb] = await db.getListingsByCity({ prepare() { return { bind() { return { all: async () => ({ results: [{ listing_key: "W13656642", list_price: 1, photos: null, mls_number: null }] }) }; } }; } }, "Mississauga", 20, null, 0, null);
+  check("no stored ListingId: mlsNumber falls back to listing_key (the feed returns no ListingId)", fb.mlsNumber === "W13656642" && fb.listedDate == null);
   const [nul] = await db.getListingsByCity({ prepare() { return { bind() { return { all: async () => ({ results: [{ listing_key: "K2", list_price: 1, photos: null }] }) }; } }; } }, "Mississauga", 20, null, 0, null);
-  check("not-yet-backfilled rows come through null/undefined (no invented value)", nul.mlsNumber == null && nul.listedDate == null);
+  check("listed date is never invented: an unbackfilled row has no listedDate", nul.listedDate == null);
 
   // =============== 2. card ===============
   const vc = new VirtualConsole();

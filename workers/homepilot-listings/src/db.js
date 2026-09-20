@@ -258,9 +258,12 @@ function mapListingRow(row) {
     cooling: row.cooling,
     virtualTourUrl: row.virtual_tour_url,
     heatType: row.heat_type,
-    // MLS number (PropTx ListingId) and listed date -- null until an ingest
-    // refresh has written them for this row.
-    mlsNumber: row.mls_number,
+    // MLS number: PropTx's ListingId when the ingest has stored one, otherwise
+    // listing_key -- live data shows the IDX feed returns no ListingId, and
+    // ListingKey values are already in MLS format (e.g. "W13656642"). Decision
+    // (Sandeep): use listing_key for now. Listed date stays null until a real
+    // source field is found -- never guessed.
+    mlsNumber: row.mls_number || row.listing_key || null,
     listedDate: row.listed_date,
     // latitude/longitude are deliberately NOT returned: exact coordinates
     // would reveal the address even where displayAddress is withheld, and
