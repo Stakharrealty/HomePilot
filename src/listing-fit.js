@@ -132,3 +132,16 @@ function ldEstimates(listing) {
   const est = calcCosts(market, price, 3, 0, listing.propertyType || "detached");
   return { taxAnnual: Math.round(price * market.tx), condoFee: listing.propertyType === "condo" ? est.condoFee : null };
 }
+
+// The buyer's total monthly housing cost for this listing, for the listing
+// card: exactly computeListingCosts().costs.total (mortgage + property tax +
+// insurance + utilities + maintenance + condo fee), i.e. the same calcCosts()
+// number the detail page's "Total per month" shows, with real PropTx tax /
+// condo fee overriding the estimates. null when there is no buyer profile or
+// no usable price -- never a guessed, zero or NaN figure.
+function listingMonthlyCost(listing, profile) {
+  if (!profile) return null;
+  const computed = computeListingCosts(listing, profile);
+  const total = computed && computed.costs ? Number(computed.costs.total) : NaN;
+  return Number.isFinite(total) && total > 0 ? total : null;
+}

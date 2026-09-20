@@ -224,6 +224,14 @@ function renderListingCard(listing, searchBudget) {
     : null;
   const affordabilityBadge = fit ? { cls: "listing-fit-" + fit.cls, label: fit.lbl } : null;
 
+  // The buyer's total monthly cost for this home (one number, no label; the
+  // line-by-line breakdown lives on listing.html). Same calcCosts() engine and
+  // the same real-PropTx-overrides-estimates rule as the detail page -- see
+  // listingMonthlyCost() in listing-fit.js. No profile / no price: no number.
+  const monthlyCost = typeof listingMonthlyCost === "function" && typeof loadBuyerProfile === "function"
+    ? listingMonthlyCost(listing, loadBuyerProfile())
+    : null;
+
   // displayAddress is already consent-gated server-side (see
   // consentGatedAddress() in db.js) -- truthy here means CREA explicitly
   // confirmed the seller allowed it to be shown. Never fall back to
@@ -265,7 +273,7 @@ function renderListingCard(listing, searchBudget) {
         ` : ""}
       </div>
       ${addressEsc ? `<div class="listing-address">${addressEsc}</div>` : ""}
-      ${bedsBathsRow ? `<div class="listing-meta listing-facts-row">${bedsBathsRow}</div>` : ""}
+      ${bedsBathsRow || monthlyCost ? `<div class="listing-meta listing-facts-row">${bedsBathsRow ? `<span class="listing-facts-text">${bedsBathsRow}</span>` : ""}${monthlyCost ? `<span class="listing-monthly-cost">${escapeHtml(fmtPrice(monthlyCost))}/mo</span>` : ""}</div>` : ""}
       ${detailHref || fullHref ? `<div class="listing-links">
         ${detailHref ? `<a class="listing-detail-link" href="${escapeHtml(detailHref)}">View full details &rarr;</a>` : ""}
         ${fullHref ? `<a class="listing-source-link" href="${escapeHtml(fullHref)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">View Details</a>` : ""}
