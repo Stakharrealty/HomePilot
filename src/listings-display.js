@@ -194,7 +194,7 @@ function renderListingCard(listing, searchBudget) {
   const photo = photos[0] || "";
   // Card facts. factOrOmit drops any that aren't stored (never "N/A").
   // Everything else (garage, basement, tax, fee, tour, description ...) lives
-  // only on listing-full.html -- the card has no expandable panel.
+  // only on listing.html -- the card has no expandable panel.
   //   - bedsBathsRow: its own row under the address.
   //   - listedDateFact + listedDateAgo: top-right, beside the price; the age
   //     ("16 Days Ago") is computed live from the listed date on every render.
@@ -246,9 +246,6 @@ function renderListingCard(listing, searchBudget) {
   const detailKey = /^[A-Za-z0-9_-]{1,40}$/.test(String(listing.listingKey || "")) ? String(listing.listingKey) : "";
   const detailBudget = Number.isFinite(searchBudget) && searchBudget > 0 ? `&budget=${encodeURIComponent(String(searchBudget))}` : "";
   const detailHref = detailKey ? `listing.html?key=${encodeURIComponent(detailKey)}${detailBudget}` : "";
-  // "View Details": the full-listing page (every stored field, all photos), in a
-  // new tab. Built from the listing key alone -- PropTx listings have no listingUrl.
-  const fullHref = detailKey ? `listing-full.html?key=${encodeURIComponent(detailKey)}` : "";
 
   const card = document.createElement("div");
   card.className = "listing-card";
@@ -274,9 +271,8 @@ function renderListingCard(listing, searchBudget) {
       </div>
       ${addressEsc ? `<div class="listing-address">${addressEsc}</div>` : ""}
       ${bedsBathsRow || monthlyCost ? `<div class="listing-meta listing-facts-row">${bedsBathsRow ? `<span class="listing-facts-text">${bedsBathsRow}</span>` : ""}${monthlyCost ? `<span class="listing-monthly-cost">${escapeHtml(fmtPrice(monthlyCost))}/mo</span>` : ""}</div>` : ""}
-      ${detailHref || fullHref ? `<div class="listing-links">
-        ${detailHref ? `<a class="listing-detail-link" href="${escapeHtml(detailHref)}">View full details &rarr;</a>` : ""}
-        ${fullHref ? `<a class="listing-source-link" href="${escapeHtml(fullHref)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">View Details</a>` : ""}
+      ${detailHref ? `<div class="listing-links">
+        <a class="listing-detail-link" href="${escapeHtml(detailHref)}">Full HomePilot Analysis</a>
       </div>` : ""}
       <div class="listing-brokerage">${mlsFact ? `${mlsFact} · ` : ""}Listed by ${brokerage}</div>
     </div>

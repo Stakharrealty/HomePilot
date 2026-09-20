@@ -136,12 +136,12 @@ const read = (f) => fs.readFileSync(path.join(ROOT, f), "utf8");
   const src = read("src/listings-display.js");
   check("display JS no longer contains the toggle or read-more code", !/listing-details-toggle|listing-details-panel|listing-remarks|hasExpandableDetail/.test(src));
 
-  // untouched: the two pill links
+  // one pill: Full HomePilot Analysis -> listing.html, same window (sessionStorage must travel)
   const links = full.querySelector(".listing-links");
-  check("pill links unchanged: same wrapper, classes, hrefs, labels, new-tab attrs",
-    !!links && links.querySelector("a.listing-detail-link").getAttribute("href") === "listing.html?key=K1" && /^View full details/.test(links.querySelector("a.listing-detail-link").textContent) &&
-    links.querySelector("a.listing-source-link").getAttribute("href") === "listing-full.html?key=K1" && links.querySelector("a.listing-source-link").textContent === "View Details" &&
-    links.querySelector("a.listing-source-link").target === "_blank" && /noopener/.test(links.querySelector("a.listing-source-link").rel));
+  const pill = links && links.querySelector("a.listing-detail-link");
+  check("one pill link: 'Full HomePilot Analysis' -> listing.html?key=..., same window; the old 'View Details' link is gone",
+    !!links && links.querySelectorAll("a").length === 1 && !!pill && /^listing\.html\?key=K1/.test(pill.getAttribute("href")) && pill.textContent === "Full HomePilot Analysis" &&
+    !pill.hasAttribute("target") && !links.querySelector("a.listing-source-link") && !/listing-full/.test(full.innerHTML));
   check("pill CSS rules unchanged in index.html and listings.html",
     ["index.html", "listings.html"].every((p) => read(p).includes(".listing-source-link{background:#E6F1FB;color:#185FA5}") && read(p).includes(".listing-links{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}")));
 

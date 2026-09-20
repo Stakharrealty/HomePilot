@@ -67,7 +67,7 @@ const NEW_COLS = ["parking_spaces", "tax_annual_amount", "tax_year", "associatio
   check("money: output is escaped", !money("Fee", 1, null, () => "<b>x</b>").includes("<b>"));
 
   // card rendering: the expandable panel is gone (2026-09 card redesign) -- garage,
-  // basement, cooling, tax, fee, tour and description live only on listing-full.html.
+  // basement, cooling, tax, fee, tour and description live only on listing.html.
   // The full-page rendering of these facts is covered by listing_full_page_test.js.
   const FULL = { listingKey: "FULL", listPrice: 700000, city: "Mississauga", brokerageName: "B", photos: [], propertyType: "detached",
     garageType: "Attached", basement: "Finished", cooling: "Central Air", parkingSpaces: 2, taxAnnualAmount: 4200, taxYear: 2025,

@@ -1,6 +1,8 @@
-// Listing detail page (listing.html): Sections 1 (HomePilot view) + 2
-// (Property snapshot), the additive mortgage-engine override, the buyer-
-// profile handoff, and the compliance / no-AI rules.
+// Listing detail page (listing.html) -- the ONE page for a listing, in order:
+// HomePilot view, photo gallery, full property details, description, then the
+// compliance block. Plus the additive mortgage-engine override, the buyer-
+// profile handoff, the card's single "Full HomePilot Analysis" link, and the
+// compliance / no-AI rules. (Replaces the old separate listing-full page.)
 //
 // Same harness as the other frontend tests: jsdom over the local static
 // server on :8843 (npx http-server -p 8843 -s), mocked fetch (never touches
@@ -124,7 +126,7 @@ async function openPage({ listing, status = 200, profile, budget, search, fetchT
   const renderSrc = read("src/render.js");
   check("fit-tier badge colours are the results page's own (render.js fitColor/fitBg)", ["#085041", "#E1F5EE", "#0C447C", "#E6F1FB", "#633806", "#FAEEDA"].every((c) => renderSrc.includes(c)));
   check("the 10% ceiling constants are untouched (server 1.10 and client 1.10)", /const STRETCH_MULTIPLIER = 1\.10;/.test(read("workers/homepilot-listings/src/db.js")) && /const LD_STRETCH_MULTIPLIER = 1\.10;/.test(read("src/listing-fit.js")));
-  check("deploy.yml copies listing.html into the deploy folder", /cp listing\.html deploy\//.test(read(".github/workflows/deploy.yml")));
+  check("deploy.yml copies listing.html into the deploy folder (and no longer copies listing-full.html)", /cp listing\.html deploy\//.test(read(".github/workflows/deploy.yml")) && !/listing-full/.test(read(".github/workflows/deploy.yml")));
   const display = read("src/listings-display.js");
   const ow = display.slice(display.indexOf("function openListingsWindow("));
   check("openListingsWindow saves the buyer profile before opening the window", ow.indexOf("saveBuyerProfile()") > -1 && ow.indexOf("saveBuyerProfile()") < ow.indexOf("window.open("));
@@ -144,8 +146,8 @@ async function openPage({ listing, status = 200, profile, budget, search, fetchT
   check("(A) page loads with no script errors", A.errors.length === 0, A.errors.join(" | "));
   check("(A) fetches only /listing?key= on the listings API", A.calls.length === 1 && A.calls[0] === `${API}/listing?key=K1`, A.calls.join());
   check("(A) shows the listing price", has(A.text, fmt(850000)));
-  const sec1 = A.doc.getElementById("ldHomePilot"), sec2 = A.doc.getElementById("ldSnapshot");
-  check("(A) HomePilot view comes BEFORE the property snapshot", !!sec1 && !!sec2 && !!(sec1.compareDocumentPosition(sec2) & 4));
+  const sec1 = A.doc.getElementById("ldHomePilot"), sec2 = A.doc.getElementById("ldDetails");
+  check("(A) HomePilot view comes BEFORE the property details", !!sec1 && !!sec2 && !!(sec1.compareDocumentPosition(sec2) & 4));
   const t1 = sec1.textContent;
   check("(A) cost rows: Mortgage / Property tax / Insurance / Utilities / Maintenance / Total",
     [["Mortgage", exp.mort], ["Property tax", exp.tax], ["Insurance", exp.ins], ["Utilities", exp.util], ["Maintenance", exp.maint], ["Total per month", exp.total]].every(([l, v]) => has(t1, l + fmt(v))), t1);
@@ -158,8 +160,8 @@ async function openPage({ listing, status = 200, profile, budget, search, fetchT
   check("(A) verdict is getFit tier for cost vs take-home, with the results-page colour class",
     !!badge && badge.classList.contains("listing-fit-" + tierA) && badge.textContent === LBL[tierA], badge && badge.className + " | " + badge.textContent);
   const factsText = [...sec2.querySelectorAll("li")].map((li) => li.textContent);
-  check("(A) snapshot in priority order: Beds, Baths, Property type, Parking, Basement, Year built, Property tax, Heating",
-    JSON.stringify(factsText) === JSON.stringify(["Beds: 4", "Baths: 3", "Property type: Detached", "Parking: 2", "Basement: Finished", "Year built: 2005", "Property tax: " + fmt(4200) + "/yr (2025)", "Heating: Forced Air"]), JSON.stringify(factsText));
+  check("(A) details in reading order: Property type, Beds, Baths, Parking spaces, Total parking, Basement, Heating, Year built, Property tax, City",
+    JSON.stringify(factsText) === JSON.stringify(["Property type: Detached", "Beds: 4", "Baths: 3", "Parking spaces: 2", "Total parking: 3", "Basement: Finished", "Heating: Forced Air", "Year built: 2005", "Property tax: " + fmt(4200) + "/yr (2025)", "City: Mississauga"]), JSON.stringify(factsText));
   check("(A) not-yet-stored facts are absent, and heating is not called 'heat source'",
     !/square|sq\.? ?ft|utilities included|heat source/i.test(sec2.textContent));
   check("(A) never renders N/A / undefined / null", !/N\/A|undefined|null|NaN/.test(A.text));
@@ -168,23 +170,68 @@ async function openPage({ listing, status = 200, profile, budget, search, fetchT
     has(A.text, A.w.eval("IDX_NOTICE_RELIABLE")) && has(A.text, A.w.eval("IDX_NOTICE_BONA_FIDE")));
   check("(A) back link points at the city's listings", (A.doc.getElementById("ldBack").getAttribute("href") || "").includes("listings.html?city=Mississauga"));
 
+  // =============== 4b. merged page: gallery + every field + description, one place ===============
+  const LONG = "Beautiful family home. " + "Lots of natural light and a renovated kitchen. ".repeat(20) + "THE-VERY-END";
+  const FULL = { ...BASE, postalCode: "L5B 1A1", garageType: "Attached", cooling: "Central Air", lotSizeArea: 40, lotSizeUnits: "Feet",
+    virtualTourUrl: "https://tour.example.com/k1", publicRemarks: LONG,
+    photos: ["https://cdn.example.com/p1.jpg", "https://cdn.example.com/p2.jpg", "https://cdn.example.com/p3.jpg"] };
+  const F = await openPage({ listing: FULL, profile: PROFILE, budget: 900000 });
+  check("(M0) merged page: no script errors, still exactly one fetch (/listing?key=)", F.errors.length === 0 && F.calls.length === 1 && F.calls[0] === `${API}/listing?key=K1`, F.errors.join(" | ") + F.calls.join());
+  const order = ["ldHomePilot", "ldGallery", "ldDetails", "ldRemarks"].map((id) => F.doc.getElementById(id));
+  check("(M1) order: HomePilot view -> gallery -> property details -> description -> compliance",
+    order.every(Boolean) && order.every((el, i) => i === 0 || !!(order[i - 1].compareDocumentPosition(el) & 4)) && !!(order[3].compareDocumentPosition(F.doc.querySelector(".ld-compliance")) & 4));
+  const fullFacts = {
+    type: "Property type: Detached", beds: "Beds: 4", baths: "Baths: 3", parking: "Parking spaces: 2", total: "Total parking: 3", garage: "Garage: Attached",
+    basement: "Basement: Finished", heating: "Heating: Forced Air", cooling: "Cooling: Central Air", year: "Year built: 2005", lot: "Lot size: 40 Feet",
+    tax: `Property tax: ${fmt(4200)}/yr (2025)`, city: "City: Mississauga", postal: "Postal code: L5B 1A1",
+  };
+  const detailsText = F.doc.getElementById("ldDetails").textContent;
+  for (const [k, v] of Object.entries(fullFacts)) check(`(M2) details show ${k}`, detailsText.includes(v), v);
+  check("(M2) heating is 'Heating', never 'Heat source'; a non-condo shows no condo/association fee", !/Heat source/i.test(F.text) && !/Condo fee|Association fee/.test(F.text));
+  const tour = F.doc.querySelector("a.listing-virtual-tour");
+  check("(M3) virtual tour link opens safely in a new tab", !!tour && tour.href === "https://tour.example.com/k1" && tour.target === "_blank" && /noopener/.test(tour.rel));
+  const remarks = F.doc.querySelector("#ldRemarks .ld-remarks");
+  check("(M4) description is shown in full, untruncated, no Read more toggle", !!remarks && remarks.textContent === LONG && !/Read more/.test(F.text));
+  const gimg = F.doc.querySelector("#ldGallery img.listing-photo");
+  const gcount = () => F.doc.querySelector("#ldGallery .listing-photo-counter").textContent;
+  check("(M5) gallery starts on photo 1 of 3", !!gimg && gimg.src === FULL.photos[0] && gcount() === "1/3");
+  F.doc.querySelector("#ldGallery .listing-photo-next").click();
+  check("(M5) next arrow shows photo 2 (the card carousel, reused)", gimg.src === FULL.photos[1] && gcount() === "2/3");
+  F.doc.querySelector("#ldGallery .listing-photo-next").click(); F.doc.querySelector("#ldGallery .listing-photo-next").click();
+  check("(M5) carousel wraps forward to photo 1", gimg.src === FULL.photos[0] && gcount() === "1/3");
+  F.doc.querySelector("#ldGallery .listing-photo-prev").click();
+  check("(M5) previous arrow wraps to the last photo", gimg.src === FULL.photos[2] && gcount() === "3/3");
+  check("(M6) no photos -> 'No photo available', no arrows; no description -> no Description section",
+    /No photo available/.test(A.doc.getElementById("ldGallery").textContent) && !A.doc.querySelector(".listing-photo-nav") && !!A.doc.getElementById("ldRemarks") &&
+    !(await openPage({ listing: { ...BASE, publicRemarks: "  " }, profile: PROFILE, budget: 900000 })).doc.getElementById("ldRemarks"));
+  const XS2 = await openPage({ listing: { ...BASE, publicRemarks: "<script>alert(3)</script>", virtualTourUrl: "javascript:alert(4)", photos: ["javascript:alert(5)", "https://cdn.example.com/ok.jpg"] }, profile: PROFILE, budget: 900000 });
+  check("(M7) hostile description / tour / photo URLs render inert: no script, no javascript: links, https photo kept",
+    XS2.doc.querySelectorAll("#ldRoot script").length === 0 && !XS2.doc.querySelector("a.listing-virtual-tour") && XS2.doc.querySelector("img.listing-photo").src === "https://cdn.example.com/ok.jpg");
+  check("(M8) listing-full page and script are gone, and nothing points at them",
+    !fs.existsSync(path.join(ROOT, "listing-full.html")) && !fs.existsSync(path.join(ROOT, "src", "listing-full.js")) && !/listing-full/.test(read(".github/workflows/deploy.yml")) &&
+    !/listing-full/.test(read("package.json")) && !/listing-full/.test(read("src/listings-display.js")));
+  check("(M9) the deferred (not-yet-stored) fields are not on the page; no lat/long, no listingUrl",
+    !/square|sqft|sq\.? ?ft|room size|utilities included|inclusion|exclusion|days on market|frontage|architectural|approximate age|sewer|latitude|longitude|listingUrl/i.test(detailSrc.replace(/\/\/[^\n]*|\/\*[\s\S]*?\*\//g, "")));
+  check("(M10) reuses the shared helpers instead of reimplementing them",
+    /attachPhotoCarousel\(/.test(detailSrc) && /moneyFactOrEstimate\(/.test(detailSrc) && /factOrOmit\(/.test(detailSrc) && !/function (ldEstimates|factOrOmit|moneyFactOrEstimate|attachPhotoCarousel)\b/.test(detailSrc));
+
   // =============== 5. estimated vs real ===============
   const B = await openPage({ listing: { ...BASE, taxAnnualAmount: null, taxYear: null }, profile: PROFILE, budget: 900000 });
   const expB = eng.calcCosts(m, 850000, "3", 170000, "detached");
   check("(B) no real tax -> engine estimate, labelled (estimated), in both sections",
     has(B.doc.getElementById("ldHomePilot").textContent, "Property tax (estimated)" + fmt(expB.tax)) &&
-    has(B.doc.getElementById("ldSnapshot").textContent, "Property tax (estimated): " + fmt(Math.round(850000 * m.tx)) + "/yr"));
+    has(B.doc.getElementById("ldDetails").textContent, "Property tax (estimated): " + fmt(Math.round(850000 * m.tx)) + "/yr"));
 
   const CONDO = { ...BASE, listingKey: "C1", listPrice: 520000, propertyType: "condo", associationFee: 612, associationFeeFrequency: "Monthly", taxAnnualAmount: 2900 };
   const C1 = await openPage({ listing: CONDO, profile: PROFILE, budget: 600000 });
   const expC = eng.calcCosts(m, 520000, "3", 170000, "condo", { taxAnnual: 2900, condoFeeMonthly: 612 });
   check("(C1) condo with a real fee: 'Condo fee' row with the real amount, not estimated",
     has(C1.doc.getElementById("ldHomePilot").textContent, "Condo fee" + fmt(612)) && !has(C1.text, "Condo fee (estimated)") && expC.condoFee === 612);
-  check("(C1) snapshot shows the real condo fee", has(C1.doc.getElementById("ldSnapshot").textContent, "Condo fee: " + fmt(612) + "/mo"));
+  check("(C1) details show the real condo fee", has(C1.doc.getElementById("ldDetails").textContent, "Condo fee: " + fmt(612) + "/mo"));
   const C2 = await openPage({ listing: { ...CONDO, associationFee: null, associationFeeFrequency: null }, profile: PROFILE, budget: 600000 });
   const expC2 = eng.calcCosts(m, 520000, "3", 170000, "condo", { taxAnnual: 2900 });
   check("(C2) condo with no fee: labelled estimate from the engine formula",
-    has(C2.doc.getElementById("ldHomePilot").textContent, "Condo fee (estimated)" + fmt(expC2.condoFee)) && has(C2.doc.getElementById("ldSnapshot").textContent, "Condo fee (estimated): " + fmt(expC2.condoFee) + "/mo"));
+    has(C2.doc.getElementById("ldHomePilot").textContent, "Condo fee (estimated)" + fmt(expC2.condoFee)) && has(C2.doc.getElementById("ldDetails").textContent, "Condo fee (estimated): " + fmt(expC2.condoFee) + "/mo"));
   const C3 = await openPage({ listing: { ...CONDO, associationFee: 6000, associationFeeFrequency: "Annually" }, profile: PROFILE, budget: 600000 });
   check("(C3) an annual fee is converted to monthly ($6,000/yr -> $500/mo)", has(C3.doc.getElementById("ldHomePilot").textContent, "Condo fee" + fmt(500)) && !has(C3.text, "Condo fee (estimated)"));
   const C4 = await openPage({ listing: { ...CONDO, associationFee: 600, associationFeeFrequency: "Fortnightly" }, profile: PROFILE, budget: 600000 });
@@ -246,7 +293,7 @@ async function openPage({ listing, status = 200, profile, budget, search, fetchT
   const N = await openPage({ listing: BASE });
   check("(E1) no profile: shows the price and a prompt, no cost table, no remaining income, no badge",
     has(N.text, fmt(850000)) && has(N.text, "enter your income") && !has(N.text, "Total per month") && !has(N.text, "Remaining after") && !N.doc.querySelector(".listing-affordability-badge"));
-  check("(E1) no profile: snapshot and compliance block still render", !!N.doc.getElementById("ldSnapshot") && has(N.text, "Listed by Test Realty Inc."));
+  check("(E1) no profile: details, gallery and compliance block still render", !!N.doc.getElementById("ldDetails") && !!N.doc.getElementById("ldGallery") && has(N.text, "Listed by Test Realty Inc."));
   for (const [label, p] of [["negative income", { ...PROFILE, grossMonthlyIncome: -5 }], ["garbage JSON", "{not json"], ["string income", { ...PROFILE, grossMonthlyIncome: "lots" }], ["absurd down payment", { ...PROFILE, downPayment: 1e15 }], ["family size 0", { ...PROFILE, familySize: "0" }]]) {
     const G = await openPage({ listing: BASE, profile: p, budget: 900000 });
     check(`(E2) invalid stored profile (${label}) is ignored -> no-profile fallback`, !has(G.text, "Total per month") && has(G.text, "enter your income"));
@@ -265,8 +312,8 @@ async function openPage({ listing, status = 200, profile, budget, search, fetchT
   // =============== 9. bare listing / errors ===============
   const BARE = { listingKey: "B1", listPrice: 500000, city: "Mississauga", brokerageName: null, photos: [], propertyType: null };
   const R = await openPage({ listing: BARE, profile: PROFILE, budget: 600000 });
-  const rf = [...R.doc.querySelectorAll("#ldSnapshot li")].map((li) => li.textContent);
-  check("(G) bare listing: snapshot lists only what exists (the tax estimate), no N/A / undefined / null", rf.length === 1 && rf[0].startsWith("Property tax (estimated)") && !/N\/A|undefined|null|NaN/.test(R.text.replace("Brokerage not available", "")), JSON.stringify(rf));
+  const rf = [...R.doc.querySelectorAll("#ldDetails li")].map((li) => li.textContent);
+  check("(G) bare listing: details list only what exists (the tax estimate and city), no N/A / undefined / null", rf.length === 2 && rf[0].startsWith("Property tax (estimated)") && rf[1] === "City: Mississauga" && !/N\/A|undefined|null|NaN/.test(R.text.replace("Brokerage not available", "")), JSON.stringify(rf));
   check("(G) bare listing shows the brokerage fallback wording", has(R.text, "Listed by Brokerage not available"));
   const NF = await openPage({ listing: null, status: 404 });
   check("(H1) unknown/removed listing -> friendly message, no crash", has(NF.text, "no longer available") && NF.errors.length === 0);
@@ -291,7 +338,7 @@ async function openPage({ listing, status = 200, profile, budget, search, fetchT
   check("(I4) saved under sessionStorage (not localStorage)", !!w.sessionStorage.getItem("hp_buyer_profile_v1") && !w.localStorage.getItem("hp_buyer_profile_v1"));
   const card = w.renderListingCard({ listingKey: "W123", listPrice: 700000, city: "Mississauga", brokerageName: "B", photos: [] }, 725000);
   const link = card.querySelector("a.listing-detail-link");
-  check("(J1) card has a 'View full details' link to listing.html with the key and shown budget", !!link && link.getAttribute("href") === "listing.html?key=W123&budget=725000", link && link.getAttribute("href"));
+  check("(J1) card has one 'Full HomePilot Analysis' link to listing.html with the key and shown budget", !!link && link.textContent === "Full HomePilot Analysis" && card.querySelectorAll(".listing-links a").length === 1 && link.getAttribute("href") === "listing.html?key=W123&budget=725000", link && link.getAttribute("href"));
   check("(J2) link navigates in the same window (no target/noopener, which would drop sessionStorage)", !link.hasAttribute("target") && !link.hasAttribute("rel"));
   check("(J3) link carries no personal data", !/income|down|debt/i.test(link.getAttribute("href")));
   const noBudget = w.renderListingCard({ listingKey: "W124", listPrice: 1, city: "X", brokerageName: "B", photos: [] });

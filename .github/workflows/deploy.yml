@@ -77,7 +77,6 @@ jobs:
           cp index.html deploy/
           cp listings.html deploy/
           cp listing.html deploy/
-          cp listing-full.html deploy/
           cp privacy-policy.html deploy/
           cp terms-of-use.html deploy/
           cp disclaimer.html deploy/

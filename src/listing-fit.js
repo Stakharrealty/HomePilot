@@ -120,7 +120,7 @@ function listingFit(listing, profile, budget) {
   return ldFitFor(listing, computeListingCosts(listing, profile), profile, budget);
 }
 
-// Shared by listing.html and listing-full.html (moved here from listing-detail.js).
+// Used by listing-detail.js on listing.html (moved here from it).
 const LD_TYPE_LABELS = { condo: "Condo", town: "Townhouse", semi: "Semi-detached", detached: "Detached" };
 
 // Real-or-estimated tax/condo-fee figures for Section 2, independent of the

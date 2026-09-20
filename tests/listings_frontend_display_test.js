@@ -171,8 +171,8 @@ const XSS_LISTINGS = {
     !html.includes("src/assets/realtor-r.svg")
   );
   check(
-    "listing's link is 'View Details' -> the full-listing page for its key, not the (empty for PropTx) listingUrl",
-    html.includes('href="listing-full.html?key=TEST111"') && html.includes(">View Details</a>") && !html.includes("realtor.ca/real-estate/TEST111")
+    "listing's one link is 'Full HomePilot Analysis' -> listing.html for its key (no separate full-listing page), not the (empty for PropTx) listingUrl",
+    html.includes('href="listing.html?key=TEST111') && html.includes(">Full HomePilot Analysis</a>") && !html.includes("listing-full") && !html.includes(">View Details</a>") && !html.includes("realtor.ca/real-estate/TEST111")
   );
   check(
     "listing with a photo renders an <img> with the real photo URL",
@@ -235,10 +235,10 @@ const XSS_LISTINGS = {
 
   const xssCards = [...xssContainer.querySelectorAll(".listing-card")];
   const brokerUrlCard = xssCards[1];
-  const sourceLink = brokerUrlCard ? brokerUrlCard.querySelector("a.listing-source-link") : null;
+  const sourceLink = brokerUrlCard ? brokerUrlCard.querySelector("a.listing-detail-link") : null;
   check(
-    "malicious listingUrl (javascript:) is never used -- the link is the key-based full-listing page",
-    !!sourceLink && sourceLink.getAttribute("href") === "listing-full.html?key=XSS-BROKER-URL" && !/javascript:/i.test(sourceLink.outerHTML),
+    "malicious listingUrl (javascript:) is never used -- the link is the key-based listing page",
+    !!sourceLink && sourceLink.getAttribute("href").startsWith("listing.html?key=XSS-BROKER-URL") && !/javascript:/i.test(sourceLink.outerHTML),
     `sourceLink=${sourceLink ? sourceLink.outerHTML : "null"}`
   );
   check(

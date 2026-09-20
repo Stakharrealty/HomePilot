@@ -7,8 +7,10 @@
 <!--
   listing.html — one listing, in HomePilot's fixed order:
     1. HomePilot view (what this home costs THIS buyer, and its fit tier)
-    2. Property snapshot (the important facts)
-    (3. Compare and 4. Full listing follow in later releases)
+    2. Photo gallery
+    3. Property details (every stored field)
+    4. Description
+    (Compare follows in a later release)
   then the brokerage line and PROPTX notices.
 
   Query params: ?key=<listingKey>[&budget=<price the buyer was shown>]
@@ -48,6 +50,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;bac
 .ld-remaining span:last-child{color:#1D6B3F}
 .ld-facts{list-style:none;display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px 16px}
 .ld-facts li{font-size:15px;padding:6px 0;border-bottom:1px solid #f0f0f0}
+
+/* Photo gallery: same markup and carousel code as the listing card
+   (attachPhotoCarousel in listings-display.js); arrows always visible here. */
+.ld-gallery{padding:0;overflow:hidden}
+.listing-photo-wrap{position:relative;width:100%;aspect-ratio:4/3;background:#f0f0f0}
+.listing-photo{width:100%;height:100%;object-fit:cover;display:block}
+.listing-photo-empty{width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#999;font-size:13px;background:#f0f0f0}
+.listing-photo-nav{position:absolute;top:50%;transform:translateY(-50%);width:40px;height:40px;border-radius:50%;border:0;background:rgba(0,0,0,.55);color:#fff;font-size:26px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.listing-photo-prev{left:10px}.listing-photo-next{right:10px}
+.listing-photo-nav:hover{background:rgba(0,0,0,.8)}
+.listing-photo-counter{position:absolute;right:10px;bottom:10px;background:rgba(0,0,0,.6);color:#fff;font-size:12px;font-weight:600;padding:3px 8px;border-radius:10px;pointer-events:none}
+.ld-remarks{font-size:15px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere}
+.ld-tour{display:inline-block;margin-top:12px;font-size:14px;font-weight:700;color:#1D9E75}
 
 .listing-affordability-badge{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;vertical-align:middle;margin-left:6px}
 .listing-fit-fg{background:#E1F5EE;color:#085041}

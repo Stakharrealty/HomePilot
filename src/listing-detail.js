@@ -3,9 +3,13 @@
 // Page order is fixed and deliberate:
 //   1. HomePilot view   (what this home costs THIS buyer, from the buyer's own
 //                        numbers -- the reason HomePilot exists)
-//   2. Property snapshot (the important facts, scannable)
-//   [3. Compare, 4. Full listing -- later commits]
+//   2. Photo gallery   (the card's carousel, reused, arrows always visible)
+//   3. Property details (every stored field)
+//   4. Description      (complete, untruncated)
+//   [Compare -- later commit]
 // then the compliance block (brokerage + PROPTX notices).
+// This is the one destination for a listing: it replaced the separate
+// listing-full page, so the card links here only.
 //
 // All of Section 1 is plain arithmetic on numbers the app already has, run
 // locally in the browser by mortgage.js. NOTHING from a listing is ever sent
@@ -17,7 +21,7 @@
 // listing-page-globals.js, cities.js, mortgage.js, utils.js, i18n.js,
 // explainability.js (getFit), ai.js (escapeHtml), buyer-profile.js,
 // listings-display.js (fmtPrice, safeUrl, factOrOmit, moneyFactOrEstimate,
-// renderIdxNotice, LISTINGS_API_BASE), listing-fit.js (the cost + fit-tier
+// renderIdxNotice, attachPhotoCarousel, LISTINGS_API_BASE), listing-fit.js (the cost + fit-tier
 // math shared with the listing card).
 
 // Section 1's numbers. `profile` is the validated buyer profile (or null);
@@ -55,29 +59,38 @@ function buildHomePilotView(listing, profile, budget) {
   return view;
 }
 
-// Section 2, in the agreed priority order. Plain facts use factOrOmit (shown
-// when present, silently omitted otherwise -- never "N/A"); the two money
+// Section 3: every stored field, in reading order. Plain facts use factOrOmit
+// (shown when present, silently omitted otherwise -- never "N/A"); the two money
 // figures use moneyFactOrEstimate (real value, else a labelled estimate).
-// Square footage and "utilities included" are not stored yet, and heating is
-// PropTx HeatType (the delivery system, e.g. "Forced Air"), labelled
-// "Heating" -- not "Heat source", which is a different PropTx field (fuel).
-function snapshotFacts(listing) {
+// Square footage, room sizes and other not-yet-stored fields are deliberately
+// absent. Heating is PropTx HeatType (the delivery system, e.g. "Forced Air"),
+// labelled "Heating" -- not "Heat source", which is a different PropTx field.
+function fullListingFacts(listing) {
   const est = ldEstimates(listing);
   const yearSuffix = listing.taxYear ? ` (${listing.taxYear})` : "";
-  const parking = listing.parkingSpaces != null && listing.parkingSpaces !== "" ? listing.parkingSpaces : listing.parkingTotal;
+  const isCondo = listing.propertyType === "condo";
   const realFee = ldFeeToMonthly(listing.associationFee, listing.associationFeeFrequency);
+  const lot = listing.lotSizeArea
+    ? `${listing.lotSizeArea}${listing.lotSizeUnits ? " " + listing.lotSizeUnits : ""}`
+    : null;
   return [
+    factOrOmit("Property type", LD_TYPE_LABELS[listing.propertyType]),
     factOrOmit("Beds", listing.bedrooms),
     factOrOmit("Baths", listing.bathrooms),
-    factOrOmit("Property type", LD_TYPE_LABELS[listing.propertyType]),
-    factOrOmit("Parking", parking),
+    factOrOmit("Parking spaces", listing.parkingSpaces),
+    factOrOmit("Total parking", listing.parkingTotal),
+    factOrOmit("Garage", listing.garageType),
     factOrOmit("Basement", listing.basement),
-    factOrOmit("Year built", listing.yearBuilt),
-    listing.propertyType === "condo"
-      ? moneyFactOrEstimate("Condo fee", realFee, est.condoFee, (v) => `${fmtPrice(v)}/mo`)
-      : null,
-    moneyFactOrEstimate("Property tax", listing.taxAnnualAmount, est.taxAnnual, (v) => `${fmtPrice(v)}/yr${yearSuffix}`),
     factOrOmit("Heating", listing.heatType),
+    factOrOmit("Cooling", listing.cooling),
+    factOrOmit("Year built", listing.yearBuilt),
+    factOrOmit("Lot size", lot),
+    moneyFactOrEstimate("Property tax", listing.taxAnnualAmount, est.taxAnnual, (v) => `${fmtPrice(v)}/yr${yearSuffix}`),
+    isCondo
+      ? moneyFactOrEstimate("Condo fee", realFee, est.condoFee, (v) => `${fmtPrice(v)}/mo`)
+      : moneyFactOrEstimate("Association fee", realFee, null, (v) => `${fmtPrice(v)}/mo`),
+    factOrOmit("City", listing.city),
+    factOrOmit("Postal code", listing.postalCode),
   ].filter(Boolean);
 }
 
@@ -119,14 +132,52 @@ function renderHomePilotSection(view) {
   return sec;
 }
 
-function renderSnapshotSection(listing) {
+// Same markup and carousel code as the listing card (attachPhotoCarousel in
+// listings-display.js); arrows always visible here.
+function renderGallerySection(listing) {
+  const photos = (Array.isArray(listing.photos) ? listing.photos : []).map(safeUrl).filter(Boolean);
+  const cityEsc = escapeHtml(listing.city || "");
+  const sec = document.createElement("section");
+  sec.className = "ld-sec ld-gallery";
+  sec.id = "ldGallery";
+  sec.innerHTML = `<div class="listing-photo-wrap">
+      ${photos.length
+        ? `<img class="listing-photo" src="${photos[0]}" alt="Photo 1 of ${photos.length} of listing in ${cityEsc}">`
+        : `<div class="listing-photo listing-photo-empty">No photo available</div>`}
+      ${photos.length > 1 ? `
+      <button type="button" class="listing-photo-nav listing-photo-prev" aria-label="Previous photo">‹</button>
+      <button type="button" class="listing-photo-nav listing-photo-next" aria-label="Next photo">›</button>
+      <span class="listing-photo-counter" aria-live="polite">1/${photos.length}</span>` : ""}
+    </div>`;
+  if (photos.length > 1) attachPhotoCarousel(sec, photos, cityEsc);
+  return sec;
+}
+
+function renderDetailsSection(listing) {
   const sec = document.createElement("section");
   sec.className = "ld-sec ld-snap";
-  sec.id = "ldSnapshot";
-  const facts = snapshotFacts(listing);
-  sec.innerHTML = `<h2>Property snapshot</h2>` + (facts.length
+  sec.id = "ldDetails";
+  const facts = fullListingFacts(listing);
+  const tour = safeUrl(listing.virtualTourUrl);
+  sec.innerHTML = `<h2>Property details</h2>` + (facts.length
     ? `<ul class="ld-facts">${facts.map((f) => `<li>${f}</li>`).join("")}</ul>`
-    : `<p class="ld-muted">No further details were provided for this listing.</p>`);
+    : `<p class="ld-muted">No further details were provided for this listing.</p>`)
+    + (tour ? `<a class="ld-tour listing-virtual-tour" href="${tour}" target="_blank" rel="noopener noreferrer">Virtual tour</a>` : "");
+  return sec;
+}
+
+function renderRemarksSection(listing) {
+  if (!listing.publicRemarks || !String(listing.publicRemarks).trim()) return null;
+  const sec = document.createElement("section");
+  sec.className = "ld-sec";
+  sec.id = "ldRemarks";
+  const h = document.createElement("h2");
+  h.textContent = "Description";
+  const p = document.createElement("div");
+  p.className = "ld-remarks";
+  p.textContent = String(listing.publicRemarks); // full, untruncated
+  sec.appendChild(h);
+  sec.appendChild(p);
   return sec;
 }
 
@@ -157,7 +208,10 @@ function renderListingDetail(root, listing, profile, budget) {
   head.innerHTML = `<h1>${title}</h1>` + (listing.displayAddress && listing.city ? `<div class="ld-sub">${escapeHtml(listing.city)}</div>` : "");
   root.appendChild(head);
   root.appendChild(renderHomePilotSection(buildHomePilotView(listing, profile, budget)));
-  root.appendChild(renderSnapshotSection(listing));
+  root.appendChild(renderGallerySection(listing));
+  root.appendChild(renderDetailsSection(listing));
+  const remarks = renderRemarksSection(listing);
+  if (remarks) root.appendChild(remarks);
   root.appendChild(renderComplianceBlock(listing));
   const back = document.getElementById("ldBack");
   if (back) back.setAttribute("href", ldBackHref(listing));
