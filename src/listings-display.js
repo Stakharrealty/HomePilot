@@ -244,8 +244,10 @@ function renderListingCard(listing, searchBudget) {
         ${virtualTourUrl ? `<a class="listing-virtual-tour" href="${virtualTourUrl}" target="_blank" rel="noopener noreferrer">Virtual tour</a>` : ""}
         ${remarksEsc ? `<div class="listing-remarks" data-full="${remarksEsc.replace(/"/g, "&quot;")}" data-preview="${(remarksPreview || "").replace(/"/g, "&quot;")}">${remarksPreview}${remarksIsLong ? ` <button type="button" class="listing-remarks-more">Read more</button>` : ""}</div>` : ""}
       </div>` : ""}
-      ${detailHref ? `<a class="listing-detail-link" href="${escapeHtml(detailHref)}">View full details &rarr;</a>` : ""}
-      ${fullHref ? `<a class="listing-source-link" href="${escapeHtml(fullHref)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">View Details</a>` : ""}
+      ${detailHref || fullHref ? `<div class="listing-links">
+        ${detailHref ? `<a class="listing-detail-link" href="${escapeHtml(detailHref)}">View full details &rarr;</a>` : ""}
+        ${fullHref ? `<a class="listing-source-link" href="${escapeHtml(fullHref)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">View Details</a>` : ""}
+      </div>` : ""}
     </div>
   `;
 
