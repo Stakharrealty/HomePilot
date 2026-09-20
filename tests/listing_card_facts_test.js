@@ -61,7 +61,7 @@ const read = (f) => fs.readFileSync(path.join(ROOT, f), "utf8");
 
   const full = render({ bedrooms: 3, bathrooms: 2, listedDate: "2026-09-12", mlsNumber: "W1234567", brokerageName: "RE/MAX Realty Specialists Inc." });
   check("facts row: beds, baths and listed date on one line", txt(full, ".listing-facts-row") === "Beds: 3 · Baths: 2 · Listed: Sep 12, 2026", txt(full, ".listing-facts-row"));
-  check("bottom line: MLS® number + brokerage together on one line", txt(full, ".listing-brokerage") === "MLS® W1234567 · Listed by RE/MAX Realty Specialists Inc.", txt(full, ".listing-brokerage"));
+  check("bottom line: MLS number + brokerage together on one line (no 'MLS®' label)", txt(full, ".listing-brokerage") === "W1234567 · Listed by RE/MAX Realty Specialists Inc.", txt(full, ".listing-brokerage"));
   const body = full.querySelector(".listing-body");
   const kids = [...body.children];
   check("order: facts row first (under the thumbnail, above price)", kids[0].classList.contains("listing-facts-row") && kids[1].classList.contains("listing-price"));
@@ -73,7 +73,7 @@ const read = (f) => fs.readFileSync(path.join(ROOT, f), "utf8");
   check("MLS absent: line is exactly 'Listed by <brokerage>' (segment silently omitted)",
     txt(render({ brokerageName: "B" }), ".listing-brokerage") === "Listed by B");
   check("MLS blank / whitespace / null is treated as absent", ["", "   ", null, undefined].every((v) => txt(render({ brokerageName: "B", mlsNumber: v }), ".listing-brokerage") === "Listed by B"));
-  check("brokerage missing but MLS present: 'MLS® W1 · Listed by Brokerage not available'", txt(render({ mlsNumber: "W1" }), ".listing-brokerage") === "MLS® W1 · Listed by Brokerage not available");
+  check("brokerage missing but MLS present: 'W1 · Listed by Brokerage not available' (no 'MLS®' label)", txt(render({ mlsNumber: "W1" }), ".listing-brokerage") === "W1 · Listed by Brokerage not available");
 
   check("date missing: row is just beds and baths", txt(render({ bedrooms: 2, bathrooms: 1 }), ".listing-facts-row") === "Beds: 2 · Baths: 1");
   check("beds missing: baths and date remain", txt(render({ bathrooms: 1, listedDate: "2026-01-05" }), ".listing-facts-row") === "Baths: 1 · Listed: Jan 5, 2026");

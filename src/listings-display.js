@@ -181,7 +181,7 @@ function renderListingCard(listing, searchBudget) {
   ].filter(Boolean).join(" · ");
   // MLS segment is omitted until the row has been backfilled by an ingest.
   const mlsText = listing.mlsNumber == null ? "" : String(listing.mlsNumber).trim();
-  const mlsFact = mlsText ? `MLS® ${escapeHtml(mlsText)}` : null;
+  const mlsFact = mlsText ? escapeHtml(mlsText) : null;
   const brokerage = escapeHtml(listing.brokerageName || "Brokerage not available");
   const cityEsc = escapeHtml(listing.city || "");
 
