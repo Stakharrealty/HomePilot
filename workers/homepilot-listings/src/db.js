@@ -154,7 +154,8 @@ const LISTING_COLUMNS = `listing_key, list_price, city, postal_code, bedrooms, b
               parking_total, parking_spaces, listing_url, brokerage_name, photos, last_updated,
               public_remarks, display_address, year_built, lot_size_area, lot_size_units,
               tax_annual_amount, tax_year, association_fee, association_fee_frequency,
-              garage_type, basement, cooling, heat_type, virtual_tour_url`;
+              garage_type, basement, cooling, heat_type, virtual_tour_url,
+              mls_number, listed_date`;
 
 function buildDerivedTypeCase() {
   return `CASE
@@ -257,6 +258,10 @@ function mapListingRow(row) {
     cooling: row.cooling,
     virtualTourUrl: row.virtual_tour_url,
     heatType: row.heat_type,
+    // MLS number (PropTx ListingId) and listed date -- null until an ingest
+    // refresh has written them for this row.
+    mlsNumber: row.mls_number,
+    listedDate: row.listed_date,
     // latitude/longitude are deliberately NOT returned: exact coordinates
     // would reveal the address even where displayAddress is withheld, and
     // PropTx's address-display consent fields were never requested. Hold

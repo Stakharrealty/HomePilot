@@ -133,6 +133,17 @@ function moneyFactOrEstimate(label, realValue, estimateValue, formatFn) {
   return null;
 }
 
+// Listed date for the card's facts row. PropTx supplies an ISO date or
+// timestamp; only the calendar date is used (no timezone shift), rendered
+// like "Sep 12, 2026". Anything unparseable is treated as absent.
+function formatListedDate(value) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value == null ? "" : value).trim());
+  if (!m) return null;
+  const mon = Number(m[2]), day = Number(m[3]);
+  if (mon < 1 || mon > 12 || day < 1 || day > 31) return null;
+  return `${["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][mon - 1]} ${day}, ${m[1]}`;
+}
+
 // searchBudget (added 2026-07-29): the same recommended-price number the
 // buyer was shown on the card that opened this listings view (or their
 // overall buyPower, for the "all types" city-level entry point -- see
@@ -148,9 +159,18 @@ function renderListingCard(listing, searchBudget) {
   // being viewed is ever downloaded -- never the whole set up front.
   const photos = (Array.isArray(listing.photos) ? listing.photos : []).map(safeUrl).filter(Boolean);
   const photo = photos[0] || "";
-  const beds = listing.bedrooms != null ? `${listing.bedrooms} bd` : null;
-  const baths = listing.bathrooms != null ? `${listing.bathrooms} ba` : null;
-  const bedsBaths = escapeHtml([beds, baths].filter(Boolean).join(" · "));
+  // Permanent one-line facts row under the thumbnail: beds, baths, listed date.
+  // factOrOmit drops any that aren't stored (never "N/A"). Everything else
+  // (garage, basement, tax, fee, tour, description ...) lives only on
+  // listing-full.html now -- the card has no expandable panel.
+  const factsRow = [
+    factOrOmit("Beds", listing.bedrooms),
+    factOrOmit("Baths", listing.bathrooms),
+    factOrOmit("Listed", formatListedDate(listing.listedDate)),
+  ].filter(Boolean).join(" · ");
+  // MLS segment is omitted until the row has been backfilled by an ingest.
+  const mlsText = listing.mlsNumber == null ? "" : String(listing.mlsNumber).trim();
+  const mlsFact = mlsText ? `MLS® ${escapeHtml(mlsText)}` : null;
   const brokerage = escapeHtml(listing.brokerageName || "Brokerage not available");
   const cityEsc = escapeHtml(listing.city || "");
 
@@ -174,38 +194,6 @@ function renderListingCard(listing, searchBudget) {
   // postalCode or anything else if it's absent; absent means "don't show
   // an address for this listing", not "show what we have instead".
   const addressEsc = listing.displayAddress ? escapeHtml(listing.displayAddress) : null;
-
-  const remarksEsc = listing.publicRemarks ? escapeHtml(listing.publicRemarks) : null;
-  const REMARKS_PREVIEW_LEN = 160;
-  const remarksIsLong = remarksEsc && remarksEsc.length > REMARKS_PREVIEW_LEN;
-  const remarksPreview = remarksEsc ? remarksEsc.slice(0, REMARKS_PREVIEW_LEN) + (remarksIsLong ? "…" : "") : null;
-
-  const detailFacts = [];
-  if (listing.yearBuilt) detailFacts.push(`Built ${escapeHtml(String(listing.yearBuilt))}`);
-  if (listing.lotSizeArea) {
-    const unit = listing.lotSizeUnits ? escapeHtml(String(listing.lotSizeUnits)) : "";
-    detailFacts.push(`Lot ${escapeHtml(String(listing.lotSizeArea))}${unit ? " " + unit : ""}`);
-  }
-
-  // Stored PropTx fields (Garage / Basement / Cooling / Parking spaces are
-  // omitted when absent; tax and condo fee fall back to a caller-supplied
-  // estimate, labelled "(estimated)", when the real figure is missing).
-  const propertyTypeKey = listing.propertyType || null;
-  const yearSuffix = listing.taxYear ? ` (${listing.taxYear})` : "";
-  const feeSuffix = listing.associationFeeFrequency ? `/${String(listing.associationFeeFrequency).toLowerCase()}` : "/mo";
-  [
-    factOrOmit("Garage", listing.garageType),
-    factOrOmit("Basement", listing.basement),
-    factOrOmit("Cooling", listing.cooling),
-    factOrOmit("Parking spaces", listing.parkingSpaces),
-    moneyFactOrEstimate("Property tax", listing.taxAnnualAmount, listing.estimatedTaxAnnual, (v) => `${fmtPrice(v)}/yr${yearSuffix}`),
-    propertyTypeKey === "condo"
-      ? moneyFactOrEstimate("Condo fee", listing.associationFee, listing.estimatedCondoFee, (v) => `${fmtPrice(v)}${feeSuffix}`)
-      : null,
-  ].forEach((f) => { if (f) detailFacts.push(f); });
-  const virtualTourUrl = safeUrl(listing.virtualTourUrl);
-
-  const hasExpandableDetail = !!(remarksEsc || detailFacts.length || virtualTourUrl);
 
   // Link to this listing's HomePilot detail page. Same-window navigation (no
   // target=_blank / noopener): the buyer's numbers travel in sessionStorage,
@@ -231,50 +219,18 @@ function renderListingCard(listing, searchBudget) {
       <span class="listing-photo-counter" aria-live="polite">1/${photos.length}</span>` : ""}
     </div>
     <div class="listing-body">
+      ${factsRow ? `<div class="listing-meta listing-facts-row">${factsRow}</div>` : ""}
       <div class="listing-price">${fmtPrice(listing.listPrice)}${affordabilityBadge ? ` <span class="listing-affordability-badge ${affordabilityBadge.cls}">${escapeHtml(affordabilityBadge.label)}</span>` : ""}</div>
       ${addressEsc ? `<div class="listing-address">${addressEsc}</div>` : ""}
-      ${bedsBaths ? `<div class="listing-meta">${bedsBaths}</div>` : ""}
-      <div class="listing-brokerage">Listed by ${brokerage}</div>
-      ${hasExpandableDetail ? `
-      <button type="button" class="listing-details-toggle" aria-expanded="false">
-        <span>View details</span><span class="listing-details-toggle-arrow">›</span>
-      </button>
-      <div class="listing-details-panel" hidden>
-        ${detailFacts.length ? `<div class="listing-detail-facts">${detailFacts.join(" · ")}</div>` : ""}
-        ${virtualTourUrl ? `<a class="listing-virtual-tour" href="${virtualTourUrl}" target="_blank" rel="noopener noreferrer">Virtual tour</a>` : ""}
-        ${remarksEsc ? `<div class="listing-remarks" data-full="${remarksEsc.replace(/"/g, "&quot;")}" data-preview="${(remarksPreview || "").replace(/"/g, "&quot;")}">${remarksPreview}${remarksIsLong ? ` <button type="button" class="listing-remarks-more">Read more</button>` : ""}</div>` : ""}
-      </div>` : ""}
       ${detailHref || fullHref ? `<div class="listing-links">
         ${detailHref ? `<a class="listing-detail-link" href="${escapeHtml(detailHref)}">View full details &rarr;</a>` : ""}
         ${fullHref ? `<a class="listing-source-link" href="${escapeHtml(fullHref)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">View Details</a>` : ""}
       </div>` : ""}
+      <div class="listing-brokerage">${mlsFact ? `${mlsFact} · ` : ""}Listed by ${brokerage}</div>
     </div>
   `;
 
   if (photos.length > 1) attachPhotoCarousel(card, photos, cityEsc);
-
-  if (hasExpandableDetail) {
-    const toggle = card.querySelector(".listing-details-toggle");
-    const panel = card.querySelector(".listing-details-panel");
-    toggle.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const isOpen = toggle.getAttribute("aria-expanded") === "true";
-      toggle.setAttribute("aria-expanded", String(!isOpen));
-      panel.hidden = isOpen;
-      toggle.querySelector("span:last-child").textContent = isOpen ? "›" : "‹";
-      toggle.querySelector("span:first-child").textContent = isOpen ? "View details" : "Hide details";
-    });
-    const moreBtn = card.querySelector(".listing-remarks-more");
-    if (moreBtn) {
-      moreBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        const remarksEl = card.querySelector(".listing-remarks");
-        const isExpanded = moreBtn.textContent === "Show less";
-        remarksEl.firstChild.textContent = isExpanded ? remarksEl.dataset.preview : remarksEl.dataset.full;
-        moreBtn.textContent = isExpanded ? "Read more" : "Show less";
-      });
-    }
-  }
 
   return card;
 }

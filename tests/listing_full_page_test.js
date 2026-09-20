@@ -75,7 +75,7 @@ async function openPage({ listing, status = 200, search, fetchThrows = false }) 
 
   const display = read("src/listings-display.js");
   check("card: 'View original listing' label and the listingUrl dependency are gone", !/View original listing/.test(display) && !/safeUrl\(listing\.listingUrl\)/.test(display));
-  check("card: the small inline 'View details' toggle is unchanged", /<span>View details<\/span>/.test(display) && /"Hide details"/.test(display));
+  check("card: the inline 'View details' toggle is gone (its content lives only on this page)", !/listing-details-toggle|listing-details-panel/.test(display));
   check("card: link href is built from the listing key only (no profile data)", /listing-full\.html\?key=\$\{encodeURIComponent\(detailKey\)\}/.test(display));
 
   // =============== 2. full listing renders every stored field ===============
@@ -153,9 +153,8 @@ async function openPage({ listing, status = 200, search, fetchThrows = false }) 
   check("(card) it opens listing-full.html for that key in a new tab", !!link && link.getAttribute("href") === "listing-full.html?key=K1" && link.target === "_blank" && /noopener/.test(link.rel));
   const cardWithUrl = cw.renderListingCard({ ...FULL, listingUrl: "https://www.realtor.ca/x" }, null);
   check("(card) a stored listingUrl is ignored -- the link still targets the full page", cardWithUrl.querySelector("a.listing-source-link").getAttribute("href") === "listing-full.html?key=K1");
-  check("(card) the existing 'View full details' link and inline toggle are untouched",
-    !!card.querySelector("a.listing-detail-link") && card.querySelector("a.listing-detail-link").getAttribute("href") === "listing.html?key=K1" &&
-    !!card.querySelector("button.listing-details-toggle") && /View details/.test(card.querySelector("button.listing-details-toggle").textContent));
+  check("(card) the 'View full details' pill link is untouched",
+    !!card.querySelector(".listing-links a.listing-detail-link") && card.querySelector("a.listing-detail-link").getAttribute("href") === "listing.html?key=K1");
   const noKey = cw.renderListingCard({ ...FULL, listingKey: "bad key!" }, null);
   check("(card) an unsafe listing key renders no link at all", noKey.querySelector("a.listing-source-link") === null);
 

@@ -59,7 +59,7 @@ function makeSqliteD1(sqlite, log) {
     brokerage_name TEXT, photos TEXT, last_updated TEXT, public_remarks TEXT,
     display_address TEXT, year_built INTEGER, lot_size_area REAL, lot_size_units TEXT,
     tax_annual_amount REAL, tax_year INTEGER, association_fee REAL, association_fee_frequency TEXT,
-    garage_type TEXT, basement TEXT, cooling TEXT, heat_type TEXT, virtual_tour_url TEXT, parking_spaces INTEGER,
+    garage_type TEXT, basement TEXT, cooling TEXT, heat_type TEXT, mls_number TEXT, listed_date TEXT, virtual_tour_url TEXT, parking_spaces INTEGER,
     latitude REAL, longitude REAL,
     source TEXT, transaction_type TEXT, property_subtype TEXT
   )`);

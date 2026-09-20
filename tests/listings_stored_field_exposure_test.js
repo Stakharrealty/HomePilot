@@ -66,45 +66,17 @@ const NEW_COLS = ["parking_spaces", "tax_annual_amount", "tax_year", "associatio
   check("money: neither -> null", money("Property tax", null, null, fmt) === null && money("Property tax", undefined, undefined, fmt) === null);
   check("money: output is escaped", !money("Fee", 1, null, () => "<b>x</b>").includes("<b>"));
 
-  // card rendering
+  // card rendering: the expandable panel is gone (2026-09 card redesign) -- garage,
+  // basement, cooling, tax, fee, tour and description live only on listing-full.html.
+  // The full-page rendering of these facts is covered by listing_full_page_test.js.
   const FULL = { listingKey: "FULL", listPrice: 700000, city: "Mississauga", brokerageName: "B", photos: [], propertyType: "detached",
     garageType: "Attached", basement: "Finished", cooling: "Central Air", parkingSpaces: 2, taxAnnualAmount: 4200, taxYear: 2025,
-    associationFee: 300, associationFeeFrequency: "Monthly", virtualTourUrl: "https://tour.example.com/1", publicRemarks: "Nice" };
-  const BARE = { listingKey: "BARE", listPrice: 500000, city: "Mississauga", brokerageName: "B", photos: [], propertyType: "detached" };
-  const CONDO_REAL = { listingKey: "CR", listPrice: 400000, city: "Mississauga", brokerageName: "B", photos: [], propertyType: "condo", associationFee: 612, associationFeeFrequency: "Monthly", publicRemarks: "x" };
-  const CONDO_NONE = { listingKey: "CN", listPrice: 400000, city: "Mississauga", brokerageName: "B", photos: [], propertyType: "condo", publicRemarks: "x" };
-  const CONDO_EST = { ...CONDO_NONE, listingKey: "CE", estimatedCondoFee: 450, estimatedTaxAnnual: 2500 };
-  const BAD_TOUR = { ...FULL, listingKey: "BT", virtualTourUrl: "javascript:alert(1)" };
-  const render = (l) => win.renderListingCard(l);
-  const panel = (l) => { const el = render(l); const p = el.querySelector(".listing-details-panel"); return { el, text: el.textContent, p, html: el.innerHTML }; };
-
-  const f = panel(FULL);
-  check("(a) full listing shows Garage, Basement, Cooling, Parking spaces",
-    ["Garage: Attached", "Basement: Finished", "Cooling: Central Air", "Parking spaces: 2"].every((x) => f.text.includes(x)));
-  check("(a) full listing shows real property tax with year", f.text.includes("Property tax: $4,200/yr (2025)"), f.text);
-  check("(a) non-condo does not show a condo fee", !f.text.includes("Condo fee"));
-  check("(a) virtual tour link is present, https, new tab, noopener", !!f.el.querySelector('a.listing-virtual-tour[href="https://tour.example.com/1"][target="_blank"][rel*="noopener"]'));
-  check("(a) real tax shown without '(estimated)'", !f.text.includes("(estimated)"));
-
-  const bare = panel(BARE);
-  check("(b) bare listing never renders N/A / Not available / undefined / null for the new facts",
-    !/N\/A|Not available|undefined|null/i.test(bare.text.replace("Brokerage not available", "")), bare.text);
-  check("(b) bare listing has no Garage/Basement/Cooling/Parking/tax/condo fee/tour lines",
-    !/Garage|Basement|Cooling|Parking spaces|Property tax|Condo fee|Virtual tour/.test(bare.text));
-  check("(b) bare listing has no empty details panel or toggle", !bare.el.querySelector(".listing-details-toggle"));
-
-  const cr = panel(CONDO_REAL);
-  check("(c) condo with real fee: 'Condo fee: $612/monthly' with no (estimated)", cr.text.includes("Condo fee: $612/monthly") && !cr.text.includes("Condo fee (estimated)"), cr.text);
-  const cn = panel(CONDO_NONE);
-  check("(c) condo with no fee and no estimate: no Condo fee line at all", !cn.text.includes("Condo fee"));
-  const ce = panel(CONDO_EST);
-  check("(c) condo with only an estimate: labelled (estimated), tax too",
-    ce.text.includes("Condo fee (estimated): $450/mo") && ce.text.includes("Property tax (estimated): $2,500/yr"), ce.text);
-
-  const bt = panel(BAD_TOUR);
-  check("unsafe (javascript:) virtual tour URL is dropped", !bt.el.querySelector(".listing-virtual-tour"));
-  const xss = panel({ ...FULL, listingKey: "X", garageType: "<img src=x onerror=alert(1)>" });
-  check("HTML in a stored fact is escaped, not rendered", xss.el.querySelectorAll(".listing-detail-facts img").length === 0);
+    associationFee: 300, associationFeeFrequency: "Monthly", virtualTourUrl: "https://tour.example.com/1", publicRemarks: "Nice remarks" };
+  const el = win.renderListingCard(FULL);
+  check("card has no details toggle, panel, remarks or virtual-tour link",
+    !el.querySelector(".listing-details-toggle, .listing-details-panel, .listing-remarks, .listing-detail-facts, .listing-virtual-tour"), el.innerHTML);
+  check("card no longer shows garage / basement / cooling / parking / tax / fee / remarks text",
+    !/Garage|Basement|Cooling|Parking spaces|Property tax|Condo fee|Virtual tour|Nice remarks/.test(el.textContent), el.textContent);
 
   check("no script errors while loading page", errors.length === 0, errors.join(" | "));
   console.log(`=== RESULT: ${passed} passed, ${failed} failed ===`);
