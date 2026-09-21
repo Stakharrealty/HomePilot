@@ -587,21 +587,31 @@ function openListingsWindow(city, propertyType, searchBudget) {
     // real popup reference (to .focus() it on repeat clicks, and to
     // legitimately detect an actual browser-level block), so noopener and
     // "check if popup is truthy" can't be combined.
-    // Sized off the ACTUAL screen (window.screen.availWidth/availHeight)
-    // rather than a fixed 1040x840 -- a fixed size left a lot of unused
-    // space (and only fit 2 grid columns instead of 3) on a large monitor.
-    // Fills the whole available screen (no cap -- a big monitor should get a
-    // full-size desktop view), but never smaller than the original
-    // 1040x840 floor. Anchored top-left when it fills. Plain synchronous math, called
-    // directly inside the click handler -- same requirement as the
-    // popup-blocker note below.
-    const popupW = Math.max(1040, Math.round(window.screen.availWidth));
-    const popupH = Math.max(840, Math.round(window.screen.availHeight));
-    const popupLeft = Math.max(0, Math.round((window.screen.availWidth - popupW) / 2));
-    const popupTop = Math.max(0, Math.round((window.screen.availHeight - popupH) / 2));
-    const popupDims = `width=${popupW},height=${popupH},left=${popupLeft},top=${popupTop},scrollbars=yes,resizable=yes`;
-    const popup = window.open(url, "hp_listings", popupDims);
-    if (popup) popup.focus();
+    //
+    // window.open()'s width/height features (tried here previously) only
+    // size the new window's CONTENT AREA, not the outer window --
+    // requesting window.screen.availWidth/availHeight there still leaves a
+    // gap the size of the browser's own chrome (title bar, tab strip,
+    // address bar), so the window could never actually reach a true
+    // full-screen/maximized look that way, no matter what was requested.
+    // resizeTo()/moveTo(), called on the window reference right after
+    // opening it, set the OUTER window's size and position directly --
+    // that's what actually fills the screen. Both wrapped in try/catch:
+    // some browsers refuse resizeTo/moveTo on certain window
+    // configurations (e.g. a window with more than one tab), which would
+    // otherwise throw and abort focus() for no good reason -- the popup
+    // having opened at its default size is a fine fallback, not worth
+    // losing focus() over. Floored at the original 1040x840. Plain
+    // synchronous calls inside the click handler -- same requirement as
+    // the popup-blocker note above.
+    const popup = window.open(url, "hp_listings", "width=1040,height=840,scrollbars=yes,resizable=yes");
+    if (popup) {
+      try {
+        popup.moveTo(0, 0);
+        popup.resizeTo(Math.max(1040, window.screen.availWidth), Math.max(840, window.screen.availHeight));
+      } catch (e) { /* not fatal -- popup still opened, just at its default size */ }
+      popup.focus();
+    }
     // If popup is still null here, that's now a REAL block (e.g. the user
     // has popups hard-disabled) -- fall back to same-tab navigation rather
     // than silently doing nothing.

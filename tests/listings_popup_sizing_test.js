@@ -1,17 +1,25 @@
-// openListingsWindow()'s desktop popup size used to be a fixed
-// "width=1040,height=840" regardless of the user's actual screen -- looked
-// fine on a small laptop but left a lot of unused space (and only fit 2
-// grid columns instead of 3) on a large monitor. This tests the fix: the
-// popup now fills window.screen.availWidth/availHeight (100% of the
-// available screen, no cap, floored at the original 1040x840),
-// centered when the floor exceeds the screen, else anchored top-left.
+// openListingsWindow()'s desktop popup used to request a size via
+// window.open()'s width/height/left/top features -- first a fixed
+// 1040x840, then scaled to the screen. But those features only size the
+// new window's CONTENT AREA, not the outer window: requesting
+// window.screen.availWidth/availHeight there still leaves a gap the size
+// of the browser's own chrome (title bar, tab strip, address bar), so the
+// window could never actually reach a true full-screen/maximized look no
+// matter what was requested that way.
+//
+// The actual fix: resizeTo()/moveTo(), called on the window reference
+// right after opening it, set the OUTER window's size and position
+// directly. This tests that: the popup opens at a small default size,
+// then gets moveTo(0, 0) and resizeTo(availWidth, availHeight), with a
+// 1040x840 floor and no crash if the browser refuses the resize (some
+// browsers block resizeTo/moveTo on certain window configurations).
 //
 // tests/listings_popup_redesign_test.js deliberately does static/regex
 // checks only ("no jsdom window.open support worth relying on") -- this
 // test instead loads the real index.html via jsdom and calls the real
-// openListingsWindow() with window.open and window.screen stubbed, so it
-// actually exercises the sizing math rather than pattern-matching source
-// text.
+// openListingsWindow() with window.open/window.screen and a fake popup
+// object stubbed, so it actually exercises the resize/move calls rather
+// than pattern-matching source text.
 //
 // Requires: a local static server on :8843 (npx http-server -p 8843 -s).
 
@@ -26,13 +34,12 @@ function check(label, cond, detail) {
   else { failed++; console.log(`  FAIL - ${label}${detail ? " :: " + detail : ""}`); }
 }
 
-function parseDims(str) {
-  const out = {};
-  for (const part of str.split(",")) {
-    const [k, v] = part.split("=");
-    if (v !== undefined) out[k] = Number(v);
-  }
-  return out;
+function fakePopup(calls) {
+  return {
+    focus() { calls.push(["focus"]); },
+    moveTo(x, y) { calls.push(["moveTo", x, y]); },
+    resizeTo(w, h) { calls.push(["resizeTo", w, h]); },
+  };
 }
 
 (async () => {
@@ -57,25 +64,57 @@ function parseDims(str) {
 
   for (const c of cases) {
     win.screen = { availWidth: c.w, availHeight: c.h };
-    let capturedDims = null;
-    win.open = (u, target, dims) => { capturedDims = dims; return { focus() {} }; };
+    const calls = [];
+    win.open = () => fakePopup(calls);
     win.openListingsWindow("Guelph", "all", 700000);
-    const d = capturedDims ? parseDims(capturedDims) : null;
-    check(`(${c.label}) popup width scales correctly`, !!d && d.width === c.expectW, JSON.stringify(d));
-    check(`(${c.label}) popup height scales correctly`, !!d && d.height === c.expectH, JSON.stringify(d));
-    check(`(${c.label}) popup is centered on screen`, !!d &&
-      d.left === Math.max(0, Math.round((c.w - c.expectW) / 2)) && d.top === Math.max(0, Math.round((c.h - c.expectH) / 2)), JSON.stringify(d));
+    const resize = calls.find((x) => x[0] === "resizeTo");
+    const move = calls.find((x) => x[0] === "moveTo");
+    check(`(${c.label}) resizeTo() called with the full available screen size (floored at 1040x840)`,
+      !!resize && resize[1] === c.expectW && resize[2] === c.expectH, JSON.stringify(calls));
+    check(`(${c.label}) moveTo(0, 0) called to anchor the window at the screen's top-left`,
+      !!move && move[1] === 0 && move[2] === 0, JSON.stringify(calls));
+    check(`(${c.label}) moveTo happens before resizeTo (order matters for a clean top-left fill)`,
+      !!move && !!resize && calls.indexOf(move) < calls.indexOf(resize), JSON.stringify(calls));
+    check(`(${c.label}) focus() is still called after resizing`, calls.some((x) => x[0] === "focus"), JSON.stringify(calls));
   }
 
   // Never smaller than the original floor even on a tiny/zero screen size
   // (e.g. availWidth not yet populated) -- must not throw or go negative.
-  win.screen = { availWidth: 0, availHeight: 0 };
-  let floorDims = null;
-  win.open = (u, target, dims) => { floorDims = dims; return { focus() {} }; };
-  win.openListingsWindow("Guelph", "all", 700000);
-  const fd = floorDims ? parseDims(floorDims) : null;
-  check("(floor) a zero/unknown screen size still floors at 1040x840, no crash, no negative position",
-    !!fd && fd.width === 1040 && fd.height === 840 && fd.left >= 0 && fd.top >= 0, JSON.stringify(fd));
+  {
+    win.screen = { availWidth: 0, availHeight: 0 };
+    const calls = [];
+    win.open = () => fakePopup(calls);
+    win.openListingsWindow("Guelph", "all", 700000);
+    const r = calls.find((x) => x[0] === "resizeTo");
+    check("(floor) a zero/unknown screen size still floors at 1040x840, no crash", !!r && r[1] === 1040 && r[2] === 840, JSON.stringify(calls));
+  }
+
+  // The window is still opened at a small default size via window.open
+  // itself (the outer size is set afterward by resizeTo, not by features).
+  {
+    win.screen = { availWidth: 1920, availHeight: 1080 };
+    let feats = null;
+    win.open = (u, t, f) => { feats = f; return fakePopup([]); };
+    win.openListingsWindow("Guelph", "all", 700000);
+    check("(open) window.open is called with a small default size, not the screen size",
+      typeof feats === "string" && /width=1040/.test(feats) && /height=840/.test(feats) && !/width=1920/.test(feats), String(feats));
+  }
+
+  // If the browser refuses resizeTo/moveTo (some do, for certain window
+  // configurations), the popup must still end up focused rather than the
+  // whole function silently aborting.
+  {
+    const calls = [];
+    win.screen = { availWidth: 1920, availHeight: 1080 };
+    win.open = () => ({
+      moveTo() { throw new Error("SecurityError: blocked"); },
+      resizeTo() { calls.push("resizeTo-unreachable"); },
+      focus() { calls.push("focus"); },
+    });
+    win.openListingsWindow("Guelph", "all", 700000);
+    check("(resilience) a browser blocking moveTo/resizeTo doesn't stop the popup from being focused",
+      calls.includes("focus"), calls.join(","));
+  }
 
   check("no uncaught DOM/script errors occurred during any of this",
     errors.filter((m) => !m.includes("fonts.googleapis.com")).length === 0, errors.join(" | "));
