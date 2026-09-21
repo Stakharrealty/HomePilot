@@ -230,9 +230,34 @@ function renderListingDetail(root, listing, profile, budget) {
   if (back) back.setAttribute("href", ldBackHref(listing));
 }
 
+// This page is normally reached from the listings popup (opened by
+// openListingsWindow in listings-display.js), and navigates inside that same
+// window, so it inherits whatever size the popup happens to have -- which the
+// browser may have left small. When (and only when) this page is running
+// inside a popup that has an opener, resize/move that window to fill the
+// available screen so a listing always shows at full desktop size. resizeTo/
+// moveTo set the OUTER window (unlike window.open's width/height, which only
+// size the content area). A normal browser tab has no opener, so it is never
+// touched; a browser that refuses the resize just leaves the window as it is.
+// Takes the window as a parameter so it can be tested with a stub.
+function ldFillPopupToScreen(w) {
+  try {
+    if (!w.opener || w.opener.closed) return false;
+    const aw = w.screen.availWidth, ah = w.screen.availHeight;
+    if (!(aw > 0 && ah > 0)) return false;
+    if (w.outerWidth >= aw - 8 && w.outerHeight >= ah - 8) return false; // already full
+    w.moveTo(0, 0);
+    w.resizeTo(Math.max(1040, aw), Math.max(840, ah));
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
 async function ldInit() {
   const root = document.getElementById("ldRoot");
   if (!root) return;
+  ldFillPopupToScreen(window);
   const params = new URLSearchParams(window.location.search);
   const key = params.get("key");
   const message = (text) => { root.innerHTML = `<div class="listings-error">${escapeHtml(text)}</div>`; };
