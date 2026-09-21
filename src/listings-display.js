@@ -587,7 +587,20 @@ function openListingsWindow(city, propertyType, searchBudget) {
     // real popup reference (to .focus() it on repeat clicks, and to
     // legitimately detect an actual browser-level block), so noopener and
     // "check if popup is truthy" can't be combined.
-    const popup = window.open(url, "hp_listings", "width=1040,height=840,scrollbars=yes,resizable=yes");
+    // Sized off the ACTUAL screen (window.screen.availWidth/availHeight)
+    // rather than a fixed 1040x840 -- a fixed size left a lot of unused
+    // space (and only fit 2 grid columns instead of 3) on a large monitor.
+    // Scales up to 90% of the screen, capped at 1500x1000 so it doesn't get
+    // absurdly large on an ultrawide, but never smaller than the original
+    // 1040x840 floor. Centered on screen. Plain synchronous math, called
+    // directly inside the click handler -- same requirement as the
+    // popup-blocker note below.
+    const popupW = Math.max(1040, Math.min(1500, Math.round(window.screen.availWidth * 0.9)));
+    const popupH = Math.max(840, Math.min(1000, Math.round(window.screen.availHeight * 0.9)));
+    const popupLeft = Math.max(0, Math.round((window.screen.availWidth - popupW) / 2));
+    const popupTop = Math.max(0, Math.round((window.screen.availHeight - popupH) / 2));
+    const popupDims = `width=${popupW},height=${popupH},left=${popupLeft},top=${popupTop},scrollbars=yes,resizable=yes`;
+    const popup = window.open(url, "hp_listings", popupDims);
     if (popup) popup.focus();
     // If popup is still null here, that's now a REAL block (e.g. the user
     // has popups hard-disabled) -- fall back to same-tab navigation rather
