@@ -2,9 +2,9 @@
 // "width=1040,height=840" regardless of the user's actual screen -- looked
 // fine on a small laptop but left a lot of unused space (and only fit 2
 // grid columns instead of 3) on a large monitor. This tests the fix: the
-// popup now scales with window.screen.availWidth/availHeight (90% of
-// screen, capped at 1500x1000, floored at the original 1040x840),
-// centered on screen.
+// popup now fills window.screen.availWidth/availHeight (100% of the
+// available screen, no cap, floored at the original 1040x840),
+// centered when the floor exceeds the screen, else anchored top-left.
 //
 // tests/listings_popup_redesign_test.js deliberately does static/regex
 // checks only ("no jsdom window.open support worth relying on") -- this
@@ -48,10 +48,10 @@ function parseDims(str) {
   win.saveBuyerProfile = undefined; // not under test here
 
   const cases = [
-    { label: "small laptop 1366x768", w: 1366, h: 768, expectW: 1229, expectH: 840 },
-    { label: "common desktop 1920x1080", w: 1920, h: 1080, expectW: 1500, expectH: 972 },
-    { label: "27in 2560x1440", w: 2560, h: 1440, expectW: 1500, expectH: 1000 },
-    { label: "ultrawide 3440x1440", w: 3440, h: 1440, expectW: 1500, expectH: 1000 },
+    { label: "small laptop 1366x768", w: 1366, h: 768, expectW: 1366, expectH: 840 },
+    { label: "common desktop 1920x1080", w: 1920, h: 1080, expectW: 1920, expectH: 1080 },
+    { label: "27in 2560x1440", w: 2560, h: 1440, expectW: 2560, expectH: 1440 },
+    { label: "ultrawide 3440x1440", w: 3440, h: 1440, expectW: 3440, expectH: 1440 },
     { label: "small/unknown 1024x768 (at the original floor)", w: 1024, h: 768, expectW: 1040, expectH: 840 },
   ];
 
