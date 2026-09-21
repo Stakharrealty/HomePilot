@@ -142,8 +142,8 @@ const read = (f) => fs.readFileSync(path.join(ROOT, f), "utf8");
   check("one pill link: 'Full HomePilot Analysis' -> listing.html?key=..., same window; the old 'View Details' link is gone",
     !!links && links.querySelectorAll("a").length === 1 && !!pill && /^listing\.html\?key=K1/.test(pill.getAttribute("href")) && pill.textContent === "Full HomePilot Analysis" &&
     !pill.hasAttribute("target") && !links.querySelector("a.listing-source-link") && !/listing-full/.test(full.innerHTML));
-  check("pill CSS rules present in index.html and listings.html, pill row offset left so its text lines up with the price/address/facts above it",
-    ["index.html", "listings.html"].every((p) => read(p).includes(".listing-source-link{background:#E6F1FB;color:#185FA5}") && read(p).includes(".listing-links{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;margin-left:-11px}")));
+  check("pill CSS rules present in index.html and listings.html, pill row offset left and with room below it (brokerage line itself stays untouched for PropTx 6.3(c))",
+    ["index.html", "listings.html"].every((p) => read(p).includes(".listing-source-link{background:#E6F1FB;color:#185FA5}") && read(p).includes(".listing-links{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;margin-left:-11px;margin-bottom:8px}")));
 
   // safety
   const evil = render({ mlsNumber: "<img src=x onerror=alert(1)>", brokerageName: "<b>x</b>", listedDate: "2026-09-12", bedrooms: "<script>1</script>" });

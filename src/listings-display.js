@@ -321,6 +321,52 @@ function attachPhotoCarousel(card, photos, cityEsc) {
 const TYPE_LABELS_PLURAL = { condo: "Condos", town: "Townhomes", semi: "Semi-Detached Homes", detached: "Detached Homes", all: "Homes" };
 const TYPE_LABELS_LOWER = { condo: "condo", town: "townhouse", semi: "semi-detached", detached: "detached home" };
 
+// Property-type filter pills on the listings page (listings.html) -- same
+// look and same 5 options as the "Property Type" filter bar under the
+// calculator's own results (calculator.html: #pt-all/condo/town/semi/detached,
+// filtProp()), so a buyer sees a familiar control after landing here from a
+// recommendation card. Unlike the calculator's filter (which re-slices
+// already-loaded city data client-side), picking a pill here re-fetches
+// listings for the new type by calling renderLiveListings() again.
+const TYPE_FILTER_OPTIONS = [["all", "All"], ["condo", "Condos"], ["town", "Townhomes"], ["semi", "Semi-Detached"], ["detached", "Detached"]];
+
+// Built as real DOM with a bound callback (not a global onclick + class
+// lookup) so it works with whatever containerEl the caller passes in --
+// same pattern as attachPhotoCarousel() above -- rather than depending on
+// listings.html's specific container class.
+function buildTypeFilterBar(propertyType, onSelect) {
+  const active = TYPE_LABELS_PLURAL[propertyType] ? propertyType : "all";
+  const wrap = document.createElement("div");
+  wrap.className = "filter-group";
+  const label = document.createElement("div");
+  label.className = "filter-label";
+  label.textContent = "Property Type";
+  const filters = document.createElement("div");
+  filters.className = "filters";
+  for (const [value, text] of TYPE_FILTER_OPTIONS) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "fb" + (value === active ? " on" : "");
+    btn.textContent = text;
+    btn.addEventListener("click", () => onSelect(value));
+    filters.appendChild(btn);
+  }
+  wrap.appendChild(label);
+  wrap.appendChild(filters);
+  return wrap;
+}
+
+// Inserts the filter bar right after ".listings-page-header" (title +
+// subtitle), before whatever loading/empty/error/grid content follows it --
+// works regardless of what's already in containerEl, since content appended
+// afterward (e.g. the grid) lands after this insertion point, not before it.
+function insertTypeFilterBar(containerEl, propertyType, onSelect) {
+  const header = containerEl.querySelector(".listings-page-header");
+  const bar = buildTypeFilterBar(propertyType, onSelect);
+  if (header) header.insertAdjacentElement("afterend", bar);
+  else containerEl.insertBefore(bar, containerEl.firstChild);
+}
+
 // Fetches the next page for an already-open listings container and appends
 // it to the existing grid, rather than re-rendering from scratch -- keeps
 // already-loaded cards (and their view-tracking observers) intact.
@@ -377,6 +423,7 @@ window.loadMoreListings = loadMoreListings;
 // through to fetchListings (server-side price ceiling) and every rendered
 // card (client-side fit-tier badge from getFit(); see listing-fit.js).
 async function renderLiveListings(city, containerEl, propertyType, searchBudget) {
+  containerEl._hpListingsState = { city, propertyType, searchBudget };
   const cityEsc = escapeHtml(city);
   const typeLabelPlural = TYPE_LABELS_PLURAL[propertyType] || "Homes";
   // typePhraseLower is only used as an adjective before "listings" -- when
@@ -392,17 +439,32 @@ async function renderLiveListings(city, containerEl, propertyType, searchBudget)
       <div class="listings-page-title">Available ${escapeHtml(typeLabelPlural)} Matching This Recommendation</div>
       <div class="listings-page-subtitle">${cityEsc} · HomePilot Affordability Pick</div>
     </div>`;
+  // Re-fetches for the clicked type, keeping the same city and search
+  // budget, and reflects the choice in the URL (replaceState, not
+  // pushState -- a filter pick isn't a new page to go "back" through).
+  const onSelectType = (type) => {
+    if (typeof window !== "undefined" && window.history && window.location) {
+      const url = new URL(window.location.href);
+      if (type === "all") url.searchParams.delete("type");
+      else url.searchParams.set("type", type);
+      window.history.replaceState(null, "", url);
+    }
+    renderLiveListings(city, containerEl, type, searchBudget);
+  };
   containerEl.innerHTML = `${headerHtml}<div class="listings-loading">Loading live ${escapeHtml(loadingPhrase)} for ${cityEsc}…</div>`;
+  insertTypeFilterBar(containerEl, propertyType, onSelectType);
 
   try {
     const listings = await fetchListings(city, propertyType, 0, PAGE_LIMIT, searchBudget);
 
     if (listings.length === 0) {
       containerEl.innerHTML = `${headerHtml}<div class="listings-empty">No active ${escapeHtml(loadingPhrase)} found in ${cityEsc} right now. Check back soon.</div>`;
+      insertTypeFilterBar(containerEl, propertyType, onSelectType);
       return;
     }
 
     containerEl.innerHTML = headerHtml;
+    insertTypeFilterBar(containerEl, propertyType, onSelectType);
     const grid = document.createElement("div");
     grid.className = "listings-grid";
     for (const listing of listings) {
@@ -432,6 +494,7 @@ async function renderLiveListings(city, containerEl, propertyType, searchBudget)
     containerEl.appendChild(renderIdxNotice());
   } catch (err) {
     containerEl.innerHTML = `${headerHtml}<div class="listings-error">Couldn't load live listings right now. Please try again shortly.</div>`;
+    insertTypeFilterBar(containerEl, propertyType, onSelectType);
   }
 }
 
