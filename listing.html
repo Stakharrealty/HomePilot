@@ -6,10 +6,13 @@
 <title>Listing — HomePilot</title>
 <!--
   listing.html — one listing, in HomePilot's fixed order:
-    1. HomePilot view (what this home costs THIS buyer, and its fit tier)
-    2. Photo gallery
-    3. Property details (every stored field)
-    4. Description
+    1. Top row: HomePilot view (what this home costs THIS buyer, and its
+       fit tier) + photo gallery. On narrow screens these stack, cost view
+       first. On wide screens they sit side by side -- gallery on the
+       left, cost view on the right (CSS `order`; DOM/reading order is
+       unchanged -- see listing-detail.js).
+    2. Property details (every stored field)
+    3. Description
     (Compare follows in a later release)
   then the brokerage line and PROPTX notices.
 
@@ -21,7 +24,7 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;background:#f5f5f5;color:#1a1a1a;min-height:100vh}
-.lw{max-width:860px;margin:0 auto;padding:1.25rem 1rem 3rem}
+.lw{max-width:1080px;margin:0 auto;padding:1.25rem 1rem 3rem}
 
 .lp-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;padding-bottom:1rem;border-bottom:1px solid #e8e8e8;gap:16px}
 .lp-logo{font-size:17px;font-weight:600;color:#1a1a1a;display:flex;align-items:center;gap:8px;text-decoration:none}
@@ -37,6 +40,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;bac
 .ld-sub{font-size:13px;color:#555;margin-top:2px}
 
 .ld-sec{background:#fff;border:1px solid #e8e8e8;border-radius:12px;padding:16px 18px;margin-bottom:14px}
+/* Top row: HomePilot cost view + photo gallery. On narrow screens these
+   just stack in DOM order (cost view first, unchanged from before -- see
+   listing-detail.js). On wide screens they sit side by side, with `order`
+   swapping the gallery to the left and the cost view to the right --
+   visual position only, reading/tab order is untouched. */
+@media(min-width:760px){
+  .ld-top{display:flex;gap:16px;align-items:flex-start}
+  .ld-top>.ld-sec{flex:1 1 0;min-width:0}
+  .ld-top>.ld-hp{order:2}
+  .ld-top>.ld-gallery{order:1}
+}
 .ld-sec h2{font-size:13px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#1D9E75;margin-bottom:10px}
 .ld-sec h3{font-size:14px;font-weight:700;margin:14px 0 6px}
 .ld-price{font-size:28px;font-weight:800}

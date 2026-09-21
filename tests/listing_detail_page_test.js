@@ -180,6 +180,14 @@ async function openPage({ listing, status = 200, profile, budget, search, fetchT
   const order = ["ldHomePilot", "ldGallery", "ldDetails", "ldRemarks"].map((id) => F.doc.getElementById(id));
   check("(M1) order: HomePilot view -> gallery -> property details -> description -> compliance",
     order.every(Boolean) && order.every((el, i) => i === 0 || !!(order[i - 1].compareDocumentPosition(el) & 4)) && !!(order[3].compareDocumentPosition(F.doc.querySelector(".ld-compliance")) & 4));
+  check("(M1b) HomePilot view and gallery share one .ld-top wrapper, HomePilot still first in the DOM (narrow screens keep cost-before-photo)",
+    F.doc.getElementById("ldHomePilot").parentElement === F.doc.getElementById("ldGallery").parentElement &&
+    F.doc.getElementById("ldHomePilot").parentElement.classList.contains("ld-top") &&
+    F.doc.getElementById("ldHomePilot").nextElementSibling === F.doc.getElementById("ldGallery"));
+  const listingHtml = read("listing.html");
+  check("(M1c) wide-screen CSS swaps the visual order (gallery left, cost view right) without touching the DOM order asserted above",
+    /@media\(min-width:760px\)\{[^}]*\.ld-top\{display:flex/.test(listingHtml) &&
+    listingHtml.includes(".ld-top>.ld-hp{order:2}") && listingHtml.includes(".ld-top>.ld-gallery{order:1}"));
   const fullFacts = {
     type: "Property type: Detached", beds: "Beds: 4", baths: "Baths: 3", parking: "Parking spaces: 2", total: "Total parking: 3", garage: "Garage: Attached",
     basement: "Basement: Finished", heating: "Heating: Forced Air", cooling: "Cooling: Central Air", year: "Year built: 2005", lot: "Lot size: 40 Feet",

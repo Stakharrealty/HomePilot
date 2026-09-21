@@ -1,11 +1,15 @@
 // listing-detail.js -- the listing detail page (listing.html?key=...).
 //
 // Page order is fixed and deliberate:
-//   1. HomePilot view   (what this home costs THIS buyer, from the buyer's own
-//                        numbers -- the reason HomePilot exists)
-//   2. Photo gallery   (the card's carousel, reused, arrows always visible)
-//   3. Property details (every stored field)
-//   4. Description      (complete, untruncated)
+//   1. Top row -- HomePilot view (what this home costs THIS buyer, from
+//      the buyer's own numbers -- the reason HomePilot exists) + photo
+//      gallery (the card's carousel, reused, arrows always visible).
+//      DOM order is HomePilot-view-then-gallery (narrow screens stack in
+//      that order); on wide screens CSS `order` (listing.html) swaps them
+//      visually only, so the gallery sits on the left and the cost view
+//      on the right -- reading/tab order is untouched.
+//   2. Property details (every stored field)
+//   3. Description      (complete, untruncated)
 //   [Compare -- later commit]
 // then the compliance block (brokerage + PROPTX notices).
 // This is the one destination for a listing: it replaced the separate
@@ -207,8 +211,17 @@ function renderListingDetail(root, listing, profile, budget) {
   const title = listing.displayAddress ? escapeHtml(listing.displayAddress) : escapeHtml(listing.city || "Listing");
   head.innerHTML = `<h1>${title}</h1>` + (listing.displayAddress && listing.city ? `<div class="ld-sub">${escapeHtml(listing.city)}</div>` : "");
   root.appendChild(head);
-  root.appendChild(renderHomePilotSection(buildHomePilotView(listing, profile, budget)));
-  root.appendChild(renderGallerySection(listing));
+
+  // Top row: DOM order stays HomePilot-view-then-gallery (unchanged --
+  // narrow screens still see cost before photo, same priority as before).
+  // On wide screens only, CSS `order` (see listing.html) visually swaps
+  // them so the gallery sits on the left and the cost view on the right.
+  const top = document.createElement("div");
+  top.className = "ld-top";
+  top.appendChild(renderHomePilotSection(buildHomePilotView(listing, profile, budget)));
+  top.appendChild(renderGallerySection(listing));
+  root.appendChild(top);
+
   root.appendChild(renderDetailsSection(listing));
   const remarks = renderRemarksSection(listing);
   if (remarks) root.appendChild(remarks);
