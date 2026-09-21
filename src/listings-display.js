@@ -250,7 +250,7 @@ function renderListingCard(listing, searchBudget) {
   const card = document.createElement("div");
   card.className = "listing-card";
   card.innerHTML = `
-    <div class="listing-photo-wrap">
+    <div class="listing-photo-wrap${detailHref ? " listing-photo-wrap-clickable" : ""}">
       ${photo
         ? `<img class="listing-photo" src="${photo}" alt="Photo of listing in ${cityEsc}" loading="lazy">`
         : `<div class="listing-photo listing-photo-empty">No photo available</div>`}
@@ -279,6 +279,24 @@ function renderListingCard(listing, searchBudget) {
   `;
 
   if (photos.length > 1) attachPhotoCarousel(card, photos, cityEsc);
+
+  // Thumbnail click -> same listing.html page as the "Full HomePilot
+  // Analysis" pill (same-window navigation, same reason: the buyer's
+  // numbers travel in sessionStorage, which a new tab wouldn't receive).
+  // Nav-button clicks already call stopPropagation() in
+  // attachPhotoCarousel(), so they never reach this listener. tabindex/
+  // role/keydown make it reachable without a mouse too -- not just a
+  // decoration on top of the pill link.
+  if (detailHref) {
+    const photoWrap = card.querySelector(".listing-photo-wrap");
+    photoWrap.tabIndex = 0;
+    photoWrap.setAttribute("role", "link");
+    photoWrap.setAttribute("aria-label", "View full HomePilot analysis for this listing");
+    photoWrap.addEventListener("click", () => { window.location.href = detailHref; });
+    photoWrap.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); window.location.href = detailHref; }
+    });
+  }
 
   return card;
 }
