@@ -39,7 +39,7 @@ jobs:
       - name: Regression suite (245 tests)
         run: npm run test
 
-      - name: DDF listings CI suite
+      - name: Listings CI suite
         run: npm run test:listings-ci
 
       - name: KV integrity test
