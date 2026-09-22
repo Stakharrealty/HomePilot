@@ -50,6 +50,10 @@ function buildHomePilotView(listing, profile, budget) {
     costs: null,
     net: null,
     remaining: null,
+    pctOfIncome: null,     // housing cost as % of take-home income (Section 3)
+    mortgageAssumptions: null, // { ratePct, amortMonths, downPayment } (Section 2)
+    comfort: null,         // ldComfortPosition() result (Section 4)
+    closing: null,         // ldClosingCosts() result (Section 1)
     verdict: null,      // "fg" | "fo" | "fs" (getFit's cls) or null
     verdictLabel: null, // getFit's label, from i18n
   };
@@ -58,9 +62,56 @@ function buildHomePilotView(listing, profile, budget) {
   view.costs = computed.costs;
   view.net = computed.net;
   view.remaining = computed.net - computed.costs.total;
+  view.pctOfIncome = computed.net > 0 ? (computed.costs.total / computed.net) * 100 : null;
+  view.mortgageAssumptions = {
+    ratePct: (profile.mortgageRate || DEFAULT_MORTGAGE_RATE_PCT / 100) * 100,
+    amortMonths: ldAmortizationMonths(profile, price),
+    downPayment: profile.downPayment,
+  };
+  view.comfort = ldComfortPosition(listing, profile);
+  view.closing = ldClosingCosts(listing, profile);
   const fit = ldFitFor(listing, computed, profile, budget);
   if (fit) { view.verdict = fit.cls; view.verdictLabel = fit.lbl; }
   return view;
+}
+
+// Section 4's one-sentence budget position -- comfort range only, deliberately
+// no dollar ceiling (product decision: HomePilot helps buyers understand
+// sustainable choices, not maximize borrowing capacity). Text only; the
+// underlying state comes entirely from ldComfortPosition() (listing-fit.js),
+// which reuses calcBP()'s existing comfortBP/bp -- no new thresholds here.
+function ldComfortSentence(comfort) {
+  if (comfort.state === "within-comfort") return "This home is within your comfort affordability range.";
+  if (comfort.state === "above-comfort-within-bank") return "This home is above your comfort affordability range, though still within what a lender would likely qualify you for.";
+  return "This home is above what HomePilot's calculator estimates you would qualify for.";
+}
+
+// Section 1: a separate one-time purchase-cost block, visually distinct from
+// the monthly costs above it (ld-onetime border/margin). All figures come
+// from ldClosingCosts() (listing-fit.js), which wraps the existing, already-
+// shipped calcClosingCosts()/calcLTT() engine (closingcosts.js) -- the same
+// one render.js's own "Estimated Cash Required to Close" panel uses. The
+// rebate row only appears when calcLTT() actually produced a nonzero rebate
+// (which only happens for a first-time buyer), so no separate flag check is
+// needed here. Moving costs and closing adjustments are included as line
+// items (not just folded into the total) so the displayed total always
+// equals the sum of the rows shown -- both are already part of
+// calcClosingCosts()'s existing, shipped methodology.
+function renderClosingCostsBlock(closing) {
+  let rows = ldRow("Down payment", fmtPrice(closing.effectiveDn))
+    + ldRow("Ontario land transfer tax", fmtPrice(closing.ltt.provNet));
+  if (closing.isToronto) rows += ldRow("Toronto municipal land transfer tax", fmtPrice(closing.ltt.muniNet));
+  if (closing.ltt.totalRebate > 0) rows += ldRow("First-time buyer land transfer tax rebate", `-${fmtPrice(closing.ltt.totalRebate)}`, "ld-credit");
+  rows += ldRow("Legal fees (estimated)", fmtPrice(closing.legal))
+    + ldRow("Title insurance (estimated)", fmtPrice(closing.titleIns))
+    + ldRow("Home inspection (estimated)", fmtPrice(closing.inspection))
+    + ldRow("Moving costs (estimated)", fmtPrice(closing.moving))
+    + ldRow("Closing adjustments (estimated)", fmtPrice(closing.adjustments))
+    + ldRow("Estimated cash required to purchase", fmtPrice(closing.cashRequired), "ld-total");
+  return `<div class="ld-onetime"><h3>Estimated cash required to purchase</h3><div class="ld-costs">${rows}</div>`
+    + `<p class="ld-muted ld-disclosure">These are estimates only and will vary by transaction -- new builds may attract HST. `
+    + `Land transfer tax and rebate figures are approximate and not a substitute for a lawyer's calculation. `
+    + `This is not financial, legal, or mortgage advice -- speak with a licensed mortgage professional and a real estate lawyer before making a purchase decision.</p></div>`;
 }
 
 // Section 3: every stored field, in reading order. Plain facts use factOrOmit
@@ -120,6 +171,9 @@ function renderHomePilotSection(view) {
     return sec;
   }
   const c = view.costs;
+  const ma = view.mortgageAssumptions;
+  const amortYears = ma.amortMonths === 360 ? 30 : 25;
+  const rateDisplay = ma.ratePct.toFixed(2).replace(/\.?0+$/, "");
   html += `<h3>Estimated monthly housing cost</h3><div class="ld-costs">`
     + ldRow("Mortgage", fmtPrice(c.mort))
     + ldRow(`Property tax${view.taxIsReal ? "" : " (estimated)"}`, fmtPrice(c.tax))
@@ -128,10 +182,15 @@ function renderHomePilotSection(view) {
     + ldRow("Utilities", fmtPrice(c.util))
     + ldRow("Maintenance", fmtPrice(c.maint))
     + ldRow("Total per month", fmtPrice(c.total), "ld-total")
-    + `</div><div class="ld-income">`
+    + `</div>`
+    + `<p class="ld-assumptions">Mortgage assumptions: ${rateDisplay}% rate · ${amortYears}-year amortization · ${escapeHtml(fmtPrice(ma.downPayment))} down</p>`
+    + `<div class="ld-income">`
     + ldRow("Estimated take-home income", `${fmtPrice(view.net)}/mo`)
+    + (view.pctOfIncome !== null ? ldRow("Housing cost as % of take-home income", `${Math.round(view.pctOfIncome)}%`) : "")
     + ldRow("Remaining after this home", `${fmtPrice(view.remaining)}/mo`, "ld-remaining")
-    + `</div>`;
+    + `</div>`
+    + (view.comfort ? `<p class="ld-comfort">${ldComfortSentence(view.comfort)}</p>` : "")
+    + (view.closing ? renderClosingCostsBlock(view.closing) : "");
   sec.innerHTML = html;
   return sec;
 }

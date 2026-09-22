@@ -82,6 +82,15 @@ function ldWithEngine(profile, net, fn) {
   }
 }
 
+// The buyer's net monthly income: their own reported figure, else the
+// estimate-from-gross fallback. Shared by computeListingCosts() and
+// ldComfortPosition() so both use exactly the same number.
+function ldNetIncome(profile) {
+  return profile.netMonthlyIncome > 0
+    ? profile.netMonthlyIncome
+    : estimateOntarioNetAnnual(profile.grossMonthlyIncome * 12) / 12;
+}
+
 // What this listing costs this buyer each month. Null when there's no
 // profile or no usable price.
 function computeListingCosts(listing, profile) {
@@ -89,9 +98,7 @@ function computeListingCosts(listing, profile) {
   if (!profile || !(price > 0)) return null;
   const { market, known } = ldResolveMarket(listing);
   const overrides = ldOverrides(listing);
-  const net = profile.netMonthlyIncome > 0
-    ? profile.netMonthlyIncome
-    : estimateOntarioNetAnnual(profile.grossMonthlyIncome * 12) / 12;
+  const net = ldNetIncome(profile);
   const costs = ldWithEngine(profile, net, () =>
     calcCosts(market, price, profile.familySize, profile.downPayment, listing.propertyType || "detached", overrides));
   return {
@@ -99,6 +106,52 @@ function computeListingCosts(listing, profile) {
     taxIsReal: overrides.taxAnnual !== undefined,
     feeIsReal: overrides.condoFeeMonthly !== undefined,
   };
+}
+
+// Amortization eligibility, for display only (Section 2 "Mortgage
+// Assumptions" transparency note). This is a READ-ONLY duplicate of the
+// one-line rule already written in mortgage.js's calcCosts() (dpRatio>=0.20
+// or first-time-buyer -> 360 months, else 300) -- a deliberate product
+// decision to keep mortgage.js completely untouched rather than export a
+// new helper from it. If that eligibility rule ever changes in mortgage.js,
+// this line must be updated to match, or the transparency note will drift
+// from the mortgage payment actually shown above it.
+function ldAmortizationMonths(profile, price) {
+  const dpRatio = price > 0 ? profile.downPayment / price : 1;
+  return (profile.firstTimeBuyer === true || dpRatio >= 0.20) ? 360 : 300;
+}
+
+// Where this listing's price sits relative to the buyer's own numbers, using
+// calcBP() (mortgage.js) exactly as main.js already does for the "HomePilot
+// comfort range" box -- no new thresholds, no new methodology. Null when
+// there's no profile or no usable price.
+function ldComfortPosition(listing, profile) {
+  const price = Number(listing.listPrice);
+  if (!profile || !(price > 0)) return null;
+  const net = ldNetIncome(profile);
+  const { bp, comfortBP } = ldWithEngine(profile, net, () =>
+    calcBP(profile.grossMonthlyIncome * 12, profile.downPayment, profile.existingDebt));
+  let state;
+  if (price <= comfortBP) state = "within-comfort";
+  else if (price <= bp) state = "above-comfort-within-bank";
+  else state = "above-bank";
+  return { state, bp, comfortBP };
+}
+
+// One-time purchase costs for this listing: land transfer tax (provincial +
+// Toronto municipal, with the first-time-buyer rebate baked in), legal fees,
+// title insurance, home inspection, moving costs and closing adjustments --
+// all from the existing calcClosingCosts()/calcLTT() engine (closingcosts.js),
+// unchanged. effectiveDn mirrors render.js's existing cash-to-close panel: a
+// cash-rich buyer can't put down more than the price. Null when there's no
+// profile or no usable price.
+function ldClosingCosts(listing, profile) {
+  const price = Number(listing.listPrice);
+  if (!profile || !(price > 0)) return null;
+  const { market } = ldResolveMarket(listing);
+  const cc = calcClosingCosts(market.n, price, profile.firstTimeBuyer === true);
+  const effectiveDn = Math.min(profile.downPayment, price);
+  return { ...cc, effectiveDn, cashRequired: effectiveDn + cc.total };
 }
 
 // The fit tier for a listing whose costs are already computed, or null when

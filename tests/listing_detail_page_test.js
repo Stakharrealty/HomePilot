@@ -26,7 +26,7 @@ const fmt = (n) => new Intl.NumberFormat("en-CA", { style: "currency", currency:
 function loadEngine() {
   const ctx = { console };
   vm.createContext(ctx);
-  for (const f of ["src/config.js", "src/cities.js", "src/mortgage.js"]) {
+  for (const f of ["src/config.js", "src/cities.js", "src/mortgage.js", "src/closingcosts.js"]) {
     vm.runInContext(read(f).replace(/^const /gm, "var ").replace(/^let /gm, "var "), ctx, { filename: f });
   }
   vm.runInContext("var customMortgageRate = DEFAULT_MORTGAGE_RATE_PCT/100; var firstTimeBuyer = false;", ctx);
@@ -114,7 +114,9 @@ async function openPage({ listing, status = 200, profile, budget, search, fetchT
   check("listing-detail.js makes exactly one network call, to the listings API", (detailSrc.match(/\bfetch\(/g) || []).length === 1 && /fetch\(`\$\{LISTINGS_API_BASE\}\/listing\?key=/.test(detailSrc));
   const scripts = [...pageSrc.matchAll(/<script src="([^"]+)"/g)].map((x) => x[1]);
   check("listing.html loads only the expected scripts, in order (no leadform / AI / insights modules)",
-    JSON.stringify(scripts) === JSON.stringify(["src/config.js", "src/listing-page-globals.js", "src/cities.js", "src/mortgage.js", "src/utils.js", "src/i18n.js", "src/explainability.js", "src/ai.js", "src/buyer-profile.js", "src/listings-display.js", "src/listing-fit.js", "src/listing-detail.js"]), scripts.join());
+    JSON.stringify(scripts) === JSON.stringify(["src/config.js", "src/listing-page-globals.js", "src/cities.js", "src/mortgage.js", "src/closingcosts.js", "src/utils.js", "src/i18n.js", "src/explainability.js", "src/ai.js", "src/buyer-profile.js", "src/listings-display.js", "src/listing-fit.js", "src/listing-detail.js"]), scripts.join());
+  check("listing.html does NOT touch mortgage.js (Section 1/2's closing-cost + amortization additions were required to leave it untouched)",
+    !/(function|const|let)\s+(ldAmortizationMonths|ldComfortPosition|ldClosingCosts|ldNetIncome)\b/.test(read("src/mortgage.js")));
   const scriptsOf = (f) => [...read(f).matchAll(/<script src="([^"]+)"/g)].map((x) => x[1]);
   const before = (arr, a, b) => arr.indexOf(a) > -1 && arr.indexOf(b) > -1 && arr.indexOf(a) < arr.indexOf(b);
   check("listings.html: globals file after config.js and before mortgage/explainability; fit + profile before listings-display",
@@ -374,6 +376,96 @@ async function openPage({ listing, status = 200, profile, budget, search, fetchT
   check("(L1) index.html cards get the fit-tier badge too", !!idxBadge && /listing-fit-f[gos]/.test(idxBadge.className), idxBadge && idxBadge.className);
   check("(L2) computing it leaves the live app's rate / net income / first-time-buyer values exactly as they were",
     w.eval("netMonthlyIncome") === 1234 && w.eval("customMortgageRate") === 0.0777 && w.eval("firstTimeBuyer") === true, w.eval("[netMonthlyIncome, customMortgageRate, firstTimeBuyer]").join());
+
+  // =============== 11. Section 1/2/3/4 additions: cash-to-purchase, mortgage assumptions, % of income, comfort position ===============
+  const ccBase = eng.calcClosingCosts("Mississauga", 850000, false);
+  const A2 = await openPage({ listing: BASE, profile: PROFILE, budget: 900000 });
+  const hp2 = A2.doc.getElementById("ldHomePilot").textContent;
+  check("(N1) Estimated cash required to purchase: Ontario (non-Toronto) property, non-FTB -- LTT and total match calcClosingCosts exactly",
+    has(hp2, "Ontario land transfer tax" + fmt(ccBase.ltt.provNet)) &&
+    has(hp2, "Estimated cash required to purchase" + fmt(170000 + ccBase.total)) &&
+    !has(hp2, "Toronto municipal land transfer tax") && !has(hp2, "land transfer tax rebate"), hp2);
+  check("(N2) closing-cost line items (legal fees, title insurance, home inspection, moving, adjustments) match the engine exactly",
+    has(hp2, "Legal fees (estimated)" + fmt(ccBase.legal)) && has(hp2, "Title insurance (estimated)" + fmt(ccBase.titleIns)) &&
+    has(hp2, "Home inspection (estimated)" + fmt(ccBase.inspection)) && has(hp2, "Moving costs (estimated)" + fmt(ccBase.moving)) &&
+    has(hp2, "Closing adjustments (estimated)" + fmt(ccBase.adjustments)));
+  check("(N3) down payment row in the purchase-cost section shows the buyer's real down payment", has(hp2, "Down payment" + fmt(170000)));
+
+  const ccTor = eng.calcClosingCosts("Toronto - North York", 900000, false);
+  const T2 = await openPage({ listing: TOR, profile: PROFILE, budget: 950000 });
+  const hpT2 = T2.doc.getElementById("ldHomePilot").textContent;
+  check("(N4) Toronto property: municipal LTT row appears with the correct amount, on top of the provincial LTT",
+    has(hpT2, "Ontario land transfer tax" + fmt(ccTor.ltt.provNet)) && has(hpT2, "Toronto municipal land transfer tax" + fmt(ccTor.ltt.muniNet)) &&
+    ccTor.isToronto === true, hpT2);
+
+  const FTB_PROFILE = { ...PROFILE, firstTimeBuyer: true };
+  const ccFTB = eng.calcClosingCosts("Mississauga", 850000, true);
+  const FT = await openPage({ listing: BASE, profile: FTB_PROFILE, budget: 900000 });
+  const hpFT = FT.doc.getElementById("ldHomePilot").textContent;
+  check("(N5) first-time buyer: LTT rebate row shown with the correct amount, and it actually lowers the net LTT vs. the non-FTB case",
+    has(hpFT, "First-time buyer land transfer tax rebate-" + fmt(ccFTB.ltt.totalRebate)) &&
+    ccFTB.ltt.totalRebate > 0 && ccFTB.ltt.provNet < ccBase.ltt.provNet, hpFT);
+  check("(N6) non-first-time buyer: no rebate row at all", !has(hp2, "land transfer tax rebate"));
+  check("(N7) first-time buyer's total cash required is lower than the non-FTB total at the identical price (rebate reduces it)",
+    (170000 + ccFTB.total) < (170000 + ccBase.total));
+
+  // 170000/850000 = 0.20 exactly -> the existing dpRatio>=0.20 rule (mortgage.js) already gives this
+  // scenario 30-year amortization (also reflected in calcCosts' own "exp.mort" used elsewhere above).
+  check("(N8) mortgage assumptions line shows the profile's rate, its correct amortization, and its down payment",
+    has(hp2, "Mortgage assumptions: 4.19% rate · 30-year amortization · " + fmt(170000) + " down"));
+  const FTB_LOWDOWN = { ...PROFILE, firstTimeBuyer: true, downPayment: 20000 };
+  const LD = await openPage({ listing: { ...BASE, listPrice: 300000 }, profile: FTB_LOWDOWN, budget: 400000 });
+  check("(N9) first-time buyer with <20% down still gets 30-year amortization (matches mortgage.js's own eligibility rule)",
+    has(LD.doc.getElementById("ldHomePilot").textContent, "30-year amortization"));
+  const NONFTB_LOWDOWN = { ...PROFILE, firstTimeBuyer: false, downPayment: 20000 };
+  const LD2 = await openPage({ listing: { ...BASE, listPrice: 300000 }, profile: NONFTB_LOWDOWN, budget: 400000 });
+  check("(N10) non-first-time buyer with <20% down gets 25-year amortization",
+    has(LD2.doc.getElementById("ldHomePilot").textContent, "25-year amortization"));
+
+  const pct = Math.round((exp.total / 9800) * 100);
+  check("(N11) housing cost as % of take-home income matches total/net, rounded, and appears even with a budget present",
+    has(hp2, "Housing cost as % of take-home income" + pct + "%"));
+  const NBpct = await openPage({ listing: BASE, profile: PROFILE }); // no budget param at all
+  check("(N12) % of take-home income still shows with no budget URL param (doesn't depend on the fit badge)",
+    has(NBpct.doc.getElementById("ldHomePilot").textContent, "Housing cost as % of take-home income" + pct + "%"));
+
+  // Comfort position -- all three states, derived from calcBP() itself (never hand-picked numbers)
+  const bpVals = eng.calcBP(180000, 170000, 0); // matches PROFILE: grossMonthlyIncome 15000 x 12, downPayment 170000, existingDebt 0, rate/FTB = loadEngine's defaults (4.19%, non-FTB) = PROFILE's own values
+  check("(N13) sanity: comfortBP is below bp (precondition for the mid-point scenario below)", bpVals.comfortBP < bpVals.bp);
+  const withinPrice = Math.round(bpVals.comfortBP * 0.7);
+  const aboveComfortPrice = Math.round((bpVals.comfortBP + bpVals.bp) / 2);
+  const aboveBankPrice = bpVals.bp + 100000;
+  const CW = await openPage({ listing: { ...BASE, listPrice: withinPrice }, profile: PROFILE });
+  const CA = await openPage({ listing: { ...BASE, listPrice: aboveComfortPrice }, profile: PROFILE });
+  const CB = await openPage({ listing: { ...BASE, listPrice: aboveBankPrice }, profile: PROFILE });
+  check("(N14) price within comfort range -> the comfort-range sentence",
+    has(CW.doc.getElementById("ldHomePilot").textContent, "This home is within your comfort affordability range."));
+  check("(N15) price above comfort range but within the bank ceiling -> the in-between sentence",
+    has(CA.doc.getElementById("ldHomePilot").textContent, "though still within what a lender would likely qualify you for"));
+  check("(N16) price above the bank ceiling -> the over-ceiling sentence",
+    has(CB.doc.getElementById("ldHomePilot").textContent, "This home is above what HomePilot's calculator estimates you would qualify for."));
+  const comfortText = (CW.doc.querySelector(".ld-comfort") || {}).textContent || "";
+  check("(N17) the comfort-position sentence shows no dollar figure at all (no maximum-affordability number, by product decision)",
+    comfortText.length > 0 && !comfortText.includes("$"));
+  check("(N18) comfort sentence renders with no budget URL param at all (independent of the fit badge/ceiling)",
+    has(NBpct.doc.getElementById("ldHomePilot").textContent, "comfort affordability range") || has(NBpct.text, "qualify you for"));
+
+  // Missing / incomplete buyer profile -- the new sections must not appear at all, never partially or with guessed numbers
+  check("(N19) no profile: none of the new sections render (no cash-required, no mortgage assumptions, no comfort sentence, no % of income)",
+    !has(N.text, "Estimated cash required to purchase") && !has(N.text, "Mortgage assumptions") && !has(N.text, "comfort affordability range") && !has(N.text, "Housing cost as %"));
+  for (const [label, p] of [["negative income", { ...PROFILE, grossMonthlyIncome: -5 }], ["garbage JSON", "{not json"], ["absurd down payment", { ...PROFILE, downPayment: 1e15 }]]) {
+    const G2 = await openPage({ listing: BASE, profile: p, budget: 900000 });
+    check(`(N20) invalid stored profile (${label}) -> new sections also fall back cleanly (no half-rendered cash-required/comfort content)`,
+      !has(G2.text, "Estimated cash required to purchase") && !has(G2.text, "comfort affordability range"));
+  }
+
+  // Never invented / NaN figures anywhere in the new sections
+  check("(N21) new sections never render N/A / undefined / null / NaN",
+    !/N\/A|undefined|null|NaN/.test(hp2) && !/N\/A|undefined|null|NaN/.test(hpT2) && !/N\/A|undefined|null|NaN/.test(hpFT));
+
+  // Existing monthly-cost values are still byte-for-byte unchanged (calcCosts itself untouched -- see GOLDEN_CALC above; this re-confirms at the page level)
+  check("(N22) existing monthly cost rows are unchanged by this pass (still match calcCosts exactly, same as check (A) above)",
+    has(hp2, "Mortgage" + fmt(exp.mort)) && has(hp2, "Total per month" + fmt(exp.total)));
 
   console.log(`=== RESULT: ${passed} passed, ${failed} failed ===`);
   process.exit(failed ? 1 : 0);
