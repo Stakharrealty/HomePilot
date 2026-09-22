@@ -522,6 +522,39 @@ async function openPage({ listing, status = 200, profile, budget, search, fetchT
   check("(O13) the fit badge and monthly 'Total per month' are unaffected by the new facts (still match calcCosts exactly)",
     has(LOT_WD.doc.getElementById("ldHomePilot").textContent, "Total per month" + fmt(exp.total)));
 
+  // =============== 13. Listed date + Days Ago (reused verbatim from listings-display.js -- no new field/computation/label) ===============
+  const LISTED_AT = "2026-07-29T12:37:33Z";
+  const expDateText = cw.formatListedDate(LISTED_AT);
+  const expAgoText = cw.listedDaysAgoText(LISTED_AT);
+  check("(P0) sanity: the shared helpers produce the expected card format for this fixture", expDateText === "Jul 29, 2026" && /^\d+ Days Ago$/.test(expAgoText), expDateText + " / " + expAgoText);
+
+  const LISTED = await openPage({ listing: { ...BASE, listedDate: LISTED_AT }, profile: PROFILE, budget: 900000 });
+  const listedDetailsText = LISTED.doc.getElementById("ldDetails").textContent;
+  check("(P1) 'Listed: {date}' appears in the property details area, using the exact same label/format as the card", has(listedDetailsText, "Listed: " + expDateText));
+  check("(P2) the days-ago text appears too, computed by the same function, unlabeled (matching the card's own unlabeled display)", has(listedDetailsText, expAgoText));
+
+  // Cross-check against the actual rendered card for the SAME listing object -- proves the detail page and the
+  // card produce identical text, not just similarly-formatted text.
+  const cardEl = cw.renderListingCard({ ...BASE, listedDate: LISTED_AT }, 900000);
+  const cardDateText = cardEl.querySelector(".listing-listed-date").textContent;
+  const cardAgoText = cardEl.querySelector(".listing-listed-date-ago").textContent;
+  check("(P3) listing.html's 'Listed' text is byte-for-byte identical to the card's", listedDetailsText.includes(cardDateText), `card="${cardDateText}" detail="${listedDetailsText}"`);
+  check("(P4) listing.html's days-ago text is byte-for-byte identical to the card's", listedDetailsText.includes(cardAgoText), `card="${cardAgoText}" detail="${listedDetailsText}"`);
+
+  const NO_LISTED = await openPage({ listing: { ...BASE, listedDate: null }, profile: PROFILE, budget: 900000 });
+  check("(P5) no listedDate -> both 'Listed' and the days-ago text are omitted entirely, never guessed", !has(NO_LISTED.text, "Listed:") && !/\d+ Days? Ago/.test(NO_LISTED.text));
+
+  // T18:00:00Z (mid-afternoon in Toronto regardless of DST) so this timestamp's
+  // Toronto calendar day is unambiguously today -- midnight UTC would actually
+  // fall on Toronto's PREVIOUS calendar day (UTC-4/-5).
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Toronto", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  const LISTED_TODAY = await openPage({ listing: { ...BASE, listedDate: `${today}T18:00:00Z` }, profile: PROFILE, budget: 900000 });
+  check("(P6) listed today -> 'Listed Today' (same edge case the card already handles), not '0 Days Ago'", has(LISTED_TODAY.text, "Listed Today") && !/0 Days Ago/.test(LISTED_TODAY.text));
+
+  check("(P7) new Listed facts never render N/A / undefined / null / NaN", [LISTED, NO_LISTED, LISTED_TODAY].every((p) => !/N\/A|undefined|null|NaN/.test(p.text)));
+
+  check("(P8) fit badge / monthly total still unaffected", has(LISTED.doc.getElementById("ldHomePilot").textContent, "Total per month" + fmt(exp.total)));
+
   console.log(`=== RESULT: ${passed} passed, ${failed} failed ===`);
   process.exit(failed ? 1 : 0);
 })().catch((e) => { console.error(e); process.exit(1); });

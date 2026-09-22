@@ -148,6 +148,20 @@ function ldAgeFact(listing) {
   return listing.approximateAge === "New" ? "Building age: New" : `Building age: ${escapeHtml(listing.approximateAge)} years`;
 }
 
+// Listed date + days-ago (added 2026-09-23): reuses listings-display.js's
+// own formatListedDate()/listedDaysAgoText() verbatim -- the exact same
+// field (listing.listedDate), computation and "Listed" label/format already
+// shown on the card (listings.html). No new field, no new $select, no new
+// computation, no new label -- the days-ago piece is deliberately unlabeled
+// here too, matching the card, where it's also shown with no label of its
+// own. Gated on the date fact exactly like the card (listedDateAgo is only
+// ever computed when listedDateFact exists).
+function ldListedDateFacts(listing) {
+  const dateFact = factOrOmit("Listed", formatListedDate(listing.listedDate));
+  const ago = dateFact ? listedDaysAgoText(listing.listedDate) : null;
+  return [dateFact, ago];
+}
+
 function fullListingFacts(listing) {
   const est = ldEstimates(listing);
   const yearSuffix = listing.taxYear ? ` (${listing.taxYear})` : "";
@@ -173,6 +187,7 @@ function fullListingFacts(listing) {
       : moneyFactOrEstimate("Association fee", realFee, null, (v) => `${fmtPrice(v)}/mo`),
     factOrOmit("City", listing.city),
     factOrOmit("Postal code", listing.postalCode),
+    ...ldListedDateFacts(listing),
   ].filter(Boolean);
 }
 
