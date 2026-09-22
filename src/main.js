@@ -70,18 +70,33 @@ function go(){
   }
   const area=document.getElementById("area").value,fam=document.getElementById("fam").value;
   const t=T[lang];
-  document.getElementById("err").style.display="none";
-  if(!inc||inc<1){document.getElementById("err").textContent=t.err;document.getElementById("err").style.display="block";return;}
+  // Validation hardened 2026-09-22 (audit). Previously: an income of exactly 1
+  // passed (`inc < 1` lets 1 through) and produced a buying power of $0; an
+  // income of 1e400 became Infinity and rendered the literal text "$NaN" to the
+  // buyer; a debt of Infinity silently collapsed buying power to the down
+  // payment with no error; a negative debt was accepted and INCREASED buying
+  // power; and when validation did reject the input, go() returned early
+  // without clearing the buying-power box, so the buyer saw an error message
+  // next to the previous run's number.
+  const err=document.getElementById("err");
+  const fail=(msg)=>{
+    err.textContent=msg; err.style.display="block";
+    const bp=document.getElementById("bpBox"); if(bp) bp.style.display="none";
+    const bpv=document.getElementById("bpV"); if(bpv) bpv.textContent="";
+    return false;
+  };
+  err.style.display="none";
+  if(!Number.isFinite(inc)||inc<1000) return void fail(t.err);
+  if(inc>10000000) return void fail("Please enter your annual household income before tax. That figure looks like a total net worth rather than a yearly income.");
   // A down payment is always required to purchase in Canada (min 5% on the
   // cheapest property). The per-property minimum-down-payment check against
   // each specific property's price happens inside getPriceForTypeStrict —
   // that's the correct place for it since "5% of what?" only makes sense
   // once an actual property price is known, not against theoretical buying power.
-  if(dn<=0){
-    document.getElementById("err").textContent="A down payment is required to purchase a home in Canada.";
-    document.getElementById("err").style.display="block";
-    return;
-  }
+  if(!Number.isFinite(dn)||dn<=0) return void fail("A down payment is required to purchase a home in Canada.");
+  if(dn>50000000) return void fail("That down payment is outside the range this calculator is built for.");
+  if(dbt<0) return void fail("Monthly debt payments can't be negative. Enter 0 if you have none.");
+  if(!Number.isFinite(dbt)||dbt>inc) return void fail("Your monthly debt payments look larger than your annual income. Enter the MONTHLY amount you pay, not the total balance owing.");
   const btn=document.getElementById("goBtn");btn.disabled=true;btn.innerHTML='<div class="spin"></div>';
   try{
     const{bp:b,comfortBP:cBP,mo,comfortMo}=calcBP(inc,dn,dbt);

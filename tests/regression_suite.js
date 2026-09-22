@@ -884,7 +884,18 @@ runSuite7().then(async () => {
     t('Access to Work section is computed from real getAccessTier() data, not from the AI response', /getAccessTier\(cm\)/.test(fetchSrc) && /calcCommuteMinutes\(cityName\)/.test(fetchSrc));
     t('Access to Work is NOT sourced from parsed.commute or any AI field', !/parsed\.commute/.test(fetchSrc));
 
-    t('AI-generated disclaimer is present in the rendered output', /generated from HomePilot/.test(fetchSrc) && /city profiles and affordability analysis/.test(fetchSrc) && /used alongside your own research/.test(fetchSrc));
+    // Disclaimer wording corrected 2026-09-22 (audit). It used to claim the
+    // text was "generated from HomePilot's city profiles and affordability
+    // analysis". Nothing of the sort reaches the prompt — only a city name, an
+    // income and a buying power. What must hold now is the opposite: the
+    // disclaimer says the commentary is model-written and NOT from HomePilot's
+    // data, and must not re-acquire the old grounding claim.
+    t('AI disclaimer says the text is AI-written', /written by an AI model/.test(fetchSrc));
+    t('AI disclaimer does not claim HomePilot data as the source',
+      !/generated from HomePilot/.test(fetchSrc) && !/city profiles and affordability analysis/.test(fetchSrc));
+    t('AI disclaimer still points the buyer at their own research', /your own research/.test(fetchSrc));
+    t('AI disclaimer separates the dollar figures from the AI commentary',
+      /calculated by HomePilot, not by the AI/.test(fetchSrc));
 
     // HomePilot Score display — removed twice now (once before this session, once
     // during it) per the standing decision "buyers want numbers, not scores".
@@ -929,7 +940,8 @@ runSuite7().then(async () => {
     t('functional: rendered output contains the AI-provided tradeOffs text', renderedHtml.includes('TESTMARK_TRADEOFFS'));
     t('functional: rendered output contains the AI-provided lifestyleSnapshot text', renderedHtml.includes('TESTMARK_LIFESTYLE'));
     t('functional: rendered output contains "Access to Work" (real data, not AI)', renderedHtml.includes('Access to Work'));
-    t('functional: rendered output contains the disclaimer', renderedHtml.includes('should be used alongside your own research'));
+    t('functional: rendered output contains the corrected disclaimer',
+      renderedHtml.includes('written by an AI model') && renderedHtml.includes('your own research'));
     t('functional: rendered output does NOT contain a "Growth" or "growth story" header', !/growth story/i.test(renderedHtml));
     t('functional: rendered output does NOT contain the old "family picture" header', !/family picture/i.test(renderedHtml));
     t('functional: rendered output does NOT contain a "HomePilot Score" block', !/HomePilot Score/.test(renderedHtml));

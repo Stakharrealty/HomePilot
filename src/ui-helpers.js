@@ -123,22 +123,14 @@ function toggleFaq(btn){
   }
 }
 
-function revealCalculator(){
-  // Desktop-only reveal: on mobile the calculator is already visible (no CSS
-  // rule hides it below the 900px breakpoint), and the hero CTA button itself
-  // is hidden on mobile, so this only ever fires from the desktop hero.
-  const sec=document.getElementById("calculatorSection");
-  if(!sec) return;
-  sec.classList.add("revealed");
-  requestAnimationFrame(function(){
-    requestAnimationFrame(function(){
-      sec.classList.add("animate-in");
-      sec.scrollIntoView({behavior:"smooth",block:"start"});
-      const inc=document.getElementById("inc");
-      if(inc) inc.focus();
-    });
-  });
-}
+// revealCalculator() was removed on 2026-09-22 (audit): it was the only
+// function in src/ defined and never called. It revealed a hidden calculator
+// from a desktop hero CTA, but index.html no longer has a calculator at all
+// and calculator.html shows it immediately (.calculator-section{display:block
+// !important}). No HTML references it. The matching .revealed/.animate-in CSS
+// in both pages is now unreachable too, and can go with the index/calculator
+// de-duplication.
+
 
 function showTransparencyModal(){
   // Same required-field guard sub() already applies, checked here too so the modal

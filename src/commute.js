@@ -223,8 +223,19 @@ const CITY_TO_WORK_ZONE = {
   'barrie':'barrie','innisfil':'innisfil','collingwood':'collingwood',
   'wasaga beach':'wasaga_beach','midland':'midland',
   // Waterloo
+  // KNOWN APPROXIMATION (confirmed 2026-09-22, not fixed): Cambridge and
+  // Waterloo both resolve to the Kitchener work zone. Cambridge is roughly 20
+  // minutes from Kitchener, so every Cambridge-based commuter's drive times
+  // carry a systematic error in one direction. This is NOT a one-line fix:
+  // DRIVE_TABLE has no 'cambridge' column, so pointing at a 'cambridge' zone
+  // yields null for every city — no commute data at all, which is worse than a
+  // 20-minute bias. Fixing it properly means adding a Cambridge column (56
+  // estimated drive times) or moving to real routing data. Left as-is
+  // deliberately; do not "fix" it by renaming the zone.
   'kitchener':'kitchener','waterloo':'kitchener','cambridge':'kitchener',
-  'guelph':'guelph','centre wellington':'centre_wellington','acton':'acton',
+  'guelph':'guelph','centre wellington':'centre_wellington',
+  // 'acton' is declared once, in the Halton block above — it was listed twice
+  // with the same value, which was harmless but signals an unaudited table.
   // Eastern Ontario
   'cobourg':'cobourg','peterborough':'peterborough',
   'belleville':'belleville','kingston':'kingston','ottawa':'ottawa',
@@ -359,7 +370,12 @@ function getCommuteScore(commuteMin) {
   // null means no work location entered OR unresolvable
   // For remote workers, render() passes null and we return neutral 50 (handled at call site)
   // This function should NEVER receive null for a non-remote worker — that's caught upstream
-  if(commuteMin === null) return 50; // neutral: remote worker, no commute relevant
+  // Guard widened 2026-09-22 (audit): only an exact `null` was treated as
+  // "unknown", so undefined and NaN fell through the ladder to the worst
+  // score of 3, and a negative value scored a perfect 100. Anything that
+  // isn't a usable number is now neutral, same as a remote worker.
+  if(commuteMin === null || commuteMin === undefined) return 50;
+  if(!Number.isFinite(commuteMin) || commuteMin < 0) return 50;
   if(commuteMin <= 15) return 100;
   if(commuteMin <= 20) return 95;
   if(commuteMin <= 30) return 85;
@@ -391,5 +407,6 @@ const ACCESS_TIERS = [
 ];
 function getAccessTier(commuteMin){
   if(commuteMin===null||commuteMin===undefined) return null;
+  if(!Number.isFinite(commuteMin)||commuteMin<0) return null; // no tier for a bad value
   return ACCESS_TIERS.find(t=>commuteMin<=t.max);
 }
