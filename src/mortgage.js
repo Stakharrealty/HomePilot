@@ -35,6 +35,16 @@ function maxPriceForDownPayment(dn){
   return Math.max(1500000, dn / 0.20);
 }
 
+// The minimum down payment a given price requires — the same rule
+// meetsMinDownPayment() checks, exposed as a number so the UI can tell a buyer
+// how much MORE they need rather than only that they don't have enough.
+function minDownPaymentFor(price){
+  if(!(price > 0)) return 0;
+  if(price < 500000)  return price * 0.05;
+  if(price < 1500000) return 25000 + (price - 500000) * 0.10;
+  return price * 0.20;
+}
+
 // The CMHC premium rate for a given down-payment ratio, or 0 when the loan is
 // conventional (20%+ down). Single source of truth — calcBP(),
 // qualifiesForProperty() and calcCosts() previously each carried their own
@@ -162,6 +172,15 @@ function calcBP(inc,dn,dbt){
   // Lets the UI say "you qualify for more, but you need a larger down payment"
   // instead of silently showing a smaller number with no explanation.
   const downPaymentLimited = bpRaw > legalCap + 1;
+  // What income alone would support, ignoring the down payment — the figure
+  // this tool used to show as the headline. Paired with downPaymentShortfall
+  // it turns a lower number into a savings target: "save $7,000 more and you
+  // could go up to $520,000", which is a more useful answer than either the
+  // old unreachable number or a bare smaller one.
+  const incomeCapBP = Math.round(bpRaw/10000)*10000;
+  const downPaymentShortfall = downPaymentLimited
+    ? Math.max(0, Math.ceil((minDownPaymentFor(incomeCapBP) - dn)/100)*100)
+    : 0;
 
   // Monthly payments shown to buyer use the actual selected rate (not stress rate) and
   // the amortization that was actually used to reach that ceiling.
@@ -178,7 +197,7 @@ function calcBP(inc,dn,dbt){
   };
   const mo = payment(bp, amortFor(bp));
   const comfortMo = payment(comfortBP, amortFor(comfortBP));
-  return{bp,comfortBP,mo,comfortMo,downPaymentLimited,legalCap};
+  return{bp,comfortBP,mo,comfortMo,downPaymentLimited,legalCap,incomeCapBP,downPaymentShortfall};
 }
 
 // Full per-property qualification check — used to gate whether a specific city+type

@@ -130,6 +130,41 @@ for (const [inc, dn] of [[100000, 5000], [200000, 20000], [400000, 50000], [4000
     run(`(function(){var s=netMonthlyIncome;netMonthlyIncome=0;var f=getFit(5000,0);netMonthlyIncome=s;return f;})()`) === null);
 }
 
+// 6b. When the down payment is the binding constraint, the engine must hand
+//     the UI enough to explain WHY the number is what it is — otherwise the
+//     buyer just sees a smaller figure with no reason for it. The savings gap
+//     is the single most actionable thing to tell someone at this stage.
+{
+  run(`firstTimeBuyer=false;customMortgageRate=DEFAULT_MORTGAGE_RATE_PCT/100;`);
+  const capped = run(`calcBP(120000,20000,0)`);
+  t('a down-payment-limited buyer is flagged as such', capped.downPaymentLimited === true);
+  t('the income-only ceiling is reported and exceeds the capped figure',
+    capped.incomeCapBP > capped.bp, `${capped.incomeCapBP} vs ${capped.bp}`);
+  t('a positive savings shortfall is reported', capped.downPaymentShortfall > 0, capped.downPaymentShortfall);
+  // The shortfall must be arithmetically true: adding it to their savings has
+  // to actually unlock the income-only ceiling, or the advice is wrong.
+  t('down payment + shortfall genuinely reaches the income-only ceiling',
+    run(`meetsMinDownPayment(${capped.incomeCapBP}, ${20000 + capped.downPaymentShortfall})`) === true,
+    `needs ${run(`minDownPaymentFor(${capped.incomeCapBP})`)}, would have ${20000 + capped.downPaymentShortfall}`);
+  t('the shortfall is not overstated (one step less would NOT be enough)',
+    run(`meetsMinDownPayment(${capped.incomeCapBP}, ${20000 + capped.downPaymentShortfall - 200})`) === false);
+
+  const funded = run(`calcBP(200000,150000,0)`);
+  t('an income-limited buyer is NOT flagged as down-payment-limited', funded.downPaymentLimited === false);
+  t('an income-limited buyer gets no savings shortfall', funded.downPaymentShortfall === 0);
+  t('for an income-limited buyer the two ceilings agree',
+    funded.incomeCapBP === funded.bp, `${funded.incomeCapBP} vs ${funded.bp}`);
+
+  // minDownPaymentFor must be the exact inverse of maxPriceForDownPayment at
+  // every band boundary, or the shortfall drifts at exactly the prices where
+  // the federal rule steps.
+  for (const p of [300000, 499999, 500000, 900000, 1499999, 1500000, 2000000]) {
+    const need = run(`minDownPaymentFor(${p})`);
+    t(`minDownPaymentFor(${p}) satisfies meetsMinDownPayment`, run(`meetsMinDownPayment(${p}, ${need})`) === true);
+    t(`minDownPaymentFor(${p}) is not overstated`, run(`meetsMinDownPayment(${p}, ${need - 1})`) === false);
+  }
+}
+
 // 7. Unusable inputs must not silently produce a confident wrong number.
 {
   // calcCosts coerces rather than returning null (25 call sites, one of which

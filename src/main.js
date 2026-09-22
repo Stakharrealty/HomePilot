@@ -99,7 +99,7 @@ function go(){
   if(!Number.isFinite(dbt)||dbt>inc) return void fail("Your monthly debt payments look larger than your annual income. Enter the MONTHLY amount you pay, not the total balance owing.");
   const btn=document.getElementById("goBtn");btn.disabled=true;btn.innerHTML='<div class="spin"></div>';
   try{
-    const{bp:b,comfortBP:cBP,mo,comfortMo}=calcBP(inc,dn,dbt);
+    const{bp:b,comfortBP:cBP,mo,comfortMo,downPaymentLimited,incomeCapBP,downPaymentShortfall}=calcBP(inc,dn,dbt);
     buyPower=b;comfortBuyPower=cBP;fam_selected=fam;dn_selected=dn;grossMonthlyIncome=inc/12;netMonthlyIncome=estimateOntarioNetAnnual(inc)/12;
     window._allMarkets=M;
     const rf=RF[area],seen=new Set();
@@ -122,14 +122,28 @@ function go(){
         `<div style="flex:1;min-width:120px;background:rgba(255,255,255,0.18);border-radius:10px;padding:10px 12px">`+
           `<div style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;opacity:0.8;font-weight:600;margin-bottom:4px">Bank qualifies you for</div>`+
           `<div style="font-size:20px;font-weight:800">${fc(b)}</div>`+
-          `<div style="font-size:11px;opacity:0.7;margin-top:3px">Estimated ceiling — not a pre-approval</div>`+
+          `<div style="font-size:11px;opacity:0.7;margin-top:3px">${downPaymentLimited?'Limited by your down payment, not your income':'Estimated ceiling — not a pre-approval'}</div>`+
         `</div>`+
         `<div style="flex:1;min-width:120px;background:rgba(255,255,255,0.28);border-radius:10px;padding:10px 12px;border:1.5px solid rgba(255,255,255,0.4)">`+
           `<div style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;opacity:0.9;font-weight:700;margin-bottom:4px">✓ HomePilot comfort range</div>`+
           `<div style="font-size:20px;font-weight:800">${fc(cBP)}</div>`+
           `<div style="font-size:11px;opacity:0.75;margin-top:3px">Stay here to breathe financially</div>`+
         `</div>`+
-      `</div>`;
+      `</div>`+
+      // Savings-gap note (added 2026-09-22). When the down payment is what
+      // caps the buyer rather than their income, calcBP() now reports the
+      // ceiling income ALONE would support and how much more they would need
+      // saved to reach it. Without this the buyer just sees a smaller number
+      // and no reason for it — and the reason is the single most actionable
+      // thing HomePilot can tell someone at this stage: a savings target.
+      // Only ever shown when the gap is real (both figures present).
+      (downPaymentLimited && downPaymentShortfall>0 && incomeCapBP>b
+        ? `<div style="margin-top:12px;background:rgba(255,255,255,0.18);border-radius:10px;padding:10px 12px;border-left:3px solid rgba(255,255,255,0.55)">`+
+            `<div style="font-size:12px;font-weight:700;margin-bottom:3px">Your savings are the limit here, not your income</div>`+
+            `<div style="font-size:12px;opacity:0.9;line-height:1.5">On your income you could qualify for up to <b>${fc(incomeCapBP)}</b>. `+
+            `A home at that price needs a larger down payment than you have — about <b>${fc(downPaymentShortfall)} more saved</b> would get you there.</div>`+
+          `</div>`
+        : ``);
     const stressRateDisplay=(getStressRate(customMortgageRate)*100).toFixed(2)+'%';
     const rn=document.getElementById('rateNote');if(rn)rn.innerHTML=`Based on ${rateDisplay} mortgage rate · 25-year amortization (30-year available at 20%+ down) · Stress tested at ${stressRateDisplay} · <span style="color:rgba(255,255,255,0.6);font-style:italic">Educational estimate only — not a mortgage pre-approval. Actual qualification depends on lender underwriting, credit, and full application details.</span>`;
     const frn=document.getElementById('footerRateNote');
