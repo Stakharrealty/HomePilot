@@ -66,10 +66,20 @@ function check(name, ok, detail) {
   }
   const c1 = []; await db.getListingsByCity(fakeD1(c1), "Toronto", 20, null, 0, null);
   check("plain Toronto: matches district-coded rows via LIKE 'Toronto %'", /\(city = 'Toronto' OR city LIKE 'Toronto %'\)/.test(c1[0].sql), c1[0].sql);
-  check("plain Toronto: no city bind (limit, offset only)", JSON.stringify(c1[0].args) === "[20,0]", JSON.stringify(c1[0].args));
+  // Bind order (2026-09-22): the freshness cutoff sits between the city binds
+  // and limit/offset — see VISIBLE_LISTING_CLAUSE in db.js. Plain Toronto has
+  // no city bind at all (it matches via a LIKE literal), so the cutoff is first.
+  check("plain Toronto: no city bind; binds are cutoff, limit, offset",
+    c1[0].args.length === 3 && typeof c1[0].args[0] === "string" && c1[0].args[1] === 20 && c1[0].args[2] === 0,
+    JSON.stringify(c1[0].args));
+  check("plain Toronto: the freshness cutoff is a real ISO timestamp in the past",
+    !Number.isNaN(Date.parse(c1[0].args[0])) && Date.parse(c1[0].args[0]) < Date.now(), c1[0].args[0]);
   const c2 = []; await db.getListingsByCity(fakeD1(c2), "Toronto", 20, "condo", 0, 800000, dist.districtsForRegion("Toronto - Downtown"));
   check("Toronto sub-region: adds city_district IN ('C01',...)", /city_district IN \('C01', 'C02', 'C08', 'C09', 'C10'\)/.test(c2[0].sql), c2[0].sql);
-  check("Toronto sub-region: binds are budget*1.10, limit, offset", c2[0].args.length === 3 && Math.abs(c2[0].args[0] - 880000) < 0.01 && c2[0].args[1] === 20, JSON.stringify(c2[0].args));
+  check("Toronto sub-region: binds are cutoff, budget*1.10, limit, offset",
+    c2[0].args.length === 4 && typeof c2[0].args[0] === "string"
+    && Math.abs(c2[0].args[1] - 880000) < 0.01 && c2[0].args[2] === 20 && c2[0].args[3] === 0,
+    JSON.stringify(c2[0].args));
   const c3 = []; await db.getListingsByCity(fakeD1(c3), "Hamilton", 20, null, 0, null);
   check("Hamilton: plain city = ? with the city bound first", /WHERE city = \? AND/.test(c3[0].sql) && c3[0].args[0] === "Hamilton");
   check("non-Toronto query has no LIKE", !/LIKE 'Toronto/.test(c3[0].sql));
@@ -79,7 +89,14 @@ function check(name, ok, detail) {
 
   const idx = fs.readFileSync(path.join(SRC, "index.js"), "utf8");
   check("index.js passes the sub-region districts into the query", /districtsForRegion\(requestedCity\)/.test(idx) && /searchBudget, torontoDistricts\)/.test(idx));
-  check("ingest-status endpoint counts Toronto via cityMatchClause", idx.includes("cityMatchClause(city)"));
+  // The ingest-status route that used to call cityMatchClause(city) was one of
+  // the six unauthenticated diagnostic routes removed on 2026-09-22. What still
+  // matters is that cityMatchClause remains the single place Toronto matching
+  // is defined, and that it is no longer reachable without authentication.
+  check("cityMatchClause is still the one place Toronto matching is defined",
+    typeof db.cityMatchClause === "function" && /city LIKE .Toronto %./.test(db.cityMatchClause("Toronto").sql));
+  check("the removed diagnostic routes are not back",
+    !idx.includes('url.pathname === "/proptx-ingest-status"'));
 
   // --- capacity model. Measured: Mississauga took 95 pages (25 listings each)
   // in ~20 min on the 2-minute cron, i.e. ~10 pages per firing. Assume only

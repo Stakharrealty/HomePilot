@@ -233,18 +233,23 @@ function makeFakePropTx(log, failPages = new Set()) {
     check("no DELETE statement anywhere in index.js", !/DELETE\s+FROM/i.test(idx));
     check("manual /proptx-ingest-test-mississauga route removed", !idx.includes('"/proptx-ingest-test-mississauga"'));
 
-    // Status route is read-only
+    // The /proptx-ingest-status route was removed on 2026-09-22 (audit). It
+    // was unauthenticated and ran roughly six D1 queries per configured city
+    // per request, and it disclosed ingest state and error strings. Progress is
+    // still readable with `wrangler d1 execute` against proptx_ingest_state.
+    // What is asserted now is that it stays gone and touches nothing.
     const sqlite6 = new DatabaseSync(":memory:");
     sqlite6.exec(`CREATE TABLE listings (listing_key TEXT PRIMARY KEY, city TEXT, source TEXT, transaction_type TEXT, property_subtype TEXT)`);
     sqlite6.exec(`INSERT INTO listings VALUES ('A','Mississauga','PROPTX','For Sale','Detached'),('B','Mississauga','PROPTX','For Sale','Parking Space')`);
-    const writes = [];
+    const touched = [];
     const d6 = makeD1(sqlite6);
-    const spy = { prepare(sql) { if (/^\s*(INSERT|UPDATE|DELETE)/i.test(sql)) writes.push(sql); return d6.prepare(sql); } };
+    const spy = { prepare(sql) { touched.push(sql); return d6.prepare(sql); } };
     const resp = await worker.fetch(new Request("https://w.example/proptx-ingest-status"), { DB: spy });
-    const body = await resp.json();
-    const m = body.database && body.database[0];
-    check("status route reports homes, buttons and leftover non-homes", resp.status === 200 && m.homesInDb === 1 && m.byButton.detached === 1 && m.nonHomesStillInDb === 1, JSON.stringify(body));
-    check("status route writes nothing", writes.length === 0, JSON.stringify(writes));
+    check("ingest-status route is no longer publicly reachable", resp.status === 404, `status ${resp.status}`);
+    check("the removed status route runs no D1 queries", touched.length === 0, `${touched.length} queries`);
+    check("ingest-status route removed from index.js", !idx.includes('"/proptx-ingest-status"'));
+    check("the removed status route writes nothing",
+      !touched.some((sql) => /^\s*(INSERT|UPDATE|DELETE)/i.test(sql)), JSON.stringify(touched));
   } finally {
     globalThis.fetch = realFetch;
   }

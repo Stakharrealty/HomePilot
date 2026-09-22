@@ -78,6 +78,44 @@ import { isDistrictCode, regionForCity } from "./toronto-districts.js";
 // are mutually exclusive by construction.
 const SUBTYPE_EXPR = "TRIM(property_subtype)";
 
+// FRESHNESS BOUND (added 2026-09-22, audit).
+//
+// Nothing in this pipeline ever removed a listing. The ingest upserts; there
+// is no sweep (deleteStaleListings was removed with the DDF pipeline on
+// 2026-09-18 and never rebuilt), and this read path filtered only on source
+// and transaction_type. PropTx's query filters on StandardStatus eq 'Active',
+// so a listing that SELLS simply stops arriving -- which means its stored row
+// is never updated and never deleted, and HomePilot kept serving it as
+// for-sale indefinitely.
+//
+// That is not hypothetical: 11,121 stale DDF rows were served live to real
+// visitors for months before an incidental investigation found them (see the
+// note at the top of this file).
+//
+// Two layers now:
+//   1. standard_status must still say Active -- cheap, and catches any row
+//      whose status was updated in place before it left the feed.
+//   2. last_updated must be recent. This is the layer that actually works,
+//      because a sold listing's row freezes the moment it leaves the feed.
+//
+// 168 hours (7 days) is deliberately generous, not a target: a full refresh
+// pass over Toronto's ~20,000 listings spans many cron firings, and a bound
+// tighter than the real worst-case pass duration would start hiding live
+// listings. Tighten it once the actual full-cycle time is measured -- the
+// PROPTX IDX agreement's refresh expectation is 24 hours, so the real fix is
+// a mark-and-sweep keyed to a COMPLETED pass, with this bound as the backstop.
+export const MAX_LISTING_AGE_HOURS = 168;
+
+export function freshnessCutoffIso(nowMs = Date.now()) {
+  return new Date(nowMs - MAX_LISTING_AGE_HOURS * 3600 * 1000).toISOString();
+}
+
+// The visibility rules every listing query shares, so the list endpoint and
+// the single-listing endpoint can never disagree about what is servable.
+export const VISIBLE_LISTING_CLAUSE =
+  `source = 'PROPTX' AND transaction_type = 'For Sale' ` +
+  `AND standard_status = 'Active' AND last_updated >= ?`;
+
 export const PROPERTY_TYPE_FILTERS = Object.freeze(Object.fromEntries(
   BUTTON_TYPES.map((b) => [b, `${SUBTYPE_EXPR} IN ${sqlInList(subtypesForButton(b))}`])
 ));
@@ -191,7 +229,12 @@ export async function getListingsByCity(db, city, limit = 20, propertyType = nul
   // optional budget ceiling (only present when budgetClause was added),
   // then limit/offset last -- get this order wrong and D1 silently binds
   // the wrong value to the wrong placeholder, no error, just wrong results.
-  const bindParams = [...cityMatch.binds];
+  // Bind params must be positional, in the EXACT order their `?` placeholders
+  // appear in the SQL: city first, then the freshness cutoff (inside
+  // VISIBLE_LISTING_CLAUSE), then the optional budget ceiling, then
+  // limit/offset last. Get this order wrong and D1 silently binds the wrong
+  // value to the wrong placeholder -- no error, just wrong results.
+  const bindParams = [...cityMatch.binds, freshnessCutoffIso()];
   if (hasBudget) bindParams.push(searchBudget * STRETCH_MULTIPLIER);
   bindParams.push(limit, offset);
 
@@ -200,8 +243,8 @@ export async function getListingsByCity(db, city, limit = 20, propertyType = nul
       `SELECT ${LISTING_COLUMNS},
               ${derivedTypeCase}
        FROM listings
-       WHERE ${cityMatch.sql} AND source = 'PROPTX' AND transaction_type = 'For Sale' AND ${SHOWN_HOMES_CLAUSE}${typeClause}${budgetClause}
-       ORDER BY last_updated DESC
+       WHERE ${cityMatch.sql} AND ${VISIBLE_LISTING_CLAUSE} AND ${SHOWN_HOMES_CLAUSE}${typeClause}${budgetClause}
+       ORDER BY list_price ASC, last_updated DESC
        LIMIT ? OFFSET ?`
     )
     .bind(...bindParams)
@@ -295,10 +338,10 @@ export async function getListingByKey(db, listingKey) {
       `SELECT ${LISTING_COLUMNS}, public_remarks_full, photos_full,
               ${derivedTypeCase}
        FROM listings
-       WHERE listing_key = ? AND source = 'PROPTX' AND transaction_type = 'For Sale' AND ${SHOWN_HOMES_CLAUSE}
+       WHERE listing_key = ? AND ${VISIBLE_LISTING_CLAUSE} AND ${SHOWN_HOMES_CLAUSE}
        LIMIT 1`
     )
-    .bind(listingKey)
+    .bind(listingKey, freshnessCutoffIso())
     .all();
   const row = (result.results || [])[0];
   if (!row) return null;

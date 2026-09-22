@@ -56,10 +56,10 @@
     <p>Nothing produced by HomePilot is a mortgage approval, pre-approval, or commitment to lend. Estimates are based on the information you enter and general assumptions — they do not reflect any lender's actual underwriting process, credit check, or program-specific requirements.</p>
 
     <h2>Rate and Cost Assumptions</h2>
-    <p>Estimates are based on a 4.19% mortgage rate, stress tested at 6.19%. Qualification estimates are educational only and do not represent mortgage approval — final qualification depends on lender underwriting, credit, property taxes, condo fees, heating costs, and program eligibility. Rates, property taxes, and utility cost estimates change over time and may not reflect current market conditions at the time you use the tool.</p>
+    <p>Estimates are based on the default mortgage rate shown in the calculator (currently <span id="dlRate">4.19%</span>), stress tested at the higher of 5.25% or that rate plus 2% (currently <span id="dlStress">6.19%</span>). If you adjust the rate slider, your results use the rate you chose, not the one shown here. Qualification estimates are educational only and do not represent mortgage approval — final qualification depends on lender underwriting, credit, property taxes, condo fees, heating costs, and program eligibility. Rates, property taxes, and utility cost estimates change over time and may not reflect current market conditions at the time you use the tool.</p>
 
     <h2>Real Estate Listing Accuracy</h2>
-    <p>Listing information displayed on HomePilot is supplied by the Canadian Real Estate Association's Data Distribution Facility (DDF®) and is believed to be reliable but is not guaranteed. Listings may be sold, expired, or updated after this site last refreshed its data. Always verify listing details directly before making any decisions.</p>
+    <p>Listing information displayed on HomePilot is supplied through the PropTx IDX feed and is deemed reliable but is not guaranteed accurate by PROPTX. Listings may be sold, expired, or updated after this site last refreshed its data, and HomePilot may continue to display a listing for a short period after it leaves the feed. Always verify listing details directly with a licensed real estate professional before making any decisions.</p>
 
     <h2>No Guarantee of Outcome</h2>
     <p>HomePilot cannot guarantee that any city, property, or price range identified as a "fit" for your budget will result in a successful purchase, mortgage approval, or specific monthly cost once you proceed with a real transaction. Actual homeownership costs may vary based on financing terms, insurance, maintenance, utilities, property taxes, closing costs, and other factors.</p>
@@ -70,5 +70,23 @@
     <h2>Contact</h2>
     <p>Questions about this disclaimer? Contact Sandeep Takhar, RE/MAX Realty Specialists Inc., Brokerage, at <a href="tel:4167258087">416-725-8087</a>.</p>
   </div>
+<!-- The mortgage rate quoted above is read from config.js, the single source of
+     truth the calculator itself uses. It was previously hardcoded here, so any
+     rate refresh would have silently left this legal page stating a rate the
+     product no longer used (audit, 2026-09-22). If the script fails to load the
+     page still reads correctly -- the markup ships with the current value. -->
+<script src="src/config.js"></script>
+<script>
+  (function () {
+    try {
+      if (typeof DEFAULT_MORTGAGE_RATE_PCT !== "number") return;
+      var rate = DEFAULT_MORTGAGE_RATE_PCT;
+      var stress = Math.max(5.25, rate + 2);
+      var fmt = function (n) { return n.toFixed(2).replace(/.?0+$/, "") + "%"; };
+      var r = document.getElementById("dlRate"); if (r) r.textContent = fmt(rate);
+      var t = document.getElementById("dlStress"); if (t) t.textContent = fmt(stress);
+    } catch (e) { /* leave the shipped values in place */ }
+  })();
+</script>
 </body>
 </html>

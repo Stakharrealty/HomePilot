@@ -102,10 +102,15 @@ function row(key, sub, extra = {}) {
   const routeLog = [];
   globalThis.fetch = makeFakePropTx(datasetB, routeLog);
   try {
+    // The /proptx-subtype-census ROUTE was removed on 2026-09-22 (audit). It
+    // was unauthenticated and called PropTx's API on every request using
+    // PROPTX_IDX_TOKEN, so any anonymous caller could burn the IDX quota --
+    // and CORS does not stop curl. The census LOGIC above is still tested and
+    // still useful; it is just no longer reachable over HTTP. Run it from a
+    // one-off script with the token in hand instead.
     const resp = await worker.fetch(new Request("https://w.example/proptx-subtype-census"), env);
-    const body = await resp.json();
-    check("route responds 200 with census JSON", resp.status === 200 && body.listIsComplete === true, JSON.stringify(body).slice(0, 200));
-    check("route sends the Worker's PropTx token", routeLog.length > 0);
+    check("census route is no longer publicly reachable", resp.status === 404, `status ${resp.status}`);
+    check("no PropTx call is made from an unauthenticated request", routeLog.length === 0, `${routeLog.length} calls`);
     check("route makes zero D1 calls", dbCalls.length === 0, `${dbCalls.length} calls`);
   } finally {
     globalThis.fetch = realFetch;
