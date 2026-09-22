@@ -238,11 +238,24 @@ function getWorkZone() {
   // Fall back to city name
   const city = (document.getElementById('workCity')?.value||'').trim().toLowerCase();
   if(city && CITY_TO_WORK_ZONE[city]) return CITY_TO_WORK_ZONE[city];
-  // Partial match on city
-  for(const [k,v] of Object.entries(CITY_TO_WORK_ZONE)) {
-    if(city.includes(k) || k.includes(city)) return v;
+  // Partial match on city.
+  //
+  // GUARDED 2026-09-22 (audit). This loop previously ran even when `city` was
+  // the empty string — and `'toronto'.includes('')` is true, so EVERY buyer who
+  // left the work-location fields blank, or entered a postal code outside the
+  // 199 FSAs mapped above (Ottawa, Niagara, London, anything unrecognised),
+  // silently got `toronto_downtown` as their workplace. Commute carries 55% of
+  // the ranking weight for a daily commuter, so the single largest input to
+  // their recommendations was fabricated, with nothing in the UI saying so.
+  // Also requires 3+ characters: a one- or two-letter entry matched arbitrary
+  // substrings ("a" -> toronto_east via "toronto - east end", "o" ->
+  // toronto_downtown), which is noise rather than a useful guess.
+  if(city.length >= 3) {
+    for(const [k,v] of Object.entries(CITY_TO_WORK_ZONE)) {
+      if(city.includes(k) || k.includes(city)) return v;
+    }
   }
-  return null;
+  return null; // unresolved — callers treat commute as unknown, not as Toronto
 }
 
 // Brampton sub-zone adjustments relative to the DRIVE_TABLE 'brampton' baseline,

@@ -16,6 +16,46 @@ function getStressRate(contractRate){
   return Math.max(0.0525, contractRate + 0.02);
 }
 
+// The most expensive home a given down payment can legally buy — the exact
+// inverse of meetsMinDownPayment() below, and the same Dept. of Finance rule
+// (in force Dec 15, 2024). Added 2026-09-22 after an audit found calcBP()
+// reporting buying power that no down payment on record could actually close:
+// a $100K income with $5K saved was shown $420,000 against a legal ceiling of
+// $100,000. calcBP() applies this as a hard cap, so the headline figure is
+// always a price the buyer could complete a purchase at.
+//   under $500K      -> 5% of price          -> price <= dn / 0.05
+//   $500K to $1.5M   -> $25K + 10% over $500K -> price <= (dn + $25K) / 0.10
+//   $1.5M and above  -> 20% of price          -> price <= dn / 0.20
+// Between $125K and $300K down the binding constraint is the $1.5M insured
+// ceiling itself (20% is required above it), hence the Math.max.
+function maxPriceForDownPayment(dn){
+  if(!(dn > 0)) return 0;
+  if(dn < 25000)  return dn / 0.05;
+  if(dn < 125000) return (dn + 25000) / 0.10;
+  return Math.max(1500000, dn / 0.20);
+}
+
+// The CMHC premium rate for a given down-payment ratio, or 0 when the loan is
+// conventional (20%+ down). Single source of truth — calcBP(),
+// qualifiesForProperty() and calcCosts() previously each carried their own
+// copy of this ladder, and all three shared the same defect: the band was
+// written `ratio < 0.20 && ratio >= 0.05`, so a ratio BELOW 5% fell through
+// to no premium at all and was priced as a conventional uninsured loan — the
+// cheapest kind — despite being a loan that cannot legally exist in Canada.
+// That single condition produced four separate visible failures (audit,
+// 2026-09-22): buying power that fell as the down payment rose, buying power
+// that rose as debt rose, buying power that rose as rates rose, and a monthly
+// payment that jumped $103 when a buyer crossed 5% down in the right
+// direction. Sub-5% ratios now take the highest insured tier, which removes
+// the discontinuity; the legality of such a price is enforced separately by
+// maxPriceForDownPayment() and meetsMinDownPayment().
+function cmhcPremiumRate(dpRatio, amortMonths){
+  if(!(dpRatio >= 0) || dpRatio >= 0.20) return 0;
+  let rate = dpRatio >= 0.15 ? 0.028 : dpRatio >= 0.10 ? 0.031 : 0.040;
+  if(amortMonths > 300) rate += 0.0020; // CMHC 30yr amortization surcharge
+  return rate;
+}
+
 function calcBP(inc,dn,dbt){
   const mi=inc/12, ar=customMortgageRate/12;
   const stressRate = getStressRate(customMortgageRate)/12;
@@ -33,7 +73,17 @@ function calcBP(inc,dn,dbt){
   // uninsured buyers with 20%+ down (common lender practice, not a federal insured-
   // mortgage rule). New-build status also qualifies buyers federally but HomePilot
   // doesn't track new-build vs. resale, so that path isn't modeled here.
-  function solveForRatios(gdsRatio, tdsRatio, amortMonths){
+  //
+  // RESTRUCTURED 2026-09-22 (audit). The premium rate is now a PARAMETER rather
+  // than something the loop derives from its own previous guess. The old version
+  // re-read the CMHC tier from the prior iteration's price on every pass, so the
+  // answer depended on which side of a tier boundary the iteration happened to
+  // settle on — which is why buying power could RISE when debt rose or when the
+  // mortgage rate rose (both nudged the converged price across the 20% line into
+  // a cheaper financing regime). The loop now converges only the property-tax
+  // term, which is a genuine contraction, and bestPrice() below evaluates every
+  // financing regime explicitly and takes the best feasible one.
+  function solveForRatios(gdsRatio, tdsRatio, amortMonths, premiumRate){
     let price = 500000; // seed
     for(let i=0;i<8;i++){
       const estTax = price*0.0105/12, heat = 150;
@@ -42,45 +92,93 @@ function calcBP(inc,dn,dbt){
       const maxPayment = Math.min(availGDS, availTDS);
       if(maxPayment<=0){ price = dn; break; }
       const maxInsuredMortgage = maxPayment*(Math.pow(1+stressRate,amortMonths)-1)/(stressRate*Math.pow(1+stressRate,amortMonths));
-      // Back out the CMHC premium (using prior iteration's price as the down-payment-
-      // ratio estimate — consistent with how tax already converges iteratively here).
-      const dpRatioEst = price>0 ? dn/price : 1;
-      let baseMortgage = maxInsuredMortgage;
-      if(dpRatioEst<0.20 && dpRatioEst>=0.05){
-        let cmhcRate = dpRatioEst>=0.15?0.028:dpRatioEst>=0.10?0.031:0.040;
-        if(amortMonths>300) cmhcRate += 0.0020;
-        baseMortgage = maxInsuredMortgage/(1+cmhcRate);
-      }
-      price = baseMortgage + dn;
+      // Back out the CMHC premium: the payment budget supports a smaller BASE
+      // loan than the raw stress-test math implies, because the premium is
+      // added to the balance the payment has to cover.
+      price = maxInsuredMortgage/(1+premiumRate) + dn;
     }
     return Math.max(dn, price);
   }
 
+  // Each financing regime, with the down-payment ratio band it is valid within.
+  // `lo` inclusive, `hi` exclusive — the same bands cmhcPremiumRate() applies.
+  const FINANCING_REGIMES = [
+    { lo:0.20, hi:Infinity, rate:0     }, // conventional / uninsured
+    { lo:0.15, hi:0.20,     rate:0.028 },
+    { lo:0.10, hi:0.15,     rate:0.031 },
+    { lo:0.00, hi:0.10,     rate:0.040 },
+  ];
+
+  // Solves each regime independently at a FIXED premium rate, keeps only the
+  // prices that actually fall inside that regime's ratio band, and returns the
+  // best of them. Because each regime's solution is monotone in income, debt and
+  // rate, and the maximum of monotone functions is monotone, the result no longer
+  // reverses at a tier boundary the way the single-pass version did.
+  //
+  // 30-year amortization eligibility (verified July 11, 2026): available to (a)
+  // ANY first-time buyer, regardless of down payment size — expanded Dec 15,
+  // 2024 — or (b) conventional/uninsured buyers with 20%+ down (common lender
+  // practice, not a federal insured-mortgage rule). New-build status also
+  // qualifies buyers federally but HomePilot doesn't track new-build vs. resale,
+  // so that path isn't modeled here.
   function bestPrice(gdsRatio, tdsRatio){
-    const price25 = solveForRatios(gdsRatio, tdsRatio, 300);
-    const dpRatio25 = price25>0 ? dn/price25 : 1;
-    const eligible30 = firstTimeBuyer===true || dpRatio25 >= 0.20;
-    if(eligible30){
-      const price30 = solveForRatios(gdsRatio, tdsRatio, 360);
-      return Math.max(price25, price30);
+    let best = dn;
+    for(const regime of FINANCING_REGIMES){
+      const amorts = (firstTimeBuyer===true || regime.lo>=0.20) ? [300,360] : [300];
+      for(const amort of amorts){
+        const rate = regime.rate>0 && amort>300 ? regime.rate+0.0020 : regime.rate;
+        const solved = solveForRatios(gdsRatio, tdsRatio, amort, rate);
+        // A regime only applies while dn/price sits inside its band, i.e. while
+        // price is in (dn/hi, dn/lo]. Cap the solved price at the top of the
+        // band; discard it if it falls below the bottom (a different regime
+        // covers that range, and this loop will reach it).
+        const bandCeiling = regime.lo > 0 ? dn/regime.lo : Infinity;
+        const bandFloor   = regime.hi < Infinity ? dn/regime.hi : 0;
+        const candidate = Math.min(solved, bandCeiling);
+        if(candidate > bandFloor) best = Math.max(best, candidate);
+      }
     }
-    return price25;
+    return best;
   }
 
+  // Income qualification gives a ceiling; the down payment gives a second,
+  // independent one. The buyer can only actually close at the lower of the
+  // two, so the headline figure is the lower of the two. Rounding is to the
+  // nearest $10K as before, except that it never rounds UP through the legal
+  // cap — a capped figure floors instead.
+  const legalCap = maxPriceForDownPayment(dn);
+  const toHeadline = (raw) => {
+    const capped = Math.min(raw, legalCap);
+    const rounded = Math.round(capped/10000)*10000;
+    // Only the LEGAL cap floors instead of rounds. Comparing against `capped`
+    // here instead would change the rounding of every uncapped figure too.
+    return rounded > legalCap ? Math.floor(legalCap/10000)*10000 : rounded;
+  };
   const bpRaw = bestPrice(0.39, 0.44);
-  const bp = Math.round(bpRaw/10000)*10000;
+  const bp = toHeadline(bpRaw);
   const comfortBPRaw = bestPrice(0.32, 0.38);
-  const comfortBP = Math.round(comfortBPRaw/10000)*10000;
+  const comfortBP = toHeadline(comfortBPRaw);
+  // True when the down payment, not income, is what is holding the buyer back.
+  // Lets the UI say "you qualify for more, but you need a larger down payment"
+  // instead of silently showing a smaller number with no explanation.
+  const downPaymentLimited = bpRaw > legalCap + 1;
 
   // Monthly payments shown to buyer use the actual selected rate (not stress rate) and
   // the amortization that was actually used to reach that ceiling.
+  // The CMHC premium is now included here too (audit, 2026-09-22): it was
+  // previously omitted, so this figure disagreed with calcCosts()'s mortgage
+  // line by 2.8–4.2% for every buyer under 20% down — the same buyer, the same
+  // price, two different monthly payments on two different screens.
   const amortFor = (price) => (firstTimeBuyer===true || (dn>0 && price>0 && dn/price>=0.20)) ? 360 : 300;
-  const nMax = amortFor(bp), nComfort = amortFor(comfortBP);
-  const lnMax=Math.max(0,bp-dn);
-  const mo=lnMax>0?Math.round(lnMax*(ar*Math.pow(1+ar,nMax))/(Math.pow(1+ar,nMax)-1)):0;
-  const lnComfort=Math.max(0,comfortBP-dn);
-  const comfortMo=lnComfort>0?Math.round(lnComfort*(ar*Math.pow(1+ar,nComfort))/(Math.pow(1+ar,nComfort)-1)):0;
-  return{bp,comfortBP,mo,comfortMo};
+  const payment = (price, n) => {
+    const ln = Math.max(0, price - dn);
+    if(!(ln > 0)) return 0;
+    const insured = ln * (1 + cmhcPremiumRate(price > 0 ? dn/price : 1, n));
+    return Math.round(insured*(ar*Math.pow(1+ar,n))/(Math.pow(1+ar,n)-1));
+  };
+  const mo = payment(bp, amortFor(bp));
+  const comfortMo = payment(comfortBP, amortFor(comfortBP));
+  return{bp,comfortBP,mo,comfortMo,downPaymentLimited,legalCap};
 }
 
 // Full per-property qualification check — used to gate whether a specific city+type
@@ -125,12 +223,7 @@ function qualifiesForProperty(inc, dn, dbt, price, propType, cityName, overrides
   // buying power for first-time buyers with smaller down payments.
   const amortMonths = (firstTimeBuyer===true || dpRatio>=0.20) ? 360 : 300;
   const ln = Math.max(0, price-dn);
-  let insuredLoan=ln;
-  if(dpRatio<0.20 && dpRatio>=0.05){
-    let cmhcRate = dpRatio>=0.15?0.028:dpRatio>=0.10?0.031:0.040;
-    if(amortMonths>300) cmhcRate += 0.0020; // CMHC 30yr amortization surcharge
-    insuredLoan = ln*(1+cmhcRate);
-  }
+  const insuredLoan = ln*(1+cmhcPremiumRate(dpRatio, amortMonths));
   const stressRate = getStressRate(customMortgageRate)/12;
   const stressPayment = insuredLoan>0 ? insuredLoan*(stressRate*Math.pow(1+stressRate,amortMonths))/(Math.pow(1+stressRate,amortMonths)-1) : 0;
   const maxGDS = mi*0.39, maxTDS = mi*0.44;
@@ -154,6 +247,21 @@ const UTIL_BY_TYPE={
 // formula condo fee (condo fee only for condos). Omitted -> exactly the
 // same behavior as before, so every existing caller is unaffected.
 function calcCosts(m,price,fam,dn,propType,overrides){
+  // Input coercion added 2026-09-22 (audit). Three silent failures were live:
+  //   - an UNDEFINED down payment gave Math.max(0, NaN) -> NaN -> a mortgage
+  //     line of $0, so a $700K home reported $1,732/month with no error
+  //     anywhere. An absent down payment now means ZERO down (a full mortgage),
+  //     which is the conservative reading, not a paid-off house.
+  //   - a NaN or Infinity price produced NaN for every line item, which then
+  //     rendered as "$NaN".
+  //   - a negative price produced a negative total and positive insurance.
+  // Deliberately coerces rather than returning null: ~25 call sites consume
+  // this, and at least one (buildCityChips in render-support.js) intentionally
+  // passes `price || 0`. Coercion keeps every valid caller byte-identical while
+  // removing the paths that produced NaN, negative or falsely-cheap results.
+  if(!m || typeof m !== 'object') m = { n:'', tx:0.0105, ins:100, avg:0 };
+  price = Number(price); if(!Number.isFinite(price) || price < 0) price = 0;
+  dn = Number(dn);       if(!Number.isFinite(dn)    || dn < 0)    dn = 0;
   const r=customMortgageRate/12,ln=Math.max(0,price-dn);
   const dpRatio=price>0?dn/price:1;
   // Amortization must match the same eligibility rule used for qualification
@@ -164,14 +272,9 @@ function calcCosts(m,price,fam,dn,propType,overrides){
   const n=(firstTimeBuyer===true || dpRatio>=0.20) ? 360 : 300;
   // CMHC insurance: add to loan if down payment < 20%. +0.20% surcharge applies when
   // amortization exceeds 25 years (CMHC published rate; verified July 11, 2026, source:
-  // cmhc-schl.gc.ca premium information page). This wasn't previously modeled because
-  // 30-year amortization for insured first-time buyers wasn't supported until this fix.
-  let insuredLoan=ln;
-  if(dpRatio<0.20&&dpRatio>=0.05){
-    let cmhcRate=dpRatio>=0.15?0.028:dpRatio>=0.10?0.031:0.040;
-    if(n>300) cmhcRate += 0.0020;
-    insuredLoan=ln*(1+cmhcRate);
-  }
+  // cmhc-schl.gc.ca premium information page). See cmhcPremiumRate() at the top of
+  // this file for why the sub-5% band is no longer treated as uninsured.
+  const insuredLoan=ln*(1+cmhcPremiumRate(dpRatio,n));
   const mort=insuredLoan>0?Math.round(insuredLoan*(r*Math.pow(1+r,n))/(Math.pow(1+r,n)-1)):0;
 
   // Property tax: city-level rate × price (scales correctly with price; consistent across property types in a city)
@@ -191,9 +294,14 @@ function calcCosts(m,price,fam,dn,propType,overrides){
   const priceRatio=m.avg>0?price/m.avg:1;
   const ins=Math.round(insBase*(1+0.5*(priceRatio-1))*insFactor);
 
-  // Utilities: property-type aware
-  const fk=Math.min(5,parseInt(fam));
-  const util=(UTIL_BY_TYPE[pt]||UTIL_BY_TYPE.detached)[fk]||UTIL_BY_TYPE.detached[3];
+  // Utilities: property-type aware. The family-size fallback stays INSIDE the
+  // chosen property type (fixed 2026-09-22): it previously fell through to
+  // UTIL_BY_TYPE.detached[3], so a condo with an unparseable family size was
+  // billed $405/month of detached utilities instead of $200 — a cross-type
+  // leak that silently overstated condo costs by ~$205/month.
+  const utilTable=UTIL_BY_TYPE[pt]||UTIL_BY_TYPE.detached;
+  const fk=Math.min(5,Math.max(1,parseInt(fam,10)||3));
+  const util=utilTable[fk]||utilTable[3];
 
   // Maintenance: 1% annually, scaled by type (condos lower — building handles exterior)
   const maintFactor={condo:0.003,town:0.008,semi:0.009,detached:0.010}[pt]||0.010;

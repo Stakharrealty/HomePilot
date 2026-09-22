@@ -80,7 +80,12 @@ function render(){
       }
     }
     const c=calcCosts(x,displayPrice,fam_selected,dn_selected,displayPropType);
+    // getFit() returns null when there is no usable cost or income to judge
+    // (mortgage.js/explainability.js, 2026-09-22). A city we cannot honestly
+    // rate is dropped rather than shown with a guessed badge — this map
+    // already filters nulls out below.
     const fit=getFit(c.total,grossMonthlyIncome);
+    if(!fit) return null;
     const commuteMin=workArrangement!=='remote'?calcCommuteMinutes(x.n):null;
     const scoreObj=computeCityScore(x,grossMonthlyIncome,netMonthlyIncome,displayPrice,commuteMin,displayPropType);
     let compositeScore=scoreObj.finalScore;
@@ -104,6 +109,27 @@ function render(){
   if(activeFit==='great')d2=withPrice.filter(x=>x.dynFit.cls==='fg');
   else if(activeFit==='good')d2=withPrice.filter(x=>x.dynFit.cls==='fo');
   else if(activeFit==='stretch')d2=withPrice.filter(x=>x.dynFit.cls==='fs');
+
+  // The results count is set HERE, not in go() (moved 2026-09-22, audit).
+  // go() was setting it from results.length — the count of cities passing the
+  // `m.min <= buyPower` pre-filter, which reads from the M table. render()
+  // then re-derives each city's price from the PT table and applies
+  // meetsMinDownPayment() + qualifiesForProperty(), which drops most of them.
+  // The two tables disagree substantially, so the headline routinely
+  // overstated: "42 cities match your budget" above 7 cards, and in the worst
+  // case measured, "38 cities match your budget" above an empty list.
+  // Counting after the filter is the only way the two can't diverge.
+  const cntEl=document.getElementById('cnt');
+  if(cntEl){
+    const n=withPrice.length;
+    if(!n){
+      cntEl.innerHTML='<span>No cities</span> match your budget yet — try adjusting your down payment or property type';
+    } else if(activeFit!=='all' && d2.length!==n){
+      cntEl.innerHTML='<span>'+d2.length+' of '+n+' cities</span> match this filter — tap any city to see the full monthly breakdown';
+    } else {
+      cntEl.innerHTML='<span>'+n+' '+(n===1?'city':'cities')+'</span> match your budget — tap any city to see the full monthly breakdown';
+    }
+  }
 
   const tpEl=document.getElementById('topPicks');
   if(tpEl){
@@ -156,7 +182,12 @@ function render(){
     } else {
       displayPrice=getPriceForTypeStrict(x.n,activeProp,buyPower);priceRange=fc(displayPrice);propLabel=PROP_LABELS[activeProp]+' — '+fc(displayPrice);
     }
-    const c=calcCosts(x,displayPrice,fam_selected,dn_selected,activeProp!=='all'?activeProp:(x.dynPropType||'detached')),fit=getFit(c.total,grossMonthlyIncome);
+    const c=calcCosts(x,displayPrice,fam_selected,dn_selected,activeProp!=='all'?activeProp:(x.dynPropType||'detached'));
+    // Falls back to the fit already resolved upstream in the withPrice mapping
+    // above; that one is non-null by construction (the map drops nulls), so a
+    // card is never rendered against a guessed tier.
+    const fit=getFit(c.total,grossMonthlyIncome)||x.dynFit;
+    if(!fit) return '';
     const scoreColor=fit.cls==='fg'?'#085041':fit.cls==='fo'?'#0C447C':'#633806';
     const scoreBg=fit.cls==='fg'?'#E1F5EE':fit.cls==='fo'?'#E6F1FB':'#FAEEDA';
     // For commuters, lead with what actually matters to them: the commute reality.

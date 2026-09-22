@@ -38,6 +38,17 @@ const DATA_FRESHNESS = {
     source: "Rates.ca Home Insuramap 2026 report (ON avg $2,235/yr detached, Toronto ~$1,617/yr).",
     refreshCadence: "Annually — insurance benchmarks are typically republished yearly."
   },
+  incomeTaxModel: {
+    value: "2024 federal + Ontario brackets, BPA credits, surtax, health premium, CPP/CPP2/EI",
+    lastUpdated: "2026-09-22",
+    source: "estimateOntarioNetAnnual() in utils.js. Added to this tracker during the 2026-09-22 " +
+            "audit, which found the model silently omitting the Ontario surtax, the Ontario Health " +
+            "Premium and CPP2 — overstating net income by $450/yr at $40K and $21,974/yr at $400K. " +
+            "Because net income is the denominator of getFit(), every affordability label was " +
+            "optimistic by 1–2 percentage points. It was never in this tracker before, which is " +
+            "why nothing ever prompted a re-check.",
+    refreshCadence: "Annually — brackets, BPA, CPP/EI maximums and the surtax thresholds are indexed each January."
+  },
   condoFees: {
     value: "City base fee scaled 0.5× around each city's typical condo price (see CONDO_FEES + calcCosts)",
     lastUpdated: "2026-07-06",

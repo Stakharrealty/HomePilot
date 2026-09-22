@@ -38,9 +38,13 @@ function buildCompare(){
     }
     if(!price){price=r.homePrice;type=type==='all'?'detached':type;}
     const c=calcCosts(r,price,fam_selected,dn_selected,type);
+    // getFit() returns null when there is nothing usable to rate (2026-09-22).
+    // The compare table needs a row per selected city, so an unratable city
+    // shows a dash rather than being silently dropped from the comparison.
     const fit=getFit(c.total,grossMonthlyIncome);
     const drive=workArrangement!=='remote'?calcCommuteMinutes(cityName):(DRIVE_TO_TORONTO[cityName]||null);
-    return{name:cityName,price,total:c.total,fitCls:fit.cls,fitLbl:fit.lbl,fitScore:fit.score,drive};
+    return{name:cityName,price,total:c.total,
+      fitCls:fit?fit.cls:'',fitLbl:fit?fit.lbl:'—',fitScore:fit?fit.score:null,drive};
   });
   const minTotal=Math.min(...data.map(d=>d.total)),maxTotal=Math.max(...data.map(d=>d.total));
   const minPrice=Math.min(...data.map(d=>d.price)),maxPrice=Math.max(...data.map(d=>d.price));

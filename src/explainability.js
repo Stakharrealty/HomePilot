@@ -11,8 +11,19 @@
 function getFit(monthlyCost,_grossMonthlyIncome){
   // Always use net take-home. If netMonthlyIncome not set, estimate from gross.
   // Passing gross is kept for call-site compatibility but we ignore it here.
-  const netIncome=netMonthlyIncome||(_grossMonthlyIncome*0.72);
-  const ratio=netIncome>0?monthlyCost/netIncome:1;
+  //
+  // Returns null when there is no usable cost or income to judge (added
+  // 2026-09-22, audit). This was the single most dangerous behaviour in the
+  // engine: getFit(null), getFit(0) and getFit(-500) all returned
+  // {cls:"fg", lbl:"Great fit", score:100} — a missing or broken cost produced
+  // the most reassuring label the product has. getFit(NaN) returned "Stretch"
+  // with a score of NaN. Callers must now handle null by showing no badge
+  // rather than a guessed one.
+  const cost=Number(monthlyCost);
+  if(!Number.isFinite(cost)||cost<=0)return null;
+  const netIncome=netMonthlyIncome||(Number(_grossMonthlyIncome)*0.72);
+  if(!Number.isFinite(netIncome)||netIncome<=0)return null;
+  const ratio=monthlyCost/netIncome;
   let score;
   if(ratio<0.35){score=Math.round(100-(ratio/0.35)*20);}
   else if(ratio<0.45){score=Math.round(79-((ratio-0.35)/0.10)*19);score=Math.max(60,score);}

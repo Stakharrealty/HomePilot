@@ -163,7 +163,10 @@ function ldFitFor(listing, computed, profile, budget) {
   const b = Number(budget);
   if (!computed || !(price > 0) || !Number.isFinite(b) || b <= 0) return null;
   if (price > b * LD_STRETCH_MULTIPLIER) return null; // past the ceiling: no badge, unchanged
+  // getFit() returns null when the cost or income isn't usable (2026-09-22).
+  // No badge is the correct outcome there — the same as being past the ceiling.
   const fit = ldWithEngine(profile, computed.net, () => getFit(computed.costs.total, null));
+  if (!fit) return null;
   return { cls: fit.cls, lbl: fit.lbl, ratio: fit.ratio };
 }
 
