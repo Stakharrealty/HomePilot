@@ -97,6 +97,12 @@ export default {
         });
       }
 
+      // /proptx-investigate (square footage/lot/year-built/MLS#/rental-item
+      // field investigation, 2026-09-22) was temporary and read-only -- see
+      // proptx-investigate.js, now removed along with this route per the
+      // investigation's own completion (findings captured in chat/report,
+      // not left running).
+
       // ONE-TIME (2026-09-18): summarizes what the first real PropTx page
       // actually saved -- transaction type (sale vs lease), property
       // subtype, and how the existing condo/town/semi/detached

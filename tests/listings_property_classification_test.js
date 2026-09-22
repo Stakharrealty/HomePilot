@@ -98,7 +98,8 @@ const CENSUS = [
     tax_annual_amount REAL, tax_year INTEGER, association_fee REAL, association_fee_frequency TEXT,
     garage_type TEXT, basement TEXT, cooling TEXT, heat_type TEXT, mls_number TEXT, listed_date TEXT, virtual_tour_url TEXT, parking_spaces INTEGER,
     latitude REAL, longitude REAL,
-    property_subtype TEXT, source TEXT, transaction_type TEXT
+    property_subtype TEXT, source TEXT, transaction_type TEXT,
+    lot_width REAL, lot_depth REAL, lot_size_source TEXT, living_area_range TEXT, approximate_age TEXT
   )`);
   const ins = sqlite.prepare(`INSERT INTO listings (listing_key, list_price, city, listing_url, brokerage_name, photos,
     last_updated, property_subtype, source, transaction_type) VALUES (?, 500000, 'Seedville', '', 'B', '[]', '2026-09-18', ?, 'PROPTX', 'For Sale')`);

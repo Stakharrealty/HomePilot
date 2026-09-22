@@ -61,7 +61,8 @@ function makeSqliteD1(sqlite, log) {
     tax_annual_amount REAL, tax_year INTEGER, association_fee REAL, association_fee_frequency TEXT,
     garage_type TEXT, basement TEXT, cooling TEXT, heat_type TEXT, mls_number TEXT, listed_date TEXT, virtual_tour_url TEXT, parking_spaces INTEGER,
     latitude REAL, longitude REAL,
-    source TEXT, transaction_type TEXT, property_subtype TEXT
+    source TEXT, transaction_type TEXT, property_subtype TEXT,
+    lot_width REAL, lot_depth REAL, lot_size_source TEXT, living_area_range TEXT, approximate_age TEXT
   )`);
   const ins = sqlite.prepare(`INSERT INTO listings (listing_key, list_price, city, listing_url, brokerage_name,
     photos, last_updated, source, transaction_type, property_subtype) VALUES (?, ?, 'Mississauga', '', 'TEST REALTY', '[]', ?, ?, ?, ?)`);

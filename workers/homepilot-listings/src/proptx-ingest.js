@@ -76,6 +76,15 @@ const PROPERTY_SELECT_FIELDS = [
   // entered) is populated, so it is the listed date. An unknown field in
   // $select makes PropTx answer 400.
   "ListingId", "OriginalEntryTimestamp",
+  // Lot dimensions, living area range, building age (migration 0005).
+  // Confirmed live 2026-09-22 via a field-availability investigation
+  // (real $metadata + a 1,090-listing live sample): LotWidth/LotDepth are
+  // 100% populated on lot-bearing types (vs. LotSizeArea's 11%);
+  // LivingAreaRange is 93%/100%-on-real-homes (the correct square-footage
+  // field -- PropTx has no exact number, only this bucketed range);
+  // ApproximateAge is 41% populated (the correct building-age field --
+  // YearBuilt is confirmed 0% across the full 1,090-listing sample).
+  "LotWidth", "LotDepth", "LotSizeSource", "LivingAreaRange", "ApproximateAge",
 ].join(",");
 
 /**
@@ -189,6 +198,11 @@ export function mapPropertyToRow(p) {
     year_built: p.YearBuilt ?? null,
     lot_size_area: p.LotSizeArea ?? null,
     lot_size_units: p.LotSizeUnits ?? null,
+    lot_width: p.LotWidth ?? null,
+    lot_depth: p.LotDepth ?? null,
+    lot_size_source: p.LotSizeSource ?? null,
+    living_area_range: p.LivingAreaRange ?? null,
+    approximate_age: p.ApproximateAge ?? null,
     association_fee: p.AssociationFee ?? null,
     association_fee_frequency: p.AssociationFeeFrequency ?? null,
     tax_annual_amount: p.TaxAnnualAmount ?? null,

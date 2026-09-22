@@ -155,7 +155,8 @@ const LISTING_COLUMNS = `listing_key, list_price, city, postal_code, bedrooms, b
               public_remarks, display_address, year_built, lot_size_area, lot_size_units,
               tax_annual_amount, tax_year, association_fee, association_fee_frequency,
               garage_type, basement, cooling, heat_type, virtual_tour_url,
-              mls_number, listed_date`;
+              mls_number, listed_date,
+              lot_width, lot_depth, living_area_range, approximate_age`;
 
 function buildDerivedTypeCase() {
   return `CASE
@@ -247,6 +248,14 @@ function mapListingRow(row) {
     yearBuilt: row.year_built,
     lotSizeArea: row.lot_size_area,
     lotSizeUnits: row.lot_size_units,
+    // lotWidth/lotDepth/livingAreaRange/approximateAge (migration 0005):
+    // confirmed via live investigation to be the actually-populated PropTx
+    // fields (see migration comment) -- lotWidth/lotDepth are the primary
+    // lot-size signal now (lot_size_area stays for the rare fallback case).
+    lotWidth: row.lot_width,
+    lotDepth: row.lot_depth,
+    livingAreaRange: row.living_area_range,
+    approximateAge: row.approximate_age,
     // Stored PropTx fields exposed to the frontend (already populated by
     // the ingest; null when PropTx didn't supply them -- never guessed).
     taxAnnualAmount: row.tax_annual_amount,

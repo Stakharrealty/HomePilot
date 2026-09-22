@@ -234,7 +234,11 @@ async function openPage({ listing, status = 200, profile, budget, search, fetchT
     !fs.existsSync(path.join(ROOT, "listing-full.html")) && !fs.existsSync(path.join(ROOT, "src", "listing-full.js")) && !/listing-full/.test(read(".github/workflows/deploy.yml")) &&
     !/listing-full/.test(read("package.json")) && !/listing-full/.test(read("src/listings-display.js")));
   check("(M9) the deferred (not-yet-stored) fields are not on the page; no lat/long, no listingUrl",
-    !/square|sqft|sq\.? ?ft|room size|utilities included|inclusion|exclusion|days on market|frontage|architectural|approximate age|sewer|latitude|longitude|listingUrl/i.test(detailSrc.replace(/\/\/[^\n]*|\/\*[\s\S]*?\*\//g, "")));
+    // square footage (LivingAreaRange) and building age (ApproximateAge) were
+    // deferred when this check was written -- both are now implemented and
+    // real (migration 0005, 2026-09-22, confirmed via live PropTx field
+    // investigation), so they're deliberately no longer in this forbidden list.
+    !/room size|utilities included|inclusion|exclusion|days on market|frontage|architectural|sewer|latitude|longitude|listingUrl/i.test(detailSrc.replace(/\/\/[^\n]*|\/\*[\s\S]*?\*\//g, "")));
   check("(M10) reuses the shared helpers instead of reimplementing them",
     /attachPhotoCarousel\(/.test(detailSrc) && /moneyFactOrEstimate\(/.test(detailSrc) && /factOrOmit\(/.test(detailSrc) && !/function (ldEstimates|factOrOmit|moneyFactOrEstimate|attachPhotoCarousel)\b/.test(detailSrc));
 
@@ -466,6 +470,57 @@ async function openPage({ listing, status = 200, profile, budget, search, fetchT
   // Existing monthly-cost values are still byte-for-byte unchanged (calcCosts itself untouched -- see GOLDEN_CALC above; this re-confirms at the page level)
   check("(N22) existing monthly cost rows are unchanged by this pass (still match calcCosts exactly, same as check (A) above)",
     has(hp2, "Mortgage" + fmt(exp.mort)) && has(hp2, "Total per month" + fmt(exp.total)));
+
+  // =============== 12. lot size (LotWidth/LotDepth), square footage (LivingAreaRange), building age (ApproximateAge) ===============
+  // Confirmed via a live PropTx field investigation (2026-09-22): LotWidth/LotDepth are the reliable lot-size fields
+  // (100% populated on lot-bearing types vs. the old lotSizeArea's 11%); LivingAreaRange is the correct (range-only)
+  // square-footage field; ApproximateAge is the correct (range-only) building-age field (YearBuilt confirmed 0% live).
+  const LOT_WD = await openPage({ listing: { ...BASE, lotWidth: 75.07, lotDepth: 150, lotSizeArea: 11260.5, lotSizeUnits: "Feet" }, profile: PROFILE, budget: 900000 });
+  check("(O1) lot size prefers width x depth when both are present", has(LOT_WD.doc.getElementById("ldDetails").textContent, "Lot size: 75.07 x 150 ft"));
+  check("(O1b) width x depth format does not also show the old lotSizeArea format", !has(LOT_WD.text, "Lot size: 11260.5"));
+
+  const LOT_FALLBACK = await openPage({ listing: { ...BASE, lotWidth: null, lotDepth: null, lotSizeArea: 30, lotSizeUnits: "Feet" }, profile: PROFILE, budget: 900000 });
+  check("(O2) lot size falls back to the old lotSizeArea format when width/depth are both absent", has(LOT_FALLBACK.doc.getElementById("ldDetails").textContent, "Lot size: 30 Feet"));
+
+  const LOT_PARTIAL = await openPage({ listing: { ...BASE, lotWidth: 50, lotDepth: null, lotSizeArea: 30, lotSizeUnits: "Feet" }, profile: PROFILE, budget: 900000 });
+  check("(O3) only one of width/depth present -> falls back to lotSizeArea, not a half-formed 'x' row", has(LOT_PARTIAL.doc.getElementById("ldDetails").textContent, "Lot size: 30 Feet") && !/Lot size: 50 x/.test(LOT_PARTIAL.text));
+
+  const LOT_CONDO = await openPage({ listing: { ...BASE, propertyType: "condo", lotWidth: null, lotDepth: null, lotSizeArea: null, lotSizeUnits: null }, profile: PROFILE, budget: 900000 });
+  check("(O4) condo with no lot data: 'Lot size' row omitted entirely (not '0 x 0', not blank)", !has(LOT_CONDO.text, "Lot size"));
+
+  const SIZE_YES = await openPage({ listing: { ...BASE, livingAreaRange: "3000-3500" }, profile: PROFILE, budget: 900000 });
+  check("(O5) square footage shows the range verbatim with ' sq ft' suffix", has(SIZE_YES.doc.getElementById("ldDetails").textContent, "Size: 3000-3500 sq ft"));
+
+  const SIZE_UNDER = await openPage({ listing: { ...BASE, livingAreaRange: "< 700" }, profile: PROFILE, budget: 900000 });
+  check("(O6) square footage handles the '< 700' bucket format verbatim", has(SIZE_UNDER.doc.getElementById("ldDetails").textContent, "Size: < 700 sq ft"));
+
+  const SIZE_NO = await openPage({ listing: { ...BASE, livingAreaRange: null }, profile: PROFILE, budget: 900000 });
+  check("(O7) no LivingAreaRange -> 'Size' row omitted entirely, no blank/N-A", !has(SIZE_NO.text, "Size:"));
+
+  const AGE_RANGE = await openPage({ listing: { ...BASE, approximateAge: "16-30" }, profile: PROFILE, budget: 900000 });
+  check("(O8) building age shows the range with ' years' suffix", has(AGE_RANGE.doc.getElementById("ldDetails").textContent, "Building age: 16-30 years"));
+
+  const AGE_NEW = await openPage({ listing: { ...BASE, approximateAge: "New" }, profile: PROFILE, budget: 900000 });
+  check("(O9) building age 'New' has NO 'years' suffix", has(AGE_NEW.doc.getElementById("ldDetails").textContent, "Building age: New") && !has(AGE_NEW.text, "New years"));
+
+  const AGE_NO = await openPage({ listing: { ...BASE, approximateAge: null }, profile: PROFILE, budget: 900000 });
+  check("(O10) no ApproximateAge -> 'Building age' row omitted entirely", !has(AGE_NO.text, "Building age"));
+
+  check("(O11) new facts never render N/A / undefined / null / NaN across all these scenarios",
+    [LOT_WD, LOT_FALLBACK, LOT_PARTIAL, LOT_CONDO, SIZE_YES, SIZE_UNDER, SIZE_NO, AGE_RANGE, AGE_NEW, AGE_NO]
+      .every((p) => !/N\/A|undefined|null|NaN/.test(p.text)));
+
+  // XSS: hostile values in the new PropTx-sourced fields must render inert (escaped), matching the existing (H4) pattern
+  const XS3 = await openPage({
+    listing: { ...BASE, livingAreaRange: "<img src=x onerror=alert(1)>", approximateAge: "<script>alert(2)</script>", lotWidth: "<b>50</b>", lotDepth: 100 },
+    profile: PROFILE, budget: 900000,
+  });
+  check("(O12) hostile LivingAreaRange/ApproximateAge/LotWidth values are escaped, not rendered as HTML",
+    XS3.doc.querySelectorAll("#ldRoot script, #ldRoot img, #ldRoot b").length === 0);
+
+  // Untouched by this pass: fit badge, monthly total, card, closing costs, comfort position, mortgage assumptions
+  check("(O13) the fit badge and monthly 'Total per month' are unaffected by the new facts (still match calcCosts exactly)",
+    has(LOT_WD.doc.getElementById("ldHomePilot").textContent, "Total per month" + fmt(exp.total)));
 
   console.log(`=== RESULT: ${passed} passed, ${failed} failed ===`);
   process.exit(failed ? 1 : 0);

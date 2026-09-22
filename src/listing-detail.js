@@ -117,21 +117,47 @@ function renderClosingCostsBlock(closing) {
 // Section 3: every stored field, in reading order. Plain facts use factOrOmit
 // (shown when present, silently omitted otherwise -- never "N/A"); the two money
 // figures use moneyFactOrEstimate (real value, else a labelled estimate).
-// Square footage, room sizes and other not-yet-stored fields are deliberately
-// absent. Heating is PropTx HeatType (the delivery system, e.g. "Forced Air"),
+// Heating is PropTx HeatType (the delivery system, e.g. "Forced Air"),
 // labelled "Heating" -- not "Heat source", which is a different PropTx field.
+//
+// Size/Lot size/Building age (added 2026-09-22, migration 0005): confirmed
+// via a live PropTx field investigation that the previously-assumed exact
+// fields (LivingArea/BuildingAreaTotal for size, YearBuilt for age) are not
+// populated -- PropTx only supplies bucketed RANGE strings for these
+// ("3000-3500" / "0-5"), which is genuine data, not a fallback -- see
+// ldLotSizeFact()/ldSizeFact()/ldAgeFact() below. Lot size prefers the new
+// width x depth fields (100% populated on lot-bearing types, vs. the old
+// lotSizeArea's 11%) and falls back to the old field only when width/depth
+// are both absent; the old lotSizeArea data/column is otherwise untouched.
+function ldLotSizeFact(listing) {
+  if (listing.lotWidth && listing.lotDepth) {
+    return `Lot size: ${escapeHtml(listing.lotWidth)} x ${escapeHtml(listing.lotDepth)} ft`;
+  }
+  if (listing.lotSizeArea) {
+    return `Lot size: ${escapeHtml(listing.lotSizeArea)}${listing.lotSizeUnits ? " " + escapeHtml(listing.lotSizeUnits) : ""}`;
+  }
+  return null;
+}
+
+function ldSizeFact(listing) {
+  return listing.livingAreaRange ? `Size: ${escapeHtml(listing.livingAreaRange)} sq ft` : null;
+}
+
+function ldAgeFact(listing) {
+  if (!listing.approximateAge) return null;
+  return listing.approximateAge === "New" ? "Building age: New" : `Building age: ${escapeHtml(listing.approximateAge)} years`;
+}
+
 function fullListingFacts(listing) {
   const est = ldEstimates(listing);
   const yearSuffix = listing.taxYear ? ` (${listing.taxYear})` : "";
   const isCondo = listing.propertyType === "condo";
   const realFee = ldFeeToMonthly(listing.associationFee, listing.associationFeeFrequency);
-  const lot = listing.lotSizeArea
-    ? `${listing.lotSizeArea}${listing.lotSizeUnits ? " " + listing.lotSizeUnits : ""}`
-    : null;
   return [
     factOrOmit("Property type", LD_TYPE_LABELS[listing.propertyType]),
     factOrOmit("Beds", listing.bedrooms),
     factOrOmit("Baths", listing.bathrooms),
+    ldSizeFact(listing),
     factOrOmit("Parking spaces", listing.parkingSpaces),
     factOrOmit("Total parking", listing.parkingTotal),
     factOrOmit("Garage", listing.garageType),
@@ -139,7 +165,8 @@ function fullListingFacts(listing) {
     factOrOmit("Heating", listing.heatType),
     factOrOmit("Cooling", listing.cooling),
     factOrOmit("Year built", listing.yearBuilt),
-    factOrOmit("Lot size", lot),
+    ldAgeFact(listing),
+    ldLotSizeFact(listing),
     moneyFactOrEstimate("Property tax", listing.taxAnnualAmount, est.taxAnnual, (v) => `${fmtPrice(v)}/yr${yearSuffix}`),
     isCondo
       ? moneyFactOrEstimate("Condo fee", realFee, est.condoFee, (v) => `${fmtPrice(v)}/mo`)
