@@ -98,13 +98,33 @@ const SUBTYPE_EXPR = "TRIM(property_subtype)";
 //   2. last_updated must be recent. This is the layer that actually works,
 //      because a sold listing's row freezes the moment it leaves the feed.
 //
-// 168 hours (7 days) is deliberately generous, not a target: a full refresh
-// pass over Toronto's ~20,000 listings spans many cron firings, and a bound
-// tighter than the real worst-case pass duration would start hiding live
-// listings. Tighten it once the actual full-cycle time is measured -- the
-// PROPTX IDX agreement's refresh expectation is 24 hours, so the real fix is
-// a mark-and-sweep keyed to a COMPLETED pass, with this bound as the backstop.
-export const MAX_LISTING_AGE_HOURS = 168;
+// 36 hours, set against measured production behaviour on 2026-09-22.
+//
+// This was first written as 168h (7 days), chosen blind before anyone had
+// looked at the database, erring loose so it could not hide a live listing.
+// Querying production showed that was far too loose to do anything: of 14,489
+// for-sale rows, 168h hid ZERO. The constant existed and bought nothing.
+//
+// What the measurement showed:
+//   - the cron refreshes each city every 12h (REFRESH_AFTER_HOURS), and
+//     Toronto's full pass takes roughly 6h spread across many firings, so a
+//     genuinely live listing is re-seen every 12-18h worst case;
+//   - 448 rows (3%) had not been seen for over 12h -- sold, expired or
+//     withdrawn, and all of them being served as for-sale;
+//   - a 24h bound hides 103 of those, and so does 36h: nothing sits between
+//     24 and 36 hours, so 36h buys an extra half-day of headroom for a slow
+//     pass at no cost in what it catches.
+//
+// The remaining ~345 rows sit in the 12-24h window, where live-but-not-yet-
+// re-seen and actually-gone are indistinguishable from timestamps alone. No
+// safe bound separates them. The real fix is a mark-and-sweep keyed to a
+// COMPLETED pass (delete what the pass did not see); this bound is the
+// backstop underneath it, not a replacement for it.
+//
+// Re-measure before changing: if REFRESH_AFTER_HOURS changes, or a city large
+// enough to push a pass past ~30h is added, this needs to move with it. Too
+// tight and live listings vanish; too loose and it does nothing at all.
+export const MAX_LISTING_AGE_HOURS = 36;
 
 export function freshnessCutoffIso(nowMs = Date.now()) {
   return new Date(nowMs - MAX_LISTING_AGE_HOURS * 3600 * 1000).toISOString();

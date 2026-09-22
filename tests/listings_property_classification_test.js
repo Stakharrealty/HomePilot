@@ -162,8 +162,8 @@ const CENSUS = [
     last_updated, property_subtype, source, transaction_type, standard_status) VALUES (?, ?, 'Mississauga', '', 'B', '[]', ?, ?, 'PROPTX', 'For Sale', 'Active')`);
   ins2.run("W12943244", 47800, FRESH, "Parking Space");  // real row from the first page
   ins2.run("W12326045", 2880000, FRESH, "Detached");     // real row
-  ins2.run("SEMI1", 900000, "2026-09-18T03", "Semi-Detached ");
-  ins2.run("DUP1", 1200000, "2026-09-18T04", "Duplex");
+  ins2.run("SEMI1", 900000, FRESH, "Semi-Detached ");
+  ins2.run("DUP1", 1200000, FRESH, "Duplex");
   const d1 = {
     prepare(sql) { let a = []; const st = { bind(...x) { a = x; return st; }, async all() { return { results: e2e.prepare(sql).all(...a) }; } }; return st; },
   };
