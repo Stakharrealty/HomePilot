@@ -4,6 +4,8 @@
   "description": "Test tooling for HomePilot (Ontario homebuyer affordability tool). See README.md and tests/ for details.",
   "scripts": {
     "test": "node tests/regression_suite.js index.html",
+    "test:engine-invariants": "node tests/engine_invariants_test.js calculator.html",
+    "test:insights-hardening": "node --no-warnings tests/insights_worker_hardening_test.js",
     "test:browser-load": "node tests/browser_load_verification.js",
     "test:smoke": "node tests/smoke_test.js",
     "test:kv": "node tests/kv_integrity_test.js",

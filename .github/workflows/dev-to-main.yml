@@ -46,6 +46,13 @@ jobs:
       - name: Regression suite
         run: npm run test
 
+      # See deploy.yml for why these two exist.
+      - name: Affordability engine invariants
+        run: npm run test:engine-invariants
+
+      - name: Insights worker hardening
+        run: npm run test:insights-hardening
+
       - name: Listings CI suite
         run: npm run test:listings-ci
 

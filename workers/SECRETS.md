@@ -20,8 +20,14 @@ it expects so you know what to set before it will work correctly.
 ### homepilot-listings
 | Secret name | Purpose | Status |
 |---|---|---|
-| `DDF_CLIENT_ID` | CREA DDF feed username-equivalent | Confirmed needed (referenced directly in `workers/homepilot-listings/index.js`) |
-| `DDF_CLIENT_SECRET` | CREA DDF feed password-equivalent | Confirmed needed (same as above) |
+| `PROPTX_IDX_TOKEN` | Bearer token for the PropTx IDX feed (`query.ampre.ca`) | Confirmed needed — read by `scheduled()` in `src/index.js` and passed to `runAutoIngest`. **Without it the cron returns immediately and no listings are ever ingested, silently.** |
+| ~~`DDF_CLIENT_ID`~~ | — | **Stale.** The CREA DDF pipeline was removed 2026-09-18 and nothing references this. Safe to delete from Cloudflare. |
+| ~~`DDF_CLIENT_SECRET`~~ | — | **Stale.** Same as above. |
+
+> Corrected 2026-09-22 (audit): this table listed only the two DDF secrets and
+> did not mention `PROPTX_IDX_TOKEN` at all. Anyone rebuilding this Worker from
+> this file would have set two secrets nothing reads, omitted the one that
+> matters, and ended up with a Worker that starts cleanly and ingests nothing.
 
 ### homepilot-send-lead
 | Secret name | Purpose | Status |

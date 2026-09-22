@@ -39,6 +39,20 @@ jobs:
       - name: Regression suite
         run: npm run test
 
+      # Dense monotonicity + minimum-down-payment invariants for the
+      # affordability engine. The regression suite samples down payments at
+      # {25k,50k,100k,150k,200k} and steps straight over the discontinuity at
+      # 33k-34k, so it reported those properties as holding while they were
+      # false. This one samples densely.
+      - name: Affordability engine invariants
+        run: npm run test:engine-invariants
+
+      # The insights Worker was an open, unauthenticated Anthropic proxy whose
+      # content guardrails lived client-side, where any caller could drop them.
+      # This asserts they are enforced server-side and the abuse paths stay shut.
+      - name: Insights worker hardening
+        run: npm run test:insights-hardening
+
       - name: Listings CI suite
         run: npm run test:listings-ci
 
