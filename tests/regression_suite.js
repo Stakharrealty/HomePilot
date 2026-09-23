@@ -631,12 +631,16 @@ suite('OneRanking');
       return {
         home: h.every(function(e,i){ return i===0 || HOME_RANK[h[i-1].type] >= HOME_RANK[e.type]; }),
         cost: c.every(function(e,i){ return i===0 || c[i-1].costs.total <= e.costs.total; }),
+        // Each place leads with its CHEAPEST comfortable home (2026-09-23: it
+        // led with the biggest, so a $2,426 condo could rank below $2,916).
+        cheapestLead: c.every(function(e){ return HOME_ORDER.map(function(t){ return qualifyingOption(e.city,t); }).filter(isComfortable).every(function(p){ return e.costs.total <= p.costs.total; }); }),
         drive: d.every(function(e,i){ return i===0 || d[i-1].commuteMin <= e.commuteMin; }),
         same: JSON.stringify(h.map(function(e){return e.n;}).sort()) === JSON.stringify(c.map(function(e){return e.n;}).sort()),
       };
     })()`);
     t('"Most home" order never puts less home above more @'+inc, o.home);
     t('"Lowest monthly cost" order is cheapest first @'+inc, o.cost);
+    t('"Lowest monthly cost": each place leads with its cheapest comfortable home @'+inc, o.cheapestLead);
     t('"Shortest commute" order is shortest first @'+inc, o.drive);
     t('the three sorts reorder the same cities, never change which ones @'+inc, o.same);
   }

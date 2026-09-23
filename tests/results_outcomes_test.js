@@ -63,7 +63,7 @@ function search(win, b) {
   win.eval(`setWorkArrangement(${JSON.stringify(b.work)})`);
   if (b.work !== "remote") {
     d.getElementById("workCity").value = b.workCity || "Toronto";
-    d.getElementById("workPostal").value = "";
+    d.getElementById("workPostal").value = b.workPostal || "";
   }
   if (b.maxCommute !== undefined) win.eval(`setMaxCommute(${JSON.stringify(b.maxCommute)})`);
   win.eval("go()");
@@ -252,6 +252,45 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
   check("(9f) the listing pages get the same answers (no rebate, non-resident)", saved.lttRebateEligible === false && saved.canadianResident === false);
   search(win, { ...TOR, firstTime: false });
   check("(9g) not a first-time buyer: the rebate box is hidden and unticked", win.document.getElementById("ltt_rebate_row").style.display === "none" && win.eval("lttRebateConfirmed") === false);
+
+  // =============== 10. "Lowest monthly cost" means the cheapest home ===============
+  // Reported on the live site 2026-09-23: $234,243 income, $324,234 down,
+  // daily to L4W (Mississauga), 30-minute limit. Sorted by "Lowest monthly
+  // cost", #1 was a West End condo at $2,916/mo while #3, Brampton, listed a
+  // condo at $2,426/mo: the sort compared each place's biggest comfortable
+  // home, not its cheapest. (7h) passed anyway, because it only checked that
+  // the headlines went up. These read every row on every card, as a buyer does.
+  const REPORTED = { income: 234243, down: 324234, debt: 0, family: 3, firstTime: false, work: "daily", workCity: "Mississauga", workPostal: "L4W 5L5", maxCommute: 30 };
+  const RANK = { Condo: 1, Townhouse: 2, "Semi-Detached": 3, Detached: 4 };
+  const rowsOf = (el) => [...el.querySelectorAll("[id^='pt-row-']:not([id$='-chevron'])")].map((r) => {
+    const m = /\$([\d,]+) · \$([\d,]+)\/mo/.exec(r.textContent);
+    return {
+      type: r.firstElementChild && r.firstElementChild.firstElementChild ? r.firstElementChild.firstElementChild.textContent.trim() : null,
+      price: m ? Number(m[1].replace(/,/g, "")) : null,
+      monthly: m ? Number(m[2].replace(/,/g, "")) : null,
+      stretch: /Stretch/.test(r.textContent),
+    };
+  });
+  const cardsWithRows = () => [...win.document.querySelectorAll("#list .city")].map((el) => ({ ...readCard(el), rows: rowsOf(el) }));
+  search(win, REPORTED);
+  const comfortCap = win.eval("comfortBuyPower");
+  const comfortableRows = (c) => c.rows.filter((r) => !r.stretch && r.price !== null && r.price <= comfortCap);
+  win.eval("setResultsSort('cost')");
+  const costCards = cardsWithRows();
+  check("(10a) the reported buyer gets several places to compare", costCards.length >= 2 && costCards.every((c) => c.rows.length > 0), String(costCards.length));
+  check("(10b) sorted by cost, each card leads with the cheapest home it lists that is within the comfort range and not a Stretch",
+    costCards.every((c) => comfortableRows(c).length > 0 && comfortableRows(c).every((r) => c.monthly <= r.monthly)),
+    costCards.map((c) => c.city + " " + c.monthly + " vs " + comfortableRows(c).map((r) => r.monthly).join("/")).join("; "));
+  const cheapestAnywhere = Math.min(...costCards.flatMap((c) => comfortableRows(c).map((r) => r.monthly)));
+  check("(10c) ...so the #1 card is the cheapest comfortable home on the page",
+    costCards.length > 0 && costCards[0].monthly === cheapestAnywhere, (costCards[0] && costCards[0].city + " " + costCards[0].monthly) + " vs " + cheapestAnywhere);
+  check("(10d) ...and the cards go from cheapest to dearest", costCards.every((c, i) => i === 0 || costCards[i - 1].monthly <= c.monthly), costCards.map((c) => c.monthly).join(","));
+  check("(10e) the rule sentence says what the sort compares", /each place shows the cheapest home you can comfortably afford/.test(win.document.getElementById("rankNotes").textContent));
+  win.eval("setResultsSort('home')");
+  const homeCards = cardsWithRows();
+  check("(10f) 'Most home' is unchanged: each card still leads with the biggest home it lists within comfort",
+    homeCards.length > 0 && homeCards.every((c) => comfortableRows(c).every((r) => RANK[c.type] >= RANK[r.type])),
+    homeCards.map((c) => c.city + " " + c.type).join("; "));
 
   check("(8) no uncaught script errors during any of this", errors.length === 0, errors.join(" | "));
 
