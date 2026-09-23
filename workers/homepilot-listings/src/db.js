@@ -142,11 +142,50 @@ export function freshnessCutoffIso(nowMs = Date.now()) {
   return new Date(nowMs - MAX_LISTING_AGE_HOURS * 3600 * 1000).toISOString();
 }
 
+// MIN_LISTING_PRICE (added 2026-09-23): the floor under which a price is not a
+// price. Some agents list a real, ordinary house at $1 so that it sorts to the
+// top of every low-to-high search -- HomePilot sorts `list_price ASC`, so those
+// listings landed at position 1 on the affected city's page.
+//
+// Measured against production the day this shipped: 36 such listings, and they
+// are NOT junk records to be filtered by type. They are Detached, Semi-Detached,
+// Att/Row/Townhouse, Condo Apartment, Triplex and Multiplex homes at real
+// addresses in Aurora, Brampton, Mississauga, Oakville, Richmond Hill, Toronto
+// and elsewhere -- indistinguishable from real inventory except for the price.
+// So the home-type allow-list cannot catch them; only a price floor can.
+//
+// The damage was not just an odd sort order. The affordability engine took $1
+// as the real price: one Hamilton listing's detail page read "$979/month, 13%
+// of take-home, within your comfort affordability range" and "$6,401 cash to
+// purchase". The single most prominent home in a city, costed as fiction.
+//
+// WHY $10,000 AND NOT $2. A literal ">= $2" would remove today's 36 and reopen
+// the same exploit tomorrow at $2. The live price distribution says where the
+// real boundary is: 36 listings at $1, then NOTHING AT ALL until $21,000. The
+// floor sits in the middle of an empty band roughly four orders of magnitude
+// wide, so it removes exactly the gamed listings, is far below any genuine
+// Ontario home (the cheapest real ones here are $100k-$200k rural properties,
+// which stay visible), and leaves no cheap rung for the next agent to game.
+//
+// A NULL price is excluded by the same comparison, deliberately: every number
+// this app shows a buyer is derived from the price, so a listing without one
+// has nothing to show.
+//
+// Filtered on READ, not at ingest, matching how staleness and home types are
+// already handled. The row stays in D1, so if the agent corrects the price to
+// a real number the listing simply reappears on the next refresh -- no backfill
+// and no re-ingest needed.
+export const MIN_LISTING_PRICE = 10000;
+
 // The visibility rules every listing query shares, so the list endpoint and
 // the single-listing endpoint can never disagree about what is servable.
+// MIN_LISTING_PRICE is inlined rather than bound because it is a code constant,
+// never user input -- which also keeps the positional bind order of both
+// callers unchanged (the only `?` here is still the freshness cutoff).
 export const VISIBLE_LISTING_CLAUSE =
   `source = 'PROPTX' AND transaction_type = 'For Sale' ` +
-  `AND standard_status = 'Active' AND last_updated >= ?`;
+  `AND standard_status = 'Active' AND last_updated >= ? ` +
+  `AND list_price >= ${MIN_LISTING_PRICE}`;
 
 export const PROPERTY_TYPE_FILTERS = Object.freeze(Object.fromEntries(
   BUTTON_TYPES.map((b) => [b, `${SUBTYPE_EXPR} IN ${sqlInList(subtypesForButton(b))}`])
