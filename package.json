@@ -14,6 +14,7 @@
     "test:results-single-col": "node tests/results_single_column_test.js",
     "test:listing-seal-removed": "node tests/listing_verified_seal_removed_test.js",
     "test:footer-contact": "node tests/footer_contact_section_test.js",
+    "test:results-outcomes": "node --no-warnings tests/results_outcomes_test.js",
     "test:listings-frontend": "node tests/listings_frontend_display_test.js",
     "test:listings-grid-width": "node tests/listings_grid_width_test.js",
     "test:listings-card-carousel": "node tests/listings_card_photo_carousel_test.js",

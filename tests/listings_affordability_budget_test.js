@@ -45,11 +45,17 @@ async function main() {
   check("STRETCH_MULTIPLIER constant exists in db.js", !!multiplierMatch);
   check("STRETCH_MULTIPLIER is exactly 1.10", multiplierMatch && parseFloat(multiplierMatch[1]) === 1.10);
 
-  // --- 2. render.js uses the SAME 1.10 value elsewhere in the app ---
+  // --- 2. render.js ---
+  // Until 2026-09-23 this also pinned a `buyPower*1.10` in render.js: the
+  // results page added cities up to 10% OVER the bank's ceiling to its stretch
+  // view. The one ranking (rankCities, ranking.js) only ever offers homes the
+  // bank would lend for, so that tolerance no longer exists on the results
+  // page. The listings API's 10% band above the CARD's price is the only one
+  // left, pinned below in db.js and listing-fit.js.
   const renderSrc = fs.readFileSync(path.join(__dirname, "..", "src", "render.js"), "utf8");
   check(
-    "render.js's existing stretch tolerance (buyPower*1.10) matches db.js's STRETCH_MULTIPLIER",
-    /buyPower\s*\*\s*1\.10/.test(renderSrc)
+    "render.js never offers a home above the bank's ceiling (no buyPower*1.10 stretch on the results page)",
+    !/buyPower\s*\*\s*1\.10/.test(renderSrc)
   );
 
   // --- 3. render.js: both "View Homes" buttons pass a price/budget as the

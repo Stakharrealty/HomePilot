@@ -23,9 +23,11 @@ const errors = [];
 
   const win = dom.window;
 
+  // rankCities replaced RANKING_WEIGHTS on 2026-09-23: the weighted score is
+  // gone, and rankCities() (ranking.js) is now the one thing that orders cities.
   const requiredGlobals = [
     "M", "T", "RF", "go", "render", "calcBP", "calcCosts",
-    "getFit", "setLang", "toggle", "RANKING_WEIGHTS", "DEFAULT_MORTGAGE_RATE_PCT",
+    "getFit", "setLang", "toggle", "rankCities", "DEFAULT_MORTGAGE_RATE_PCT",
   ];
   // Use the page's own script-scope eval (not window[g]) since top-level
   // let/const bindings don't attach to window even in a real browser.

@@ -1,16 +1,34 @@
-// ranking.js — HomePilot city ranking / angle-picks logic
+// ranking.js — HomePilot city ranking: one rule, used everywhere
 //
 // Extracted from index.html on July 20, 2026 as part of Phase 2 (splitting the
-// single-file app into modules). Pure relocation — no logic changed, no values
-// changed. Loaded via <script src="src/ranking.js"></script> before the main
-// inline script, same shared global scope as before.
+// single-file app into modules). Loaded via <script src="src/ranking.js"></script>,
+// same shared global scope as the rest of the app.
 //
-// Contains: getPriceForTypeStrict(), RANKING_WEIGHTS, computeCityScore(),
-// getAnglePicks(). Note: getPriceForType() (the non-strict variant, used by
-// render-adjacent code not yet extracted) intentionally stays in index.html
-// for now — only the strict variant was in scope for this module per plan.
-// `let workArrangement = 'remote';` also intentionally stays in index.html —
-// it's mutable runtime state, not a module-level constant.
+// REWRITTEN 2026-09-23 (IMPROVEMENT_PLAN.md 1.4; REVIEW_BACKLOG.md P0-2, P1-22,
+// P1-23). Three different systems used to order cities:
+//   - computeCityScore(): a weighted sum of an affordability score and a
+//     commute score, which set the order on screen;
+//   - homePilotSort() (homepilot-score.js): a hidden 1-10 "desirability" score
+//     per city, weighted more heavily for higher incomes, which set the order
+//     the LEAD email was built from;
+//   - getAnglePicks(): a third blend, behind the What-If scenarios.
+// None of them could rule a city out on commute -- the commute score bottomed
+// out at 3 for anything over two hours -- so a hybrid buyer working in Toronto
+// got Welland (186 minutes each way by the app's own table) at #1, and Ottawa
+// ahead of Etobicoke. And the screen, the lead and the scenarios each told the
+// buyer something different.
+//
+// Now there is one rule, in one sentence:
+//   "The most home you can comfortably afford, shortest commute first."
+// The buyer can re-sort by shortest commute or lowest monthly cost, and sets
+// their own longest acceptable commute; a city past it is set aside BEFORE
+// ranking, never ranked low. rankCities() is the only thing that orders
+// cities: render() draws its result, the lead is built from the cards render()
+// drew, and the What-If scenarios call it directly.
+//
+// Contains: getPriceForTypeStrict() (unchanged), HOME_ORDER, HOME_RANK,
+// RESULT_SORTS, DEFAULT_MAX_COMMUTE, MAX_COMMUTE_CHOICES, commuteEstimateMin(),
+// qualifyingOption(), isComfortable(), rankCities(), rankRuleSentence().
 
 function getPriceForTypeStrict(cityName,type,bp){
   const t=PT[cityName];if(!t)return type==='all'?bp:null;
@@ -28,132 +46,126 @@ function getPriceForTypeStrict(cityName,type,bp){
   return price;
 }
 
-// Hybrid: balanced but affordability still matters more
-// Remote: pure affordability
-const RANKING_WEIGHTS = {
-  daily:  { affordability: 0.45, commute: 0.55 },
-  hybrid: { affordability: 0.65, commute: 0.35 },
-  remote: { affordability: 1.00, commute: 0.00 }
-};
+// "Most home": detached, then semi, then townhouse, then condo -- the order the
+// app has always used to pick a city's headline home.
+const HOME_ORDER = ['detached', 'semi', 'town', 'condo'];
+const HOME_RANK = { detached: 4, semi: 3, town: 2, condo: 1 };
 
-function computeCityScore(cityData, grossMonthlyIncome, netMonthlyIncome, displayPrice, commuteMin, propType) {
-  const c = calcCosts(cityData, displayPrice, fam_selected, dn_selected, propType||'detached');
-  const net = netMonthlyIncome || grossMonthlyIncome * 0.72;
-  // Affordability score: based on monthly burden % of net income
-  const burdenPct = net > 0 ? c.total / net : 1;
-  let affordScore;
-  if(burdenPct <= 0.28) affordScore = 100;
-  else if(burdenPct <= 0.32) affordScore = 95;
-  else if(burdenPct <= 0.35) affordScore = 90;
-  else if(burdenPct <= 0.40) affordScore = 80;
-  else if(burdenPct <= 0.45) affordScore = 65;
-  else if(burdenPct <= 0.50) affordScore = 45;
-  else if(burdenPct <= 0.55) affordScore = 25;
-  else affordScore = 8;
+// home    -- the most home you can comfortably afford, shortest commute first
+// commute -- shortest estimated drive first
+// cost    -- lowest monthly cost first
+const RESULT_SORTS = ['home', 'commute', 'cost'];
 
-  const w = RANKING_WEIGHTS[workArrangement];
+// The plan's defaults for "longest commute you'd accept (one way)": 60 minutes
+// for someone who drives in every day, 90 for hybrid. The buyer can change it,
+// or choose no limit. Remote workers have no commute to limit.
+const DEFAULT_MAX_COMMUTE = { daily: 60, hybrid: 90 };
+const MAX_COMMUTE_CHOICES = [30, 45, 60, 75, 90];
 
-  // Commute score
-  let commScore;
-  if(workArrangement === 'remote') {
-    commScore = 50; // truly irrelevant
-  } else if(commuteMin === null) {
-    commScore = 50; // unresolved work location = neutral, not a penalty
-  } else {
-    commScore = getCommuteScore(commuteMin);
-  }
-
-  let base = (affordScore * w.affordability) + (commScore * w.commute);
-
-  // Commute is already fully represented in commScore (weighted by RANKING_WEIGHTS).
-  // A separate proximity bonus would count the same commute fact twice, so it is
-  // intentionally removed. commScore is the single commute signal.
-
-  return { finalScore: base, affordScore, commScore };
+// The estimated one-way rush-hour drive to work, rounded to 5 minutes. This is
+// both the number a card shows and the number the buyer's limit is checked
+// against, so they can never disagree (a card reading "about 60 min" hidden by
+// a 60-minute limit). null when there is nothing to measure: remote work, or a
+// work location the app could not place.
+function commuteEstimateMin(cityName) {
+  if (workArrangement === 'remote' || !workZone) return null;
+  const m = calcCommuteMinutes(cityName);
+  return Number.isFinite(m) ? Math.max(5, Math.round(m / 5) * 5) : null;
 }
 
-// ── 4-ANGLE PICKS — replaces getTopPicks ────────────────────────
-function getAnglePicks(cities) {
-  const net   = netMonthlyIncome || grossMonthlyIncome * 0.72;
-  const TIERS = ['detached','semi','town','condo'];
-  const PLBL  = {detached:'Detached',semi:'Semi-Detached',town:'Townhouse',condo:'Condo'};
+// One home type in one city, if the buyer can actually buy it: listed in the
+// price table, within the bank's ceiling, meeting the minimum down payment and
+// passing full per-property qualification (getPriceForTypeStrict). Returns it
+// with its monthly costs and fit label, or null.
+function qualifyingOption(city, type) {
+  const price = getPriceForTypeStrict(city.n, type, buyPower);
+  if (!price) return null;
+  const costs = calcCosts(city, price, fam_selected, dn_selected, type);
+  const fit = getFit(costs.total, grossMonthlyIncome);
+  if (!fit) return null;
+  return { type, price, costs, fit };
+}
 
-  // Attach commute + best qualifying type to every city
-  // hasZone added 2026-09-22: getWorkZone() now returns null instead of
-  // silently defaulting an unresolved work location to downtown Toronto. When
-  // no zone resolved we have no commute to measure, so cities are ranked on
-  // affordability alone — exactly the remote path — rather than every city
-  // being dropped for having a null commute (which would empty the picks).
-  const hasZone = workArrangement !== 'remote' && !!workZone;
-  const enriched = cities.map(function(x) {
-    var cm = hasZone ? calcCommuteMinutes(x.n) : 0;
-    if(hasZone && cm === null) return null;
-    // Find best qualifying type (highest type under buyPower + <45% burden)
-    var bestType = null, bestPrice = null, bestCost = null, bestBurden = 1;
-    var lowestBurden = 1, lowestType = null, lowestPrice = null, lowestCost = null;
-    for(var i=0; i<TIERS.length; i++) {
-      var tp = TIERS[i];
-      var p  = getPriceForTypeStrict(x.n, tp, buyPower);
-      if(!p) continue;
-      var c  = calcCosts(x, p, fam_selected, dn_selected, tp);
-      var burden = net > 0 ? c.total/net : 1;
-      if(burden < 0.45 && !bestType) { bestType = tp; bestPrice = p; bestCost = c; bestBurden = burden; }
-      if(burden < lowestBurden) { lowestBurden = burden; lowestType = tp; lowestPrice = p; lowestCost = c; }
-    }
-    if(!bestType && !lowestType) return null; // nothing qualifies at all
-    // Use best qualifying if exists, else lowest burden for value angle
-    return {
-      city: x,
-      cm: cm || 0,
-      bestType:    bestType    || lowestType,
-      bestPrice:   bestPrice   || lowestPrice,
-      bestCost:    bestCost    || lowestCost,
-      bestBurden:  bestType    ? bestBurden : lowestBurden,
-      lowestType:  lowestType,
-      lowestPrice: lowestPrice,
-      lowestCost:  lowestCost,
-      lowestBurden:lowestBurden,
-      qualifies:   !!bestType, // true = <45% burden exists
-      score:       computeCityScore(x, grossMonthlyIncome, net, bestPrice||lowestPrice, cm, bestType||lowestType).finalScore,
+// Comfortable means BOTH inside the comfort range (comfortBuyPower) AND not
+// labelled Stretch. The comfort range uses bank-style ratios on gross income;
+// the label uses full monthly costs against take-home pay; and the two
+// disagree (REVIEW_BACKLOG.md P1-2 -- a $475K Welland townhouse was under the
+// $520K "comfort range" and labelled Stretch on the same card). Which single
+// definition to keep is still an open decision (IMPROVEMENT_PLAN.md 2.1).
+// Requiring both until then means no card can say "comfortable" and "Stretch"
+// about the same home, and the #1 card is never a Stretch.
+function isComfortable(opt) {
+  return !!opt && opt.price <= comfortBuyPower && opt.fit.cls !== 'fs';
+}
+
+function _byName(a, b) { return a.n < b.n ? -1 : a.n > b.n ? 1 : 0; }
+function _commuteKey(e) { return e.commuteMin === null ? Infinity : e.commuteMin; }
+
+function _comparatorFor(sort, commuteKnown) {
+  const home = (a, b) => HOME_RANK[b.type] - HOME_RANK[a.type];
+  const drive = (a, b) => commuteKnown ? _commuteKey(a) - _commuteKey(b) : 0;
+  const cost = (a, b) => a.costs.total - b.costs.total;
+  if (sort === 'commute') return (a, b) => drive(a, b) || home(a, b) || cost(a, b) || _byName(a, b);
+  if (sort === 'cost') return (a, b) => cost(a, b) || drive(a, b) || _byName(a, b);
+  return (a, b) => home(a, b) || drive(a, b) || cost(a, b) || _byName(a, b);
+}
+
+// Orders cities for this buyer. `cities` is the candidate list (go()'s
+// `results`); options:
+//   sort       -- one of RESULT_SORTS (default 'home'; 'commute' falls back to
+//                 'home' when there is no commute to sort by);
+//   maxCommute -- the buyer's longest acceptable one-way drive in minutes, or
+//                 null for no limit;
+//   onlyType   -- a home type the buyer filtered to, or null for all types.
+// Returns:
+//   ranked      -- cities with a comfortable home, in order. Each shows the
+//                  most home the buyer can comfortably afford there.
+//   stretchOnly -- cities the bank would lend for, but where nothing is
+//                  comfortable; each shows its cheapest option, lowest cost first.
+//   overCommute -- cities past the commute limit, shortest drive first. Never
+//                  ranked; the page lists them only if the buyer asks.
+//   sort, commuteKnown, limit -- what was actually applied.
+// Every entry: { city, n, type, price, costs, fit, pct, commuteMin, comfortable }.
+function rankCities(cities, opts) {
+  const o = opts || {};
+  const onlyType = o.onlyType && HOME_RANK[o.onlyType] ? o.onlyType : null;
+  const types = onlyType ? [onlyType] : HOME_ORDER;
+  const commuteKnown = workArrangement !== 'remote' && !!workZone;
+  const limit = commuteKnown && Number.isFinite(o.maxCommute) && o.maxCommute > 0 ? o.maxCommute : null;
+  const net = netMonthlyIncome || grossMonthlyIncome * 0.72;
+  const ranked = [], stretchOnly = [], overCommute = [];
+  const seen = new Set();
+  for (const city of cities || []) {
+    if (!city || !city.n || seen.has(city.n)) continue;
+    seen.add(city.n);
+    const options = types.map((t) => qualifyingOption(city, t)).filter(Boolean);
+    if (!options.length) continue;
+    // Most home first: HOME_ORDER puts detached first, so the first
+    // comfortable option is the most home; the last option is the cheapest.
+    const comfortable = options.find(isComfortable) || null;
+    const chosen = comfortable || options[options.length - 1];
+    const commuteMin = commuteKnown ? commuteEstimateMin(city.n) : null;
+    const entry = {
+      city, n: city.n, type: chosen.type, price: chosen.price, costs: chosen.costs, fit: chosen.fit,
+      pct: net > 0 ? Math.round(chosen.costs.total / net * 100) : null,
+      commuteMin, comfortable: !!comfortable,
     };
-  }).filter(Boolean).filter(function(e){ return e.qualifies; }); // only good-fit cities
+    if (limit !== null && commuteMin !== null && commuteMin > limit) overCommute.push(entry);
+    else if (comfortable) ranked.push(entry);
+    else stretchOnly.push(entry);
+  }
+  const sort = RESULT_SORTS.includes(o.sort) && (o.sort !== 'commute' || commuteKnown) ? o.sort : 'home';
+  ranked.sort(_comparatorFor(sort, commuteKnown));
+  stretchOnly.sort(_comparatorFor('cost', commuteKnown));
+  overCommute.sort(_comparatorFor('commute', true));
+  return { ranked, stretchOnly, overCommute, sort, commuteKnown, limit };
+}
 
-  if(!enriched.length) return null; // triggers stretch fallback
-
-  // ANGLE 1 — Best Overall: highest weighted score
-  enriched.sort(function(a,b){ return b.score - a.score; });
-  var overall = enriched[0];
-  var used = [overall.city.n];
-
-  // ANGLE 2 — Best Commute: shortest drive (different city)
-  var byCommute = enriched.slice().sort(function(a,b){ return a.cm - b.cm; });
-  var commute = byCommute.find(function(e){ return used.indexOf(e.city.n) === -1; }) || null;
-  if(commute) used.push(commute.city.n);
-
-  // ANGLE 3 — Most House: highest property type tier within comfort range
-  // Tiebreaker: shortest commute — closest city that offers the biggest house wins
-  var tierRank = {detached:4,semi:3,town:2,condo:1};
-  var byHouse = enriched.slice().sort(function(a,b){
-    var ta = tierRank[a.bestType]||0, tb = tierRank[b.bestType]||0;
-    if(tb !== ta) return tb - ta;
-    return a.cm - b.cm; // closest first among same tier
-  });
-  var house = byHouse.find(function(e){ return used.indexOf(e.city.n) === -1; }) || null;
-  if(house) used.push(house.city.n);
-
-  // ANGLE 4 — Most Financial Freedom: highest remaining cash flow after housing
-  // net income minus monthly housing cost — no arbitrary commute cap needed
-  var byFreedom = enriched.slice().sort(function(a,b){
-    var cashA = net - a.lowestCost.total;
-    var cashB = net - b.lowestCost.total;
-    return cashB - cashA; // highest cash left over wins
-  });
-  var value = byFreedom.find(function(e){ return used.indexOf(e.city.n) === -1; }) || null;
-
-  return {
-    overall: overall,
-    commute: commute,
-    house:   house,
-    value:   value,
-  };
+// The rule in force, in one sentence, for the line above the results.
+function rankRuleSentence(sort, commuteKnown) {
+  if (sort === 'commute') return 'Ranked by shortest estimated drive to work, then the most home you can comfortably afford.';
+  if (sort === 'cost') return 'Ranked by lowest monthly cost.';
+  return commuteKnown
+    ? 'Ranked by the most home you can comfortably afford, shortest commute first.'
+    : 'Ranked by the most home you can comfortably afford, lowest monthly cost first.';
 }

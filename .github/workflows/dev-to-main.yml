@@ -74,6 +74,12 @@ jobs:
       - name: Footer contact section test
         run: npm run test:footer-contact
 
+      # What a buyer actually sees (IMPROVEMENT_PLAN.md 1.6): the real calculator
+      # page in jsdom -- commute limit, #1 card has no warning, the lead equals
+      # the cards on screen. Needs the static server started above.
+      - name: Results outcome tests
+        run: npm run test:results-outcomes
+
       # Everything above must exit 0 or the workflow stops here -- this
       # step (and therefore the push to main) is unreachable otherwise.
       - name: Fast-forward main to dev and push

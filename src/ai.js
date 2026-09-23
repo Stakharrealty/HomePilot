@@ -69,8 +69,11 @@ async function fetchCityInsights(cityId,cityName){
   aiBox.dataset.loading="true";
 
   const annualIncome=grossMonthlyIncome*12;
-  const tier=getBuyerTier(annualIncome);
-  const tierLabel=tier===3?"high income ($300K+)":tier===2?"comfortable income ($150K-$300K)":"budget-conscious ($80K-$150K)";
+  // Income band for the prompt only. This used getBuyerTier() from
+  // homepilot-score.js, deleted 2026-09-23 with the desirability ranking it
+  // belonged to (IMPROVEMENT_PLAN.md 1.4); the bands are unchanged and no
+  // longer affect any ranking.
+  const tierLabel=annualIncome>=300000?"high income ($300K+)":annualIncome>=150000?"comfortable income ($150K-$300K)":"budget-conscious ($80K-$150K)";
   const bp=buyPower;
 
   const prompt=`You are a straightforward Canadian real estate advisor helping a GTA homebuyer evaluate ${cityName}, Ontario.

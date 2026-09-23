@@ -191,12 +191,15 @@ suite('Core');
     netMonthlyIncome=estimateOntarioNetAnnual(150000)/12; existingDebt=0; firstTimeBuyer=true;
     var __b=calcBP(150000,100000,0); buyPower=__b.bp; comfortBuyPower=__b.comfortBP;
   `);
-  const bramptonSummary = run(`getLeadSummaryForCity('Brampton')`);
-  t('getLeadSummaryForCity returns city/type/price/monthlyCost for a qualifying city', bramptonSummary && bramptonSummary.city==='Brampton' && typeof bramptonSummary.price==='number' && typeof bramptonSummary.monthlyCost==='number');
-  t('returned price matches the real PT table price for that type', bramptonSummary && PT['Brampton'][bramptonSummary.type]===bramptonSummary.price);
-  t('getLeadSummaryForCity returns null for a nonexistent city (no crash)', run(`getLeadSummaryForCity('Nowhereville')`) === null);
-  const kingCitySummary = run(`getLeadSummaryForCity('King City')`);
-  t('getLeadSummaryForCity handles a city with sparse PT data without crashing', kingCitySummary===null || typeof kingCitySummary==='object');
+  // getLeadSummaryForCity() was removed 2026-09-23: the lead is now built from
+  // the cards on screen (shownCards), and every card comes from a rankCities()
+  // entry. These pin what an entry carries instead.
+  const bramptonEntry = run(`(function(){ var r = rankCities([M.find(c=>c.n==='Brampton')], {sort:'home'}); var e = r.ranked[0]||r.stretchOnly[0]; return e ? {n:e.n, type:e.type, price:e.price, total:e.costs.total} : null; })()`);
+  t('a ranked entry carries city/type/price/monthly cost for a qualifying city', bramptonEntry && bramptonEntry.n==='Brampton' && typeof bramptonEntry.price==='number' && typeof bramptonEntry.total==='number');
+  t('the entry price is the real PT table price for that type', bramptonEntry && PT['Brampton'][bramptonEntry.type]===bramptonEntry.price);
+  t('rankCities skips a nonexistent city without crashing', run(`(function(){ var r = rankCities([{n:'Nowhereville'}], {}); return r.ranked.length + r.stretchOnly.length + r.overCommute.length; })()`) === 0);
+  const kingCityCount = run(`(function(){ var r = rankCities([M.find(c=>c.n==='King City')], {}); return r.ranked.length + r.stretchOnly.length; })()`);
+  t('rankCities handles a city with sparse PT data without crashing', typeof kingCityCount === 'number');
   run('firstTimeBuyer=false;');
 }
 {
@@ -304,35 +307,44 @@ suite('Core');
   t('low BP blocks expensive condo', con === null);
 }
 
+// REWRITTEN 2026-09-23 (IMPROVEMENT_PLAN.md 1.4). This suite used to pin a
+// weighted score (computeCityScore) in which commute could lower a city but
+// never rule it out. It now pins the one rule: commute is the buyer's own hard
+// limit, applied before ranking, and every place ranks by "the most home you
+// can comfortably afford, shortest commute first".
 suite('Ranking');
 {
   setup(150000, 100000, 'daily', 'Brampton');
-  const scored = run(`
-    M.map(function(city){
-      var cm = calcCommuteMinutes(city.n);
-      var pt = PT[city.n]; if(!pt) return null;
-      var price = pt.condo||pt.town||pt.semi||pt.detached;
-      if(!price || price>buyPower) return null;
-      var s = computeCityScore(city, grossMonthlyIncome, netMonthlyIncome, price, cm, 'condo');
-      return {n:city.n, score:s.finalScore, cm:cm};
-    }).filter(Boolean)
-  `);
-  t('scores computed for qualifying cities', scored.length > 10);
-  t('all scores numeric', scored.every(s=>typeof s.score==='number' && !isNaN(s.score)));
-  const brampton = scored.find(s=>s.n==='Brampton');
-  t('Brampton qualifies for Brampton worker', !!brampton);
-  const sorted = [...scored].sort((a,b)=>b.score-a.score);
-  t('Brampton in top 5 for daily Brampton worker', sorted.slice(0,5).some(s=>s.n==='Brampton'));
-  const far = scored.find(s=>s.n==='Ottawa')||scored.find(s=>s.n==='Kingston');
-  t('close city outscores far city (daily)', !brampton || !far || brampton.score > far.score);
+  const r = run(`(function(){
+    var r = rankCities(M, {sort:'home', maxCommute:60});
+    var pick = function(e){ return {n:e.n, type:e.type, cm:e.commuteMin, comfortable:e.comfortable, fit:e.fit.cls, price:e.price}; };
+    return {ranked:r.ranked.map(pick), stretch:r.stretchOnly.map(pick), over:r.overCommute.map(pick), limit:r.limit, known:r.commuteKnown};
+  })()`);
+  // Measured 2026-09-23 for this buyer ($150K, $100K down, daily to north-east
+  // Brampton): within a 60-minute rush-hour drive only Brampton itself has a
+  // comfortable home -- Mississauga, Etobicoke and Vaughan are all Stretch --
+  // while Hamilton, Oshawa and Orangeville are comfortable but 70-125 minutes
+  // away. That trade-off is the honest answer, and it is exactly what the old
+  // weighted score hid by ranking the far cities highly.
+  t('cities ranked for a daily Brampton worker', r.ranked.length >= 1);
+  t('comfortable cities past the limit are set aside for the commute, not for money', r.over.some(e=>e.comfortable && e.n==='Hamilton'));
+  t('the limit applied is the one asked for (60 min)', r.limit === 60 && r.known === true);
+  t('every ranked city is within the 60-minute limit', r.ranked.every(e=>e.cm !== null && e.cm <= 60));
+  t('every city past the limit is set aside, not ranked', r.over.length > 0 && r.over.every(e=>e.cm > 60));
+  t('Brampton is ranked for a Brampton worker', r.ranked.some(e=>e.n==='Brampton'));
+  t('Ottawa is set aside, never ranked (it used to be #13 for a Toronto worker)', !r.ranked.some(e=>e.n==='Ottawa'));
+  t('Welland is set aside for a daily Brampton worker (it used to rank #1 for a Toronto hybrid worker)', !r.ranked.some(e=>e.n==='Welland'));
+  t('no ranked city is a Stretch or above the comfort range', r.ranked.every(e=>e.comfortable && e.fit !== 'fs'));
+  const rank = {detached:4,semi:3,town:2,condo:1};
+  t('ranked by most home first', r.ranked.every((e,i)=>i===0 || rank[r.ranked[i-1].type] >= rank[e.type]));
+  t('...then shortest commute within the same home type', r.ranked.every((e,i)=>i===0 || rank[r.ranked[i-1].type] !== rank[e.type] || r.ranked[i-1].cm <= e.cm));
+  const byCommute = run(`rankCities(M, {sort:'commute', maxCommute:60}).ranked.slice(0,5).map(e=>e.n)`);
+  t('sorted by shortest commute, Brampton is in the top 5 for a Brampton worker', byCommute.includes('Brampton'));
 
-  const dB = run(`computeCityScore(M.find(c=>c.n==='Brampton'), grossMonthlyIncome, netMonthlyIncome, PT['Brampton'].condo, calcCommuteMinutes('Brampton'), 'condo').finalScore`);
-  const dW = run(`computeCityScore(M.find(c=>c.n==='Welland'), grossMonthlyIncome, netMonthlyIncome, PT['Welland'].condo, calcCommuteMinutes('Welland'), 'condo').finalScore`);
   setup(150000, 100000, 'remote', 'Brampton');
-  const rB = run(`computeCityScore(M.find(c=>c.n==='Brampton'), grossMonthlyIncome, netMonthlyIncome, PT['Brampton'].condo, 0, 'condo').finalScore`);
-  const rW = run(`computeCityScore(M.find(c=>c.n==='Welland'), grossMonthlyIncome, netMonthlyIncome, PT['Welland'].condo, 0, 'condo').finalScore`);
-  t('daily: Brampton beats Welland for Brampton worker', dB > dW);
-  t('remote: Welland gap narrows or flips', (rW-rB) > (dW-dB));
+  const rr = run(`(function(){ var r = rankCities(M, {sort:'home', maxCommute:60}); return {n:r.ranked.map(e=>e.n), over:r.overCommute.length, limit:r.limit}; })()`);
+  t('remote: no commute limit applies, whatever is passed', rr.limit === null && rr.over === 0);
+  t('remote: Welland is ranked like anywhere else', rr.n.includes('Welland'));
 }
 {
   const profiles = [[80000,40000],[120000,80000],[150000,100000],[200000,150000],[250000,150000]];
@@ -385,24 +397,14 @@ suite('Ranking');
   }
   t('BP monotonic in down payment', monoD);
 
-  const rw = run(`typeof RANKING_WEIGHTS!=='undefined' ? RANKING_WEIGHTS : null`);
-  if(rw){
-    t('RANKING_WEIGHTS defined', true);
-    const arrs = Object.keys(rw);
-    t('weights cover daily/hybrid/remote', ['daily','hybrid','remote'].every(a=>arrs.includes(a)));
-    let sums = true;
-    for(const a of ['daily','hybrid','remote']){
-      const w = rw[a]; const total = Object.values(w).reduce((s,v)=>s+v,0);
-      if(Math.abs(total-1) > 0.02 && Math.abs(total-100) > 1) sums = false;
-    }
-    t('weights sum to 1 (or 100) per arrangement', sums);
-    t('daily commute weight >= remote commute weight', (rw.daily.commute||0) >= (rw.remote.commute||0));
-  } else {
-    t('RANKING_WEIGHTS not a separate global (inlined in computeCityScore — verified via behavior, not a bug)', true);
-    t('weights cover daily/hybrid/remote (behavioral proxy passed above)', true);
-    t('weights sum to 1 (n/a — inlined)', true);
-    t('daily commute weight >= remote commute weight (behavioral proxy)', dB>dW && (rW-rB)>(dW-dB));
-  }
+  // The weights and the hidden desirability ranking are gone; the defaults
+  // that replaced them are pinned instead (IMPROVEMENT_PLAN.md 1.4).
+  t('the weighted score is gone (RANKING_WEIGHTS, computeCityScore)', run(`typeof RANKING_WEIGHTS`) === 'undefined' && run(`typeof computeCityScore`) === 'undefined');
+  t('the hidden desirability ranking is gone (DESIRABILITY, TIER_WEIGHTS, homePilotSort)',
+    run(`typeof DESIRABILITY`) === 'undefined' && run(`typeof TIER_WEIGHTS`) === 'undefined' && run(`typeof homePilotSort`) === 'undefined');
+  const dmc = run('DEFAULT_MAX_COMMUTE');
+  t('default commute limits: 60 min daily, 90 min hybrid, none for remote', dmc.daily === 60 && dmc.hybrid === 90 && !dmc.remote);
+  t('the three sorts: most home, shortest commute, lowest monthly cost', JSON.stringify(run('RESULT_SORTS')) === JSON.stringify(['home','commute','cost']));
   t('all 55 cities present in M', M.length === 55);
   t('Bolton and Caledon both exist (same municipality)', !!M.find(c=>c.n==='Bolton') && !!M.find(c=>c.n==='Caledon'));
   t('every city has tx rate', M.every(c=>typeof c.tx==='number' && c.tx>0.004 && c.tx<0.025));
@@ -441,11 +443,12 @@ suite('Explainability');
   const bulletsRes = run(`
     (function(){
       var city = M.find(c=>c.n==='Brampton');
-      var cm = calcCommuteMinutes('Brampton');
-      var tier = getAccessTier(cm);
+      // Since 2026-09-23 the 4th argument is the estimated drive in minutes
+      // (commuteEstimateMin), not an access tier.
+      var cm = commuteEstimateMin('Brampton');
       var c = calcCosts(city, PT['Brampton'].condo, '3', 100000, 'condo');
       var threw = false, bullets = null;
-      try { bullets = buildWhyRankedBullets(city, c, netMonthlyIncome, tier, 'condo', PT['Brampton'].condo); }
+      try { bullets = buildWhyRankedBullets(city, c, netMonthlyIncome, cm, 'condo', PT['Brampton'].condo); }
       catch(e){ threw = true; }
       return {threw:threw, bullets:bullets};
     })()
@@ -462,16 +465,19 @@ suite('Explainability');
   const bulletsResR = run(`
     (function(){
       var city = M.find(c=>c.n==='Brampton');
-      var cm = 0;
-      var tier = getAccessTier(cm);
       var c = calcCosts(city, PT['Brampton'].condo, '3', 100000, 'condo');
       var bullets = null;
-      try { bullets = buildWhyRankedBullets(city, c, netMonthlyIncome, tier, 'condo', PT['Brampton'].condo); } catch(e){}
+      try { bullets = buildWhyRankedBullets(city, c, netMonthlyIncome, null, 'condo', PT['Brampton'].condo); } catch(e){}
       return bullets;
     })()
   `);
   const joinedR = JSON.stringify(bulletsResR||'');
   t('remote bullets differ from daily', joinedR !== joined);
+  // REVIEW_BACKLOG.md P1-6: a green tick only for good news.
+  t('every bullet has a tone (good / neutral / bad) for its icon', arr.every(b=>['good','neutral','bad'].includes(b.tone)));
+  t('the commute bullet is a neutral fact, not a tick', arr.filter(b=>b.key==='commute').every(b=>b.tone==='neutral'));
+  const allStretch = run(`(function(){ var saved=comfortBuyPower; comfortBuyPower=1; var b=buildWhyRankedBullets(M.find(c=>c.n==='Brampton'), null, netMonthlyIncome, null, 'condo', 0); comfortBuyPower=saved; return b; })()`);
+  t('"all a stretch" is flagged as bad news, not ticked', allStretch.some(b=>b.key==='options' && b.tone==='bad' && /stretch/.test(b.text)));
 
   const at10 = run('getAccessTier(10)'), at35 = run('getAccessTier(35)'), at90 = run('getAccessTier(90)');
   t('getAccessTier(10) is excellent-ish', /excellent/i.test(at10.label));
@@ -527,9 +533,25 @@ suite('Commute');
   t('Barrie closer than Ottawa', cmBar < cmOtt);
   t('all commutes positive', [cmB,cmO,cmBar,cmOtt].every(v=>v>0));
 
-  const s10 = run('getCommuteScore(10)'), s45 = run('getCommuteScore(45)'), s120 = run('getCommuteScore(120)');
-  t('commute score decreases with minutes', s10 > s45 && s45 > s120);
-  t('commute score bounded (0–100)', [s10,s45,s120].every(v=>v>=0 && v<=100));
+  // getCommuteScore() was removed 2026-09-23 (commute is a hard limit now).
+  // What replaced it: the rush-hour estimate must never run backwards. It used
+  // to (a 120-minute drive showed 186, a 130-minute one 143).
+  const mono = run(`(function(){
+    var saved = workZone, prev = -1, bad = null;
+    workZone = 'toronto_downtown';
+    var rows = Object.keys(DRIVE_TABLE).map(function(n){ return [DRIVE_TABLE[n].toronto_downtown, calcCommuteMinutes(n), n]; })
+      .sort(function(a,b){ return a[0]-b[0]; });
+    for (var i=0;i<rows.length;i++){ if(rows[i][1] < prev) bad = rows[i][2]; prev = rows[i][1]; }
+    workZone = saved;
+    return bad;
+  })()`);
+  t('rush-hour estimate rises with the off-peak time, everywhere'+(mono?' (runs backwards at '+mono+')':''), mono === null);
+  // The Ottawa row and column were kilometres, not minutes (2026-09-23).
+  const ott = run(`({tor: DRIVE_TABLE['Ottawa'].toronto_downtown, king: DRIVE_TABLE['Ottawa'].kingston, torKing: DRIVE_TABLE['Kingston'].toronto_downtown, col: DRIVE_TABLE['Toronto - Downtown'].ottawa})`);
+  t('Ottawa to downtown Toronto is a ~4h20 drive off-peak, not 430 (km)', ott.tor >= 240 && ott.tor <= 290);
+  t('going via Kingston is no longer shorter than driving direct', ott.torKing + ott.king > ott.tor);
+  t('the Ottawa row and the ottawa column agree', ott.col === ott.tor);
+  t('commuteEstimateMin rounds to 5 minutes, and is null for remote', run(`(function(){ var s=workArrangement; var m=commuteEstimateMin('Oshawa'); workArrangement='remote'; var r=commuteEstimateMin('Oshawa'); workArrangement=s; return m%5===0 && r===null; })()`));
 
   const zoneB = run('workZone');
   t('work zone resolves', typeof zoneB === 'string' && zoneB.length>0);
@@ -549,7 +571,13 @@ suite('Commute');
   t('every zone column is a real place name', zones.every(z=>typeof z==='string' && z.length>1));
 }
 
-suite('AnglePicks');
+// REPLACED 2026-09-23 (IMPROVEMENT_PLAN.md 1.4). This suite tested
+// getAnglePicks(), a third weighted ranking behind the What-If scenarios, and
+// renderAnglePicks()'s "Outside Your Comfort Range" box. Both are gone:
+// rankCities() is the one ranking for the screen, the lead and the scenarios,
+// and the stretch-only cities get their own section in render(). Same five
+// buyer profiles, same questions, asked of the one ranking.
+suite('OneRanking');
 {
   const profiles = [
     [80000, 40000, 'remote'], [120000, 80000, 'hybrid'], [150000, 100000, 'daily'],
@@ -559,122 +587,64 @@ suite('AnglePicks');
     setup(inc, dn, wa, 'Brampton');
     const res = run(`
       (function(){
-        var threw=false, picks=null;
-        try { picks = getAnglePicks(M); } catch(e){ threw=true; }
-        return {threw:threw, picks:picks};
+        var threw=false, r=null;
+        try { r = rankCities(M, {sort:'home', maxCommute: DEFAULT_MAX_COMMUTE[workArrangement] || null}); } catch(e){ threw=true; }
+        if(threw) return {threw:true};
+        var all = r.ranked.concat(r.stretchOnly, r.overCommute).map(function(e){ return e.n; });
+        var over = r.overCommute.map(function(e){ return e.n; });
+        // Every city with a comfortable home is either ranked or past the commute limit.
+        var comfortableAccountedFor = M.every(function(city){
+          var has = ['condo','town','semi','detached'].some(function(tp){ return isComfortable(qualifyingOption(city, tp)); });
+          return !has || over.indexOf(city.n) >= 0 || r.ranked.some(function(e){ return e.n === city.n; });
+        });
+        return {
+          threw:false, all:all, comfortableAccountedFor: comfortableAccountedFor,
+          rankedOk: r.ranked.every(function(e){ return isComfortable(e) && e.fit.cls !== 'fs'; }),
+          stretchOk: r.stretchOnly.every(function(e){ return !e.comfortable; }),
+          ranked: r.ranked.length,
+        };
       })()
     `);
-    t('getAnglePicks does not throw @'+inc+'/'+wa, !res.threw);
-    const picks = res.picks;
-    if(res.threw){
-      t('picks structured @'+inc, false); t('no dup cities @'+inc, false);
-      t('bestOverall valid @'+inc, false); t('mostHouse burden<45% @'+inc, false);
-      continue;
-    }
-    if(picks === null){
-      const genuinelyUnaffordable = run(`
-        (function(){
-          for(var i=0;i<M.length;i++){
-            var pt=PT[M[i].n]; if(!pt) continue;
-            var tiers=['condo','town','semi','detached'];
-            for(var j=0;j<tiers.length;j++){
-              var price=getPriceForTypeStrict(M[i].n,tiers[j],buyPower);
-              if(price){
-                var c=calcCosts(M[i],price,fam_selected,dn_selected,tiers[j]);
-                if(c.total/netMonthlyIncome < 0.45) return false;
-              }
-            }
-          }
-          return true;
-        })()
-      `);
-      t('picks structured @'+inc+' (null correctly triggers Stretch fallback — nothing under 45% burden)', genuinelyUnaffordable);
-      t('no dup cities @'+inc+' (n/a — null)', true);
-      t('bestOverall valid @'+inc+' (n/a — null, Stretch fallback path)', true);
-      t('mostHouse burden<45% @'+inc+' (n/a — null, Stretch fallback path)', true);
-      continue;
-    }
-    const keys = Object.keys(picks).filter(k=>picks[k]);
-    t('picks structured @'+inc, keys.length >= 1);
-    const names = Object.values(picks).filter(Boolean).map(p=>p.city||p.n||p.cityName).filter(Boolean);
-    t('no dup cities @'+inc, new Set(names).size === names.length);
-    const bo = picks.bestOverall||picks.best||Object.values(picks).filter(Boolean)[0];
-    t('bestOverall valid @'+inc, !!bo);
-    const mh = picks.mostHouse||picks.house;
-    if(mh && (mh.burdenPct!==undefined||mh.burden!==undefined)){
-      const burd = mh.burdenPct!==undefined?mh.burdenPct:mh.burden;
-      t('mostHouse burden<45% @'+inc, burd<0.45 || burd<45);
-    } else t('mostHouse burden<45% @'+inc, true);
+    t('rankCities does not throw @'+inc+'/'+wa, !res.threw);
+    if(res.threw){ t('no dup cities @'+inc, false); t('ranked are all comfortable @'+inc, false); t('stretch section holds only the uncomfortable @'+inc, false); t('no comfortable city is lost @'+inc, false); continue; }
+    t('no city appears twice across the sections @'+inc, new Set(res.all).size === res.all.length);
+    t('every ranked city is comfortable (never a Stretch at the top) @'+inc, res.rankedOk);
+    t('the stretch section holds only cities with nothing comfortable @'+inc, res.stretchOk);
+    t('no comfortable city is lost: each is ranked or set aside for its commute @'+inc, res.comfortableAccountedFor);
   }
-  const tierRank = {condo:0,town:1,semi:2,detached:3};
   for(const [inc,dn] of [[100000,60000],[175000,120000],[300000,250000]]){
     setup(inc, dn, 'daily', 'Brampton');
-    const res = run(`
-      (function(){
-        var threw=false, picks=null;
-        try { picks = getAnglePicks(M); } catch(e){ threw=true; }
-        return {threw:threw, picks:picks};
-      })()
-    `);
-    if(!res.threw && res.picks){
-      const bo = res.picks.bestOverall||res.picks.best;
-      const mh = res.picks.mostHouse||res.picks.house;
-      const tp = o => o && (o.propType||o.type||o.tier);
-      if(bo && mh && tp(bo) && tp(mh)) t('mostHouse tier >= bestOverall tier @'+inc, tierRank[tp(mh)] >= tierRank[tp(bo)]);
-      else t('mostHouse tier >= bestOverall tier @'+inc, true);
-    } else t('mostHouse tier >= bestOverall tier @'+inc, true);
+    const o = run(`(function(){
+      var h = rankCities(M, {sort:'home', maxCommute:60}).ranked, c = rankCities(M, {sort:'cost', maxCommute:60}).ranked, d = rankCities(M, {sort:'commute', maxCommute:60}).ranked;
+      return {
+        home: h.every(function(e,i){ return i===0 || HOME_RANK[h[i-1].type] >= HOME_RANK[e.type]; }),
+        cost: c.every(function(e,i){ return i===0 || c[i-1].costs.total <= e.costs.total; }),
+        drive: d.every(function(e,i){ return i===0 || d[i-1].commuteMin <= e.commuteMin; }),
+        same: JSON.stringify(h.map(function(e){return e.n;}).sort()) === JSON.stringify(c.map(function(e){return e.n;}).sort()),
+      };
+    })()`);
+    t('"Most home" order never puts less home above more @'+inc, o.home);
+    t('"Lowest monthly cost" order is cheapest first @'+inc, o.cost);
+    t('"Shortest commute" order is shortest first @'+inc, o.drive);
+    t('the three sorts reorder the same cities, never change which ones @'+inc, o.same);
   }
   setup(45000, 15000, 'daily', 'Brampton');
-  const lowRes = run(`(function(){ try { getAnglePicks(M); return false; } catch(e){ return true; } })()`);
-  t('low BP profile does not crash angle picks', !lowRes);
+  const lowRes = run(`(function(){ try { rankCities(M, {sort:'home', maxCommute:60}); return false; } catch(e){ return true; } })()`);
+  t('low BP profile does not crash the ranking', !lowRes);
   setup(400000, 400000, 'remote', 'Brampton');
-  const hiRes = run(`(function(){ try { return {threw:false, picks:getAnglePicks(M)}; } catch(e){ return {threw:true}; } })()`);
+  const hiRes = run(`(function(){ try { return {threw:false, n:rankCities(M, {sort:'home'}).ranked.length}; } catch(e){ return {threw:true}; } })()`);
   t('high BP profile does not crash', !hiRes.threw);
-  t('high BP produces picks', !hiRes.threw && !!hiRes.picks);
+  t('high BP produces ranked cities', !hiRes.threw && hiRes.n > 0);
 
-  // --- "3 Ways to Look at Your Search" cards removed 2026-07-25 (explicit
-  // product decision: frequently redundant with the top of the sorted "All
-  // Cities" list immediately below -- confirmed via live testing across 5
-  // income scenarios). getAnglePicks() itself is UNCHANGED and still a real
-  // dependency of scenario-sandbox.js's "What If..." feature -- only the
-  // rendering of the 3-card section was removed. The Stretch fallback (for
-  // buyers whose budget doesn't comfortably fit anywhere) is unchanged and
-  // still renders -- it serves a different purpose (avoiding a blank
-  // results screen), not "another way to look at" already-visible data.
-  const raStart = src.indexOf('function renderAnglePicks(tpEl, withPrice)');
-  const raEndRaw = src.indexOf('\nfunction ', raStart+30);
-  const raEnd = raEndRaw === -1 ? src.length : raEndRaw;
-  const raSrc = src.slice(raStart, raEnd);
-  t('renderAnglePicks() function located for scoping these checks', raStart !== -1 && raEnd > raStart);
-  t('"3 Ways to Look at Your Search" text is gone', !/3 Ways to Look at Your Search/.test(raSrc));
-  t('the removed angle-pick card class ("city tp") no longer appears', !/class="city tp"/.test(raSrc));
-  t('the removed "All Cities" divider no longer appears (nothing above the list to divide from anymore)', !/tp-divider/.test(raSrc));
-  t('the Stretch fallback warning ("Outside Your Comfort Range") is still present, unchanged', /Outside Your Comfort Range/.test(raSrc));
-  t('getAnglePicks(withPrice) is still called (needed to detect the null/nothing-fits case for the Stretch fallback)', /getAnglePicks\(withPrice\)/.test(raSrc));
-  t('window._anglePicks is no longer set (dead global, had no other readers -- confirmed via full-codebase search)', !/window\._anglePicks/.test(raSrc));
-
-  // Functional check: actually call renderAnglePicks with a real mock DOM
-  // element and confirm it renders nothing when picks exist (normal case),
-  // and still renders the Stretch warning when picks is null.
-  setup(150000, 80000, 'remote', 'Brampton');
-  const normalCaseHtml = run(`
-    (function(){
-      var el = document.getElementById('__test_topPicks_normal');
-      renderAnglePicks(el, M);
-      return el.innerHTML;
-    })()
-  `);
-  t('renderAnglePicks() renders NOTHING when picks exist (normal case) -- not empty by accident, by design', normalCaseHtml === '');
-
-  setup(45000, 15000, 'daily', 'Brampton');
-  const stretchCaseHtml = run(`
-    (function(){
-      var el = document.getElementById('__test_topPicks_stretch');
-      renderAnglePicks(el, M);
-      return el.innerHTML;
-    })()
-  `);
-  t('renderAnglePicks() still renders the Stretch fallback warning when nothing fits comfortably (low-income profile)', /Outside Your Comfort Range/.test(stretchCaseHtml) || stretchCaseHtml === '');
+  // The old ranking systems are gone from the page's code entirely.
+  t('getAnglePicks / renderAnglePicks are gone', run(`typeof getAnglePicks`) === 'undefined' && run(`typeof renderAnglePicks`) === 'undefined');
+  t('the lead re-deriver is gone (getLeadSummaryForCity)', run(`typeof getLeadSummaryForCity`) === 'undefined');
+  const renderStart2 = src.indexOf('function render(){');
+  const renderSrc2 = src.slice(renderStart2, src.indexOf('function selectPropType', renderStart2));
+  t('render() orders cities only through rankCities()', /rankCities\(results,/.test(renderSrc2) && !/\.sort\(\(a,b\)=>b\.compositeScore/.test(renderSrc2));
+  t('render() has a separate "Only as a stretch" section', /Only as a stretch/.test(renderSrc2));
+  t('render() records the cards it drew (shownCards) for the lead', /shownCards=\[/.test(renderSrc2));
+  t('the orange "Limited Commute ... long daily drive" box is gone from the cards', !/long daily drive/.test(renderSrc2));
 }
 
 // ───────────────────────────── SUITE 7: LEAD DELIVERY & BREAKDOWN ─────────────────────────────
@@ -707,6 +677,16 @@ async function runSuite7(){
       fam_selected='3'; dn_selected=100000; grossMonthlyIncome=150000/12;
       netMonthlyIncome=estimateOntarioNetAnnual(150000)/12; existingDebt=0; firstTimeBuyer=false;
       buyPower=630000; comfortBuyPower=520000; customMortgageRate=0.0419; workArrangement='daily'; lang='en';
+      // What render() last drew (2026-09-23). Deliberately NOT the order of
+      // results above: the lead must follow the screen, never results.
+      shownCards=[
+        {city:'Oshawa',type:'town',price:595000,monthlyCost:3480,pctOfTakeHome:37,commuteMin:55,fit:'Good Fit',section:'ranked'},
+        {city:'Cambridge',type:'condo',price:410000,monthlyCost:2610,pctOfTakeHome:28,commuteMin:60,fit:'Great fit',section:'ranked'},
+        {city:'Kitchener',type:'condo',price:430000,monthlyCost:2700,pctOfTakeHome:29,commuteMin:60,fit:'Great fit',section:'ranked'},
+        {city:'St. Catharines',type:'condo',price:390000,monthlyCost:2600,pctOfTakeHome:28,commuteMin:60,fit:'Great fit',section:'ranked'},
+        {city:'Peterborough',type:'condo',price:390000,monthlyCost:2550,pctOfTakeHome:27,commuteMin:60,fit:'Great fit',section:'ranked'},
+        {city:'Welland',type:'condo',price:299000,monthlyCost:2200,pctOfTakeHome:23,commuteMin:60,fit:'Great fit',section:'ranked'},
+      ];
     `);
   }
   const runSub = async () => await vm.runInContext('sub()', ctx);
@@ -766,6 +746,13 @@ async function runSuite7(){
   t('payload: workCity included', sentBody.workCity === 'Toronto');
   t('payload: mortgageRatePct reflects current slider value (4.19)', sentBody.mortgageRatePct === '4.19');
   t('payload: topMatches is an array', Array.isArray(sentBody.topMatches));
+  // IMPROVEMENT_PLAN.md 1.2 / REVIEW_BACKLOG.md P0-3: the lead is what the buyer saw.
+  t('payload: topMatches are the first five cards on screen, in screen order',
+    sentBody.topMatches.map(m=>m.city).join('|') === 'Oshawa|Cambridge|Kitchener|St. Catharines|Peterborough');
+  t('payload: each match carries the card\'s own home type, price and monthly cost',
+    sentBody.topMatches[0].type === 'town' && sentBody.topMatches[0].price === 595000 && sentBody.topMatches[0].monthlyCost === 3480);
+  t('payload: nothing comes from the unordered candidate list (results)', !sentBody.topMatches.some(m=>m.city==='Brampton'));
+  t('payload: the legacy cities field matches too', sentBody.cities === 'Oshawa, Cambridge, Kitchener, St. Catharines, Peterborough');
   t('payload: workArrangement included', sentBody.workArrangement === 'daily');
   t('payload: firstTimeBuyer boolean included', typeof sentBody.firstTimeBuyer === 'boolean');
 

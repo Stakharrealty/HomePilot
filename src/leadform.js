@@ -20,7 +20,7 @@ function confirmSendLead(){
 async function sub(){
   const nm=document.getElementById("nm").value,em=document.getElementById("em").value,ph=document.getElementById("ph").value;
   const status=document.getElementById("status").value,timeline=document.getElementById("timeline").value;
-  const t=T[lang];if(!nm||!em)return;
+  const t=T[lang];if(!nm||!em){checkLeadFields();return;}
   document.getElementById("subBtn").disabled=true;
   const leadErrEl=document.getElementById("leadErr");if(leadErrEl)leadErrEl.style.display="none";
 
@@ -32,7 +32,15 @@ async function sub(){
   const downPaymentVal=parseFloat(document.getElementById('dwn').value)||0;
   const debtVal=parseFloat(document.getElementById('dbt').value)||0;
   const workCityVal=document.getElementById('workCity')?document.getElementById('workCity').value:'';
-  const topMatches=results.slice(0,5).map(x=>getLeadSummaryForCity(x.n)).filter(Boolean);
+  // The first five cards the buyer is looking at, exactly as drawn: city,
+  // home type, price, monthly cost (plus % of take-home, the drive estimate
+  // and which section the card sat in). Built from shownCards, the record
+  // render() keeps of what it drew (IMPROVEMENT_PLAN.md 1.2). This used to be
+  // results.slice(0,5) -- a different, hidden order (homePilotSort) -- with
+  // each city's home re-derived by getLeadSummaryForCity(), which ignored the
+  // comfort range. A buyer looking at Cambridge, Kitchener and Oshawa sent a
+  // lead listing Toronto condos at 53% of take-home (REVIEW_BACKLOG.md P0-3).
+  const topMatches=(Array.isArray(shownCards)?shownCards:[]).slice(0,5).map(c=>({...c}));
 
   const leadPayload={
     name:nm, email:em, phone:ph, status, timeline, lang,
@@ -46,11 +54,13 @@ async function sub(){
     bankBuyingPower:buyPower,
     comfortBuyingPower:comfortBuyPower,
     mortgageRatePct:(customMortgageRate*100).toFixed(2),
-    topMatches:topMatches, // [{city, type, price, monthlyCost}, ...] — exactly what buyer saw
-    topCitiesSummary:topMatches.map(m=>`${m.city} (${m.type} $${m.price.toLocaleString()}, $${m.monthlyCost.toLocaleString()}/mo)`).join(' | '),
+    topMatches:topMatches, // [{city, type, price, monthlyCost, pctOfTakeHome, commuteMin, fit, section}, ...] — the first cards on screen
+    topCitiesSummary:topMatches.map(m=>`${m.city} (${m.type} $${m.price.toLocaleString()}, $${m.monthlyCost.toLocaleString()}/mo${m.section==='stretch'?', stretch':''})`).join(' | '),
+    maxCommuteMin:maxCommuteMin,
+    resultsSort:resultsSort,
     // Legacy fields kept for backward compatibility with the existing Formspree inbox view
     buyingPower:document.getElementById("bpV").textContent,
-    cities:results.slice(0,5).map(x=>x.n).join(", ")
+    cities:topMatches.map(m=>m.city).join(", ")
   };
 
   // Lead delivery — Cloudflare Worker using Cloudflare's native Email Sending.

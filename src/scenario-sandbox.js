@@ -51,29 +51,42 @@ function scenarioPreview() {
   // Live-typing feedback could go here later; comparison runs on button tap for now.
 }
 
+// CHANGED 2026-09-23 (IMPROVEMENT_PLAN.md 1.4: "one scoring function for the
+// screen, the lead and the scenarios"). The What-If used getAnglePicks(), a
+// third weighted blend no other part of the app used, so "Best Overall" here
+// could name a different city from #1 on screen. It now runs rankCities() --
+// the same rule, commute limit and candidate list as the results -- and
+// reports its #1 under each of the three sorts. Two scenario-only bugs went
+// with it: take-home pay was a flat 72% of gross instead of
+// estimateOntarioNetAnnual(), and the buyer's monthly debt was dropped.
 function _getAngleSnapshot(income, dn, wa, zone) {
-  // Run the angle-picking engine against a hypothetical scenario WITHOUT
-  // mutating the buyer's real saved scenario permanently.
+  // Run the ranking against a hypothetical scenario WITHOUT mutating the
+  // buyer's real saved scenario permanently.
   var savedWA = workArrangement, savedZone = workZone, savedGross = grossMonthlyIncome,
       savedNet = netMonthlyIncome, savedDn = dn_selected, savedBP = buyPower, savedCBP = comfortBuyPower;
-
-  workArrangement = wa;
-  workZone = zone;
-  grossMonthlyIncome = income/12;
-  netMonthlyIncome = income/12*0.72;
-  dn_selected = dn;
-  var bp = calcBP(income, dn, 0);
-  buyPower = bp.bp;
-  comfortBuyPower = bp.comfortBP;
-
-  var picks = getAnglePicks(M);
-
-  // Restore the buyer's real scenario
-  workArrangement = savedWA; workZone = savedZone;
-  grossMonthlyIncome = savedGross; netMonthlyIncome = savedNet;
-  dn_selected = savedDn; buyPower = savedBP; comfortBuyPower = savedCBP;
-
-  return { picks: picks, buyPower: bp.bp, net: income/12*0.72 };
+  var picks = null, bp = null;
+  var limit = maxCommuteTouched ? maxCommuteMin : (DEFAULT_MAX_COMMUTE[wa] || null);
+  try {
+    workArrangement = wa;
+    workZone = wa === 'remote' ? null : zone;
+    grossMonthlyIncome = income/12;
+    netMonthlyIncome = estimateOntarioNetAnnual(income)/12;
+    dn_selected = dn;
+    bp = calcBP(income, dn, existingDebt);
+    buyPower = bp.bp;
+    comfortBuyPower = bp.comfortBP;
+    var areaEl = document.getElementById('area');
+    var cands = candidateCities(areaEl && areaEl.value ? areaEl.value : 'all', bp.bp);
+    var first = function(sort){ return rankCities(cands, { sort: sort, maxCommute: limit, onlyType: null }).ranked[0] || null; };
+    var home = first('home');
+    if (home) picks = { home: home, commute: (wa !== 'remote' && workZone) ? first('commute') : null, cost: first('cost') };
+  } finally {
+    // Restore the buyer's real scenario
+    workArrangement = savedWA; workZone = savedZone;
+    grossMonthlyIncome = savedGross; netMonthlyIncome = savedNet;
+    dn_selected = savedDn; buyPower = savedBP; comfortBuyPower = savedCBP;
+  }
+  return { picks: picks, buyPower: bp ? bp.bp : 0, limit: limit };
 }
 
 function runScenarioComparison() {
@@ -94,18 +107,18 @@ function runScenarioComparison() {
   var waChanged = newWA !== workArrangement;
 
   var PLBL = {detached:'Detached',semi:'Semi-Detached',town:'Townhouse',condo:'Condo'};
-  var tierRank = {detached:4,semi:3,town:2,condo:1};
 
-  function angleRow(label, beforePick, afterPick, useLow) {
+  // beforePick / afterPick are rankCities() entries: { n, type, price, costs, ... }.
+  function angleRow(label, beforePick, afterPick) {
     if(!beforePick && !afterPick) return '';
-    var bCity = beforePick ? beforePick.city.n : '—';
-    var aCity = afterPick  ? afterPick.city.n  : '—';
-    var bType = beforePick ? PLBL[useLow ? (beforePick.lowestType||beforePick.bestType) : beforePick.bestType] : '';
-    var aType = afterPick  ? PLBL[useLow ? (afterPick.lowestType||afterPick.bestType)   : afterPick.bestType]  : '';
-    var bPrice = beforePick ? fc(useLow ? (beforePick.lowestPrice||beforePick.bestPrice) : beforePick.bestPrice) : '';
-    var aPrice = afterPick  ? fc(useLow ? (afterPick.lowestPrice||afterPick.bestPrice)   : afterPick.bestPrice)  : '';
+    var bCity = beforePick ? beforePick.n : '—';
+    var aCity = afterPick  ? afterPick.n  : '—';
+    var bType = beforePick ? PLBL[beforePick.type] : '';
+    var aType = afterPick  ? PLBL[afterPick.type]  : '';
+    var bPrice = beforePick ? fc(beforePick.price) + ' · ' + fc(beforePick.costs.total) + '/mo' : '';
+    var aPrice = afterPick  ? fc(afterPick.price)  + ' · ' + fc(afterPick.costs.total)  + '/mo' : '';
     var changed = bCity !== aCity || bType !== aType;
-    var tierUp = beforePick && afterPick && (tierRank[afterPick.bestType]||0) > (tierRank[beforePick.bestType]||0);
+    var tierUp = beforePick && afterPick && (HOME_RANK[afterPick.type]||0) > (HOME_RANK[beforePick.type]||0);
 
     return '<div style="background:#fff;border:1px solid '+(changed?'#C9B3E5':'#eee')+';border-radius:10px;padding:12px 14px;margin-bottom:8px">'+
       '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#8B6CA8;margin-bottom:8px">'+label+'</div>'+
@@ -134,11 +147,12 @@ function runScenarioComparison() {
     html = '<div style="font-size:12px;color:#991B1B;padding:10px;background:#FEF2F2;border-radius:8px">This scenario does not unlock any cities within comfort range. Try adjusting the numbers.</div>';
   } else {
     if(waChanged) {
-      html += '<div style="font-size:11px;color:#8B6CA8;background:#F3EEF9;border-radius:8px;padding:8px 10px;margin-bottom:10px">Work style changed to '+newWA+' — ranking weights have shifted accordingly.</div>';
+      html += '<div style="font-size:11px;color:#8B6CA8;background:#F3EEF9;border-radius:8px;padding:8px 10px;margin-bottom:10px">Work style changed to '+newWA+' — '+(after.limit ? 'places past a '+after.limit+'-minute drive are set aside.' : 'no commute limit applies.')+'</div>';
     }
-    html += angleRow('⭐ Best Overall', before.picks ? before.picks.overall : null, after.picks.overall, false);
-    html += angleRow('🏡 Most House',   before.picks ? before.picks.house   : null, after.picks.house,   false);
-    html += angleRow('🗽 Most Financial Freedom', before.picks ? before.picks.value : null, after.picks.value, true);
+    // The #1 place under each of the results page's three sorts.
+    html += angleRow('Your #1 place', before.picks ? before.picks.home : null, after.picks.home);
+    html += angleRow('Shortest commute', before.picks ? before.picks.commute : null, after.picks.commute);
+    html += angleRow('Lowest monthly cost', before.picks ? before.picks.cost : null, after.picks.cost);
   }
 
   document.getElementById('scenarioResults').innerHTML = html;

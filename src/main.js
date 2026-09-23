@@ -11,9 +11,11 @@
 // Contains: RF (region filter mapping), the core mutable application state
 // (lang, results, buyPower, comfortBuyPower, fam_selected, dn_selected,
 // grossMonthlyIncome, netMonthlyIncome, customMortgageRate, firstTimeBuyer,
-// existingDebt, activeProp, activeFit, devMode, workArrangement, workZone),
-// setWorkArrangement(), and go() — the main calculation orchestrator that
-// runs when the buyer submits the form.
+// existingDebt, activeProp, activeFit, devMode, workArrangement, workZone,
+// maxCommuteMin, resultsSort, showOverCommute, shownCards),
+// setWorkArrangement(), setMaxCommute(), setResultsSort(), toggleOverCommute(),
+// amortizationNote(), and go() — the main calculation orchestrator that runs
+// when the buyer submits the form.
 
 const RF={all:null,gta:["gta"],west:["west"],east:["east"],north:["north"],duff:["duff"],niag:["niag"],wloo:["wloo"],east2:["east2"]};
 let lang="en",results=[],buyPower=0,comfortBuyPower=0,fam_selected="3",dn_selected=0,grossMonthlyIncome=0,netMonthlyIncome=0,customMortgageRate=DEFAULT_MORTGAGE_RATE_PCT/100,firstTimeBuyer=false,existingDebt=0;
@@ -23,23 +25,83 @@ let activeProp='all',activeFit='all',devMode=false;
 let workArrangement = 'remote';
 let workZone = null;
 
+// Commute limit, result order and the on-screen record (added 2026-09-23,
+// IMPROVEMENT_PLAN.md 1.2 / 1.4 -- see ranking.js):
+//   maxCommuteMin     -- longest one-way drive the buyer accepts, in minutes;
+//                        null = no limit. Defaults per work style
+//                        (DEFAULT_MAX_COMMUTE) until the buyer picks one.
+//   maxCommuteTouched -- true once the buyer has picked, so switching work
+//                        style no longer overrides their choice.
+//   resultsSort       -- 'home' | 'commute' | 'cost' (RESULT_SORTS).
+//   showOverCommute   -- the buyer asked to see the cities past their limit.
+//   shownCards        -- the cards render() last drew, in screen order. The
+//                        lead is built from this, so it is exactly what the
+//                        buyer saw (REVIEW_BACKLOG.md P0-3).
+let maxCommuteMin = null, maxCommuteTouched = false, resultsSort = 'home', showOverCommute = false, shownCards = [];
+
 function setWorkArrangement(type) {
   workArrangement = type;
   const sel = document.getElementById('waSelect');
   if(sel && sel.value !== type) sel.value = type;
   const fields = document.getElementById('workLocationFields');
   const hint = document.getElementById('wa_hint');
+  if(!maxCommuteTouched) maxCommuteMin = DEFAULT_MAX_COMMUTE[type] || null;
+  syncMaxCommuteSelect();
   if(type === 'remote') {
     if(fields) fields.style.display = 'none';
     if(hint) hint.textContent = 'Remote workers get recommendations ranked purely by affordability.';
   } else {
     if(fields) fields.style.display = 'flex';
-    if(hint) hint.textContent = type === 'daily'
-      ? 'Commute carries more weight for daily workers — we\'ll prioritize cities that work for your drive.'
-      : 'Hybrid workers get a balanced view — affordability and reasonable commute.';
+    if(hint) hint.textContent = 'Places past your longest commute are set aside, not ranked. Drive times are estimates.';
   }
   workZone = null;
   if(results.length) render();
+}
+
+function syncMaxCommuteSelect() {
+  const sel = document.getElementById('maxCommute');
+  if(sel) sel.value = maxCommuteMin ? String(maxCommuteMin) : 'none';
+}
+
+// The "Longest commute you'd accept (one way)" select. Takes effect on the
+// results already on screen.
+function setMaxCommute(value) {
+  const n = parseInt(value, 10);
+  maxCommuteMin = MAX_COMMUTE_CHOICES.includes(n) ? n : null;
+  maxCommuteTouched = true;
+  showOverCommute = false;
+  if(results.length) render();
+}
+
+// The sort switch above the results.
+function setResultsSort(sort) {
+  resultsSort = RESULT_SORTS.includes(sort) ? sort : 'home';
+  if(results.length) render();
+}
+
+// "Show them" / "Hide them" on the note about cities past the commute limit.
+function toggleOverCommute() {
+  showOverCommute = !showOverCommute;
+  if(results.length) render();
+}
+
+// The cities a search considers: those in the buyer's chosen area whose entry
+// price (M's `min`) is within the bank's ceiling. Shared by go() and the
+// What-If scenarios so both start from the same list.
+function candidateCities(area, bp) {
+  const rf=RF[area],seen=new Set();
+  return M.filter(m=>{if(seen.has(m.n))return false;seen.add(m.n);if(rf&&!rf.includes(m.r))return false;return m.min<=bp;});
+}
+
+// The rate note under the buying power. It said "25-year amortization
+// (30-year available at 20%+ down)" for everyone, but first-time buyers are
+// calculated on 30 years at any down payment (mortgage.js), so their note
+// contradicted their own numbers (REVIEW_BACKLOG.md P1-10). It now names the
+// amortization actually used.
+function amortizationNote(isFirstTimeBuyer) {
+  return isFirstTimeBuyer
+    ? '30-year amortization (first-time buyer)'
+    : '25-year amortization, or 30-year on homes where your down payment is 20% or more';
 }
 
 function go(){
@@ -68,6 +130,10 @@ function go(){
   } else {
     workZone = null;
   }
+  // The commute limit defaults from the work style unless the buyer chose one
+  // -- applied here too, not only in setWorkArrangement(), because a shared
+  // link or a restored form can set the work style without that call.
+  if(!maxCommuteTouched) { maxCommuteMin = DEFAULT_MAX_COMMUTE[workArrangement] || null; syncMaxCommuteSelect(); }
   const area=document.getElementById("area").value,fam=document.getElementById("fam").value;
   const t=T[lang];
   // Validation hardened 2026-09-22 (audit). Previously: an income of exactly 1
@@ -102,16 +168,14 @@ function go(){
     const{bp:b,comfortBP:cBP,mo,comfortMo,downPaymentLimited,incomeCapBP,downPaymentShortfall}=calcBP(inc,dn,dbt);
     buyPower=b;comfortBuyPower=cBP;fam_selected=fam;dn_selected=dn;grossMonthlyIncome=inc/12;netMonthlyIncome=estimateOntarioNetAnnual(inc)/12;
     window._allMarkets=M;
-    const rf=RF[area],seen=new Set();
-    const cands=M.filter(m=>{if(seen.has(m.n))return false;seen.add(m.n);if(rf&&!rf.includes(m.r))return false;return m.min<=b;});
-    const preSorted=cands.map(m=>{
-      const homePrice=Math.min(m.max,b),dynPrice=getPriceForType(m.n,activeProp!=='all'?activeProp:'detached',b)||homePrice;
-      const costData=calcCosts(m,homePrice,fam,dn,'detached'),ft=getFit(costData.total,inc/12);
-      const cityWithFit={...m,dynPrice,ft};
-      const hpScore=getHomePilotScore(cityWithFit,inc,b),hpReasons=getCityScoreReasons(cityWithFit,inc,b,hpScore);
-      return{...m,c:costData,ft,displayMax:Math.min(m.max,b),homePrice,dynPrice,hpScore,hpReasons};
-    }).sort((a,bx)=>homePilotSort(a,bx,inc,buyPower));
-    results=preSorted;
+    const cands=candidateCities(area,b);
+    // The candidate cities, deliberately UNORDERED. They used to be sorted
+    // here by homePilotSort() -- a hidden desirability score weighted by
+    // income -- and that order, not the one on screen, is what the lead email
+    // listed (REVIEW_BACKLOG.md P0-3). Ordering now happens in exactly one
+    // place, rankCities() (ranking.js), when render() draws the cards.
+    results=cands.map(m=>({...m,displayMax:Math.min(m.max,b),homePrice:Math.min(m.max,b)}));
+    shownCards=[];showOverCommute=false;
 
     // ── BUYING POWER BOX: show both bank ceiling and HomePilot comfort range ──
     document.getElementById("bpV").textContent=fc(b);
@@ -145,7 +209,7 @@ function go(){
           `</div>`
         : ``);
     const stressRateDisplay=(getStressRate(customMortgageRate)*100).toFixed(2)+'%';
-    const rn=document.getElementById('rateNote');if(rn)rn.innerHTML=`Based on ${rateDisplay} mortgage rate · 25-year amortization (30-year available at 20%+ down) · Stress tested at ${stressRateDisplay} · <span style="color:rgba(255,255,255,0.6);font-style:italic">Educational estimate only — not a mortgage pre-approval. Actual qualification depends on lender underwriting, credit, and full application details.</span>`;
+    const rn=document.getElementById('rateNote');if(rn)rn.innerHTML=`Based on ${rateDisplay} mortgage rate · ${amortizationNote(firstTimeBuyer===true)} · Stress tested at ${stressRateDisplay} · <span style="color:rgba(255,255,255,0.6);font-style:italic">Educational estimate only — not a mortgage pre-approval. Actual qualification depends on lender underwriting, credit, and full application details.</span>`;
     const frn=document.getElementById('footerRateNote');
     if(frn) frn.innerHTML=`Estimates based on ${rateDisplay} mortgage rate, stress tested at ${stressRateDisplay} (higher of 5.25% or contract rate + 2%). Amortization: 25-year, or 30-year where 20%+ down qualifies. Property tax rates sourced from each municipality. Utilities estimated by family size and region. Maintenance at 1% of home value annually. Qualification estimates are educational only and do not represent mortgage approval — final qualification depends on lender underwriting, credit, property taxes, condo fees, heating costs, and program eligibility. Sandeep Takhar is a RE/MAX agent covering Bolton, Caledon, Orangeville and surrounding areas. English · Français · 中文 · Punjabi · Hindi · Urdu · 416-725-8087`;
     document.getElementById("bpBox").style.display="block";
@@ -154,7 +218,7 @@ function go(){
     // is the only place that knows how many cities actually survive full
     // qualification. Setting it here from results.length (the M-table
     // pre-filter) is what made it disagree with the cards below it.
-    document.getElementById("res").style.display="block";document.getElementById("cap").style.display="block";const pfb=document.getElementById("propFilterBar");if(pfb)pfb.style.display="block";
+    document.getElementById("res").style.display="block";document.getElementById("cap").style.display="block";const pfb=document.getElementById("propFilterBar");if(pfb)pfb.style.display="block";const sbr=document.getElementById("sortBar");if(sbr)sbr.style.display="block";
     activeProp='all';activeFit='all';
     document.querySelectorAll("[id^='pt-'],[id^='ft-']").forEach(b=>b.classList.remove("on"));const ptAll=document.getElementById('pt-all');if(ptAll)ptAll.classList.add('on');
 
