@@ -16,7 +16,8 @@ function checkDebtSanity(){
   // is almost never a real monthly obligation — flag it so they don't get incorrectly
   // disqualified by their own typo.
   const dbtVal = parseFloat(document.getElementById('dbt').value) || 0;
-  const incVal = parseFloat(document.getElementById('inc').value) || 0;
+  // Both incomes (2026-09-23): the debt is the household's, so is the income.
+  const incVal = typeof readIncomes === 'function' ? readIncomes().total : (parseFloat(document.getElementById('inc').value) || 0);
   const warnEl = document.getElementById('dbt-warning');
   if(!warnEl) return;
   const monthlyIncome = incVal/12;

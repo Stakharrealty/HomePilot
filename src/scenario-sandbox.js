@@ -70,7 +70,8 @@ function _getAngleSnapshot(income, dn, wa, zone) {
     workArrangement = wa;
     workZone = wa === 'remote' ? null : zone;
     grossMonthlyIncome = income/12;
-    netMonthlyIncome = estimateOntarioNetAnnual(income)/12;
+    // Same split between the two earners as the buyer entered (2026-09-23).
+    netMonthlyIncome = householdNetAnnual(income)/12;
     dn_selected = dn;
     bp = calcBP(income, dn, existingDebt);
     buyPower = bp.bp;

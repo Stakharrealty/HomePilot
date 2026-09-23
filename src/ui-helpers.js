@@ -33,11 +33,12 @@ function setLang(l){
     waSelectEl.options[1].text=t.wa_hybrid||'Hybrid (2–4 days/week)';
     waSelectEl.options[2].text=t.wa_daily||'Daily (5+ days/week)';
   }
-  const textIds=[["ht","ht"],["hs","hs"],["l1","l1"],["l2","l2"],["l3","l3"],["l4","l4"],["l5","l5"],["bt","bt"],["ctt","ctt"],["ctp","ctp"],["st","st"],["dtt","dtt"],["dtp","dtp"],["bp_lbl","bp_lbl"],["bp_sub_txt","bp_sub"],["cities_title_el","cities_title"]];
+  const textIds=[["ht","ht"],["hs","hs"],["l1","l1"],["l1b","l1b"],["l1b_opt","l1b_opt"],["l2","l2"],["l3","l3"],["l4","l4"],["l5","l5"],["bt","bt"],["ctt","ctt"],["ctp","ctp"],["st","st"],["dtt","dtt"],["dtp","dtp"],["bp_lbl","bp_lbl"],["bp_sub_txt","bp_sub"],["cities_title_el","cities_title"]];
   textIds.forEach(([id,k])=>{const el=document.getElementById(id);if(el&&t[k])el.innerHTML=t[k];});
   const l3inc=document.getElementById("l3_inc");if(l3inc)l3inc.textContent=t.l3_inc;
   const l3exc=document.getElementById("l3_exc");if(l3exc)l3exc.textContent=t.l3_exc;
   const l3zero=document.getElementById("l3_zero");if(l3zero)l3zero.textContent=t.l3_zero;
+  const inc2=document.getElementById("inc2");if(inc2&&t.inc2_ph)inc2.placeholder=t.inc2_ph; // partner's income (2026-09-23)
   const nm=document.getElementById("nm");if(nm)nm.placeholder=t.fn_ph;
   const em=document.getElementById("em");if(em)em.placeholder=t.em_ph;
   const ph=document.getElementById("ph");if(ph)ph.placeholder=t.ph_ph;

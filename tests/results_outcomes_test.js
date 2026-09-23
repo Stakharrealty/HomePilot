@@ -51,6 +51,7 @@ async function openCalculator() {
 function search(win, b) {
   const d = win.document;
   d.getElementById("inc").value = String(b.income);
+  d.getElementById("inc2").value = b.partnerIncome ? String(b.partnerIncome) : ""; // 2026-09-23: two incomes
   d.getElementById("dwn").value = String(b.down);
   d.getElementById("dbt").value = String(b.debt || 0);
   d.getElementById("fam").value = String(b.family || 3);
@@ -291,6 +292,56 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
   check("(10f) 'Most home' is unchanged: each card still leads with the biggest home it lists within comfort",
     homeCards.length > 0 && homeCards.every((c) => comfortableRows(c).every((r) => RANK[c.type] >= RANK[r.type])),
     homeCards.map((c) => c.city + " " + c.type).join("; "));
+
+  // =============== 11. two incomes (IMPROVEMENT_PLAN.md 3.3) ===============
+  // The form asked for one "household income" and taxed it as if one person
+  // earned it all, so a couple on $65K each was shown about $560 a month less
+  // take-home than they have, and every percentage on every card too high.
+  const SOLO = { ...COUPLE, income: 130000, work: "hybrid" };
+  const PAIR = { ...COUPLE, income: 65000, partnerIncome: 65000, work: "hybrid" };
+  search(win, SOLO);
+  const soloBP = win.eval("buyPower"), soloNet = win.eval("netMonthlyIncome");
+  search(win, PAIR);
+  const pairBP = win.eval("buyPower"), pairNet = win.eval("netMonthlyIncome");
+  check("(11a) buying power is the same either way: lenders add the two incomes", pairBP > 0 && soloBP === pairBP, soloBP + " vs " + pairBP);
+  check("(11b) two $65K earners get more take-home than one $130K earner ($500+/month)", pairNet - soloNet > 500, Math.round(soloNet) + " -> " + Math.round(pairNet));
+  win.eval("setResultsSort('home')");
+  // This couple has no comfortable place within 90 minutes even on two
+  // incomes, so their cards are the stretch ones; those show % of take-home too.
+  const pairCards = [...mainCards(win), ...moreCards(win)];
+  check("(11c) each card's % of take-home is worked out on the two-earner take-home",
+    pairCards.length > 0 && pairCards.every((c) => { const m = /(\d+)% of take-home/.exec(c.text); return !!m && Math.abs(Number(m[1]) - (c.monthly / pairNet) * 100) <= 1; }),
+    pairCards.slice(0, 3).map((c) => c.city + " " + c.monthly + " " + (/(\d+)% of take-home/.exec(c.text) || [])[1] + "%").join("; "));
+  check("(11d) the summary shows both incomes", /household income \$130,000\/yr \(\$65,000 \+ \$65,000\)/.test(win.document.getElementById("bpSub").textContent),
+    (/Based on[^·]*/.exec(win.document.getElementById("bpSub").textContent) || [""])[0]);
+  win.eval("saveBuyerProfile()");
+  const pairProfile = JSON.parse(win.sessionStorage.getItem("hp_buyer_profile_v1"));
+  check("(11f) the listing pages get the two-earner take-home", Math.abs(pairProfile.netMonthlyIncome - pairNet) < 0.01);
+  sentBody = null;
+  win.document.getElementById("nm").value = "Test Buyer";
+  win.document.getElementById("em").value = "test@example.com";
+  win.document.getElementById("done").style.display = "none";
+  win.document.getElementById("subBtn").disabled = false;
+  await win.eval("sub()");
+  check("(11g) the lead carries the household total and each income",
+    !!sentBody && sentBody.income === 130000 && sentBody.applicantIncome === 65000 && sentBody.partnerIncome === 65000,
+    JSON.stringify(sentBody && { income: sentBody.income, applicantIncome: sentBody.applicantIncome, partnerIncome: sentBody.partnerIncome }));
+  sentBody = null;
+  await win.eval("shareScenario()");
+  check("(11h) a shared link stores the household total, so it keeps the same buying power", !!sentBody && sentBody.inc === 130000, JSON.stringify(sentBody));
+  // Working remotely, the same couple does get ranked places to compare.
+  search(win, { ...PAIR, work: "remote" });
+  const remoteFirst = mainCards(win)[0];
+  const snap2 = win.eval("_getAngleSnapshot(grossMonthlyIncome*12, dn_selected, workArrangement, workZone)");
+  check("(11e) Scenarios keep the split: the same household income gives the same #1 place",
+    !!remoteFirst && !!snap2.picks && snap2.picks.home.n === remoteFirst.city, (snap2.picks && snap2.picks.home.n) + " vs " + (remoteFirst && remoteFirst.city));
+  search(win, { ...PAIR, partnerIncome: -5000, income: 100000 });
+  check("(11i) a negative income is refused with a visible message",
+    win.document.getElementById("err").style.display === "block" && /can't be negative/.test(win.document.getElementById("err").textContent));
+  win.eval("setLang('fr')");
+  const frLabel = win.document.getElementById("l1b").textContent, frPh = win.document.getElementById("inc2").placeholder;
+  win.eval("setLang('en')");
+  check("(11j) the partner box is translated", frLabel === win.eval("T.fr.l1b") && frPh === win.eval("T.fr.inc2_ph") && win.document.getElementById("l1b").textContent === "Partner's income (before tax)", frLabel + " | " + frPh);
 
   check("(8) no uncaught script errors during any of this", errors.length === 0, errors.join(" | "));
 

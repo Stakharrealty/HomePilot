@@ -28,7 +28,9 @@ async function sub(){
   // on the same gap: the lead Sandeep received had no calculator context (income, down
   // payment, debt, work location, or which specific homes matched), meaning every
   // conversation started from scratch. This now includes exactly what the buyer saw.
-  const incomeVal=parseFloat(document.getElementById('inc').value)||0;
+  // `income` stays the household total, as the lead has always carried it;
+  // the two parts ride alongside (2026-09-23).
+  const incomes=readIncomes(), incomeVal=incomes.total;
   const downPaymentVal=parseFloat(document.getElementById('dwn').value)||0;
   const debtVal=parseFloat(document.getElementById('dbt').value)||0;
   const workCityVal=document.getElementById('workCity')?document.getElementById('workCity').value:'';
@@ -45,6 +47,8 @@ async function sub(){
   const leadPayload={
     name:nm, email:em, phone:ph, status, timeline, lang,
     income:incomeVal,
+    applicantIncome:incomes.own,
+    partnerIncome:incomes.partner,
     downPayment:downPaymentVal,
     existingMonthlyDebt:debtVal,
     familySize:fam_selected,

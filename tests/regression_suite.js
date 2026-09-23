@@ -319,6 +319,18 @@ suite('Core');
   t('low BP blocks expensive condo', con === null);
 }
 
+// Two incomes (2026-09-23, IMPROVEMENT_PLAN.md 3.3): each person is taxed
+// separately. The calculator used to tax a couple's total as one earner's.
+{
+  const one = run('estimateOntarioNetAnnual(130000)'), two = run('estimateHouseholdNetAnnual(65000,65000)');
+  t('two $65K earners keep more than one $130K earner ($500+/month)', (two - one) / 12 > 500);
+  t('a blank partner income changes nothing', run('estimateHouseholdNetAnnual(130000,0)') === one && run('estimateHouseholdNetAnnual(130000,undefined)') === one);
+  run('partnerIncomeShare=0.5;');
+  t("a what-if household income keeps the buyer's split", Math.abs(run('householdNetAnnual(200000)') - run('estimateHouseholdNetAnnual(100000,100000)')) < 0.01);
+  run('partnerIncomeShare=0;');
+  t('with no partner, household take-home is the one-earner estimate', run('householdNetAnnual(130000)') === one);
+}
+
 // REWRITTEN 2026-09-23 (IMPROVEMENT_PLAN.md 1.4). This suite used to pin a
 // weighted score (computeCityScore) in which commute could lower a city but
 // never rule it out. It now pins the one rule: commute is the buyer's own hard

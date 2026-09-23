@@ -52,6 +52,22 @@ let maxCommuteMin = null, maxCommuteTouched = false, resultsSort = 'home', showO
 let lttRebateConfirmed = false, canadianResident = true;
 function buyerLttRebateApplies(){ return lttRebateApplies(firstTimeBuyer, lttRebateConfirmed, canadianResident); }
 
+// Two incomes (added 2026-09-23, IMPROVEMENT_PLAN.md 3.3). Lenders qualify a
+// couple on their incomes added together, so buying power uses the total.
+// Take-home pay is taxed person by person (estimateHouseholdNetAnnual() in
+// utils.js). partnerIncomeShare is the second earner's share of the total,
+// so a what-if household income (scenario-sandbox.js) keeps the same split.
+let partnerIncomeShare = 0;
+function householdNetAnnual(total){ return estimateHouseholdNetAnnual(total*(1-partnerIncomeShare), total*partnerIncomeShare); }
+// The two income boxes, read the same way by go(), the lead, the share link
+// and the debt warning. The partner box is optional: blank means 0.
+function readIncomes(){
+  const own=parseFloat(document.getElementById('inc').value)||0;
+  const el2=document.getElementById('inc2');
+  const partner=el2?(parseFloat(el2.value)||0):0;
+  return { own, partner, total: own+partner };
+}
+
 function setWorkArrangement(type) {
   workArrangement = type;
   const sel = document.getElementById('waSelect');
@@ -118,7 +134,9 @@ function amortizationNote(isFirstTimeBuyer) {
 }
 
 function go(){
-  const inc=parseFloat(document.getElementById("inc").value)||0;
+  // `inc` is the household total: the buyer's income plus the optional
+  // partner's income (2026-09-23; see readIncomes()).
+  const incomes=readIncomes(), inc=incomes.total;
   const dn=parseFloat(document.getElementById("dwn").value)||0;
   const dbt=parseFloat(document.getElementById("dbt").value.trim())||0;
   existingDebt=dbt;
@@ -165,6 +183,8 @@ function go(){
     return false;
   };
   err.style.display="none";
+  // Checked before the total: -5,000 plus 100,000 would otherwise pass.
+  if(incomes.own<0||incomes.partner<0) return void fail("Incomes can't be negative. Leave the partner box blank if you're buying on your own.");
   if(!Number.isFinite(inc)||inc<1000) return void fail(t.err);
   if(inc>10000000) return void fail("Please enter your annual household income before tax. That figure looks like a total net worth rather than a yearly income.");
   // A down payment is always required to purchase in Canada (min 5% on the
@@ -179,7 +199,10 @@ function go(){
   const btn=document.getElementById("goBtn");btn.disabled=true;btn.innerHTML='<div class="spin"></div>';
   try{
     const{bp:b,comfortBP:cBP,mo,comfortMo,downPaymentLimited,incomeCapBP,downPaymentShortfall}=calcBP(inc,dn,dbt);
-    buyPower=b;comfortBuyPower=cBP;fam_selected=fam;dn_selected=dn;grossMonthlyIncome=inc/12;netMonthlyIncome=estimateOntarioNetAnnual(inc)/12;
+    buyPower=b;comfortBuyPower=cBP;fam_selected=fam;dn_selected=dn;grossMonthlyIncome=inc/12;
+    // Take-home is taxed person by person (2026-09-23): it was
+    // estimateOntarioNetAnnual(inc), one earner on the whole household income.
+    partnerIncomeShare=inc>0?incomes.partner/inc:0;netMonthlyIncome=householdNetAnnual(inc)/12;
     window._allMarkets=M;
     const cands=candidateCities(area,b);
     // The candidate cities, deliberately UNORDERED. They used to be sorted
@@ -194,7 +217,7 @@ function go(){
     document.getElementById("bpV").textContent=fc(b);
     const rateDisplay=(customMortgageRate*100).toFixed(2).replace(/\.?0+$/,'')+'%';
     document.getElementById("bpSub").innerHTML=
-      `<div style="margin-bottom:10px">Based on income ${fc(inc)}/yr · Down payment ${fc(dn)} · Debt ${fc(dbt)}/mo</div>`+
+      `<div style="margin-bottom:10px">Based on ${incomes.partner>0?`household income ${fc(inc)}/yr (${fc(incomes.own)} + ${fc(incomes.partner)})`:`income ${fc(inc)}/yr`} · Down payment ${fc(dn)} · Debt ${fc(dbt)}/mo</div>`+
       `<div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">`+
         `<div style="flex:1;min-width:120px;background:rgba(255,255,255,0.18);border-radius:10px;padding:10px 12px">`+
           `<div style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;opacity:0.8;font-weight:600;margin-bottom:4px">Bank qualifies you for</div>`+
