@@ -47,6 +47,9 @@ jobs:
       - name: Price floor test ($1 sort-gaming listings never reach a buyer)
         run: node --no-warnings tests/listings_price_floor_test.js
 
+      - name: Relevance test (no land or parking, bedrooms from family size, best match first)
+        run: node --no-warnings tests/listings_relevance_test.js
+
       - name: Pre-deploy tests (no network required)
         run: |
           node tests/listing_verified_seal_removed_test.js

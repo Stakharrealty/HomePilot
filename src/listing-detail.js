@@ -56,6 +56,9 @@ function buildHomePilotView(listing, profile, budget) {
     closing: null,         // ldClosingCosts() result (Section 1)
     verdict: null,      // "fg" | "fo" | "fs" (getFit's cls) or null
     verdictLabel: null, // getFit's label, from i18n
+    // A 55+ / adult-lifestyle community (ldAgeRestricted, listing-fit.js):
+    // labelled, not hidden, since the app does not know the buyer's age.
+    ageRestricted: typeof ldAgeRestricted === "function" && ldAgeRestricted(listing),
   };
   const computed = profile ? computeListingCosts(listing, profile) : null;
   if (!computed) return view;
@@ -174,7 +177,7 @@ function fullListingFacts(listing) {
   const realFee = ldFeeToMonthly(listing.associationFee, listing.associationFeeFrequency);
   return [
     factOrOmit("Property type", LD_TYPE_LABELS[listing.propertyType]),
-    factOrOmit("Beds", listing.bedrooms),
+    factOrOmit("Beds", typeof ldBedsText === "function" ? ldBedsText(listing) : listing.bedrooms),
     factOrOmit("Baths", listing.bathrooms),
     ldSizeFact(listing),
     factOrOmit("Parking spaces", listing.parkingSpaces),
@@ -212,6 +215,7 @@ function renderHomePilotSection(view) {
     ? ` <span class="listing-affordability-badge listing-fit-${view.verdict}">${escapeHtml(view.verdictLabel)}</span>`
     : "";
   let html = `<h2>HomePilot view</h2><div class="ld-price">${escapeHtml(fmtPrice(view.price))}${badge}</div>`;
+  if (view.ageRestricted) html += `<p class="listing-age-note">Age-restricted community (55+ or adult lifestyle) — check the age rules</p>`;
   if (!view.costs) {
     html += `<p class="ld-muted ld-noprofile">See what this home would cost you each month, and what you'd have left over: enter your income and down payment in <a href="https://myhomepilot.ca">HomePilot</a>, then open this listing again.</p>`;
     sec.innerHTML = html;
