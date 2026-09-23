@@ -58,6 +58,22 @@ const allText = (l) => Object.values(HPT[l]).join(" \n ");
   }
   check("the calculator footer does not list London either", !/>London</.test(calcHtml));
 
+  // Added 2026-09-23 with the market research: no superlatives TD, Wahi or
+  // Zolo could contest, in any shipped string (displayed or not).
+  const tctx = {};
+  vm.runInNewContext(fs.readFileSync(path.join(ROOT, "src", "i18n.js"), "utf8") + ";this.T=T;", tctx);
+  const SUPERLATIVE = /the only calculator|the first ontario|first tool|le seul calculateur|la única calculadora|唯一/i;
+  const superlatives = [...LANGS.filter((l) => SUPERLATIVE.test(allText(l))).map((l) => "HPT." + l),
+    ...LANGS.filter((l) => SUPERLATIVE.test(Object.values(tctx.T[l]).join(" "))).map((l) => "T." + l)];
+  check("no 'only' / 'first' superlatives in any language", superlatives.length === 0 && !SUPERLATIVE.test(visible), superlatives.join(", "));
+  // The terms page named CREA/REALTOR.ca as the listing source long after the
+  // DDF feed was removed (2026-09-18); listings now come from PROPTX.
+  const terms = fs.readFileSync(path.join(ROOT, "terms-of-use.html"), "utf8");
+  check("the terms page no longer carries the CREA/REALTOR.ca DDF notice", !/REALTOR\.ca Canada Inc\. reproduces and distributes/.test(terms));
+  check("...and carries the PROPTX notices, verbatim",
+    terms.includes("Listing information is deemed reliable but is not guaranteed accurate by PROPTX.")
+    && terms.includes("The information provided herein must only be used by consumers that have a bona fide interest in the purchase, sale, or lease of real estate and may not be used for any commercial purpose or any other purpose."));
+
   // =============== 2. the markup and HPT.en agree ===============
   // The markup is what every visitor sees first; HPT.en is what they see after
   // switching back to English. They must say the same thing.
