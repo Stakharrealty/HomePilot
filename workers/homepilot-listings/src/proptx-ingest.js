@@ -54,7 +54,46 @@ const PROPTX_BASE_URL = "https://query.ampre.ca/odata";
 // A page smaller than PropTx's max (100) keeps each call comfortably
 // under Cloudflare's CPU budget even with the batched D1 write and photo
 // extraction included. Tunable if real-world timing allows larger pages.
-const PAGE_SIZE = 25;
+// PAGE_SIZE raised 25 -> 100 (2026-09-22, full-coverage rollout). 100 is
+// PropTx's maximum. The old value existed because a page carried the whole
+// unfiltered Media expansion -- 22 MB for 100 listings, which a 128 MB
+// Worker cannot safely parse. MEDIA_EXPAND below cuts that to 4.5 MB, which
+// is what makes the larger page safe; the two changes belong together and
+// neither should be reverted alone.
+//
+// Measured live 2026-09-22 against Barrie with the real $select, fetch time
+// for one page:
+//                     unfiltered Media      filtered Media
+//   $top=25             2033 ms / 5.2 MB      ~700 ms / 1.0 MB
+//   $top=100            6247 ms / 21.1 MB     1289 ms / 4.5 MB
+//
+// Per listing that is 81 ms -> 13 ms. Fewer, larger pages also mean fewer
+// D1 round trips, since a page is written as one batch.
+export const PAGE_SIZE = 100;
+
+// Media is expanded with a server-side filter instead of being pulled whole.
+// PropTx returns EVERY size variant of every photo plus documents -- 17,065
+// media entries for 100 listings, of which the ingest keeps 3,380. Asking
+// for the Large variants up front is a 4.7x smaller payload.
+//
+// Confirmed live 2026-09-22, three shapes tested:
+//   $expand=Media($select=...)             -> 200 OK but ZERO rows. PropTx
+//                                             does not support nested
+//                                             $select; it silently returns
+//                                             nothing rather than erroring.
+//   $expand=Media($filter=...)             -> works, correct rows
+//   adding "and MediaCategory eq 'Photo'"  -> identical result, slower
+//                                             (1642 ms vs 1289 ms). The
+//                                             size filter already excludes
+//                                             documents, which carry a null
+//                                             ImageSizeDescription.
+//
+// This is a pre-trim, NOT the rule. extractPublicPhotoUrls() below is still
+// the authority on what may be stored and displayed -- it independently
+// re-checks MediaCategory, Permission and ImageSizeDescription, so a feed
+// change that widened what this filter returns could not leak a Private
+// variant into the database.
+export const MEDIA_EXPAND = "$expand=Media($filter=ImageSizeDescription eq 'Large')";
 
 // The exact set of fields pulled from PropTx per Property record. Chosen
 // deliberately (not "everything available") per the explicit product
@@ -104,9 +143,25 @@ export function buildCityFilter(cityName) {
   // Toronto is stored by PropTx as TRREB district-coded values ("Toronto
   // C07", "Toronto W04"), never plain "Toronto" -- an exact match returns
   // nothing. See toronto-districts.js.
+  //
+  // Ottawa is the same problem with none of the same handholds: its 3,779
+  // active homes are spread over 51 City values that share no prefix at all
+  // ("Barrhaven", "Kanata", "Orleans - Cumberland and Area", "Glebe -
+  // Ottawa East and Area"), so neither an exact match nor a startswith
+  // finds them. This is why Ottawa was recorded on 2026-09-18 as a "genuine
+  // zero-coverage city (not a naming issue)" -- it was a naming issue, and
+  // Ottawa is the second-largest market in the feed after Toronto.
+  //
+  // CountyOrParish is the grouping that works: confirmed live 2026-09-22
+  // that it is populated across the feed and that CountyOrParish eq
+  // 'Ottawa' returns exactly those 3,779 listings. mapPropertyToRow() files
+  // them under city "Ottawa" with the district kept in the community column,
+  // so the read path needs no special case at all.
   const cityClause = cityName === "Toronto"
     ? "startswith(City,'Toronto')"
-    : `City eq '${safeCity}'`;
+    : cityName === "Ottawa"
+      ? "CountyOrParish eq 'Ottawa'"
+      : `City eq '${safeCity}'`;
   // Residential + For Sale only (fixed 2026-09-18): the first real page
   // for Mississauga came back 20/25 leases or commercial (retail units,
   // offices, land, a business for sale, lease prices like $15/sqft).
@@ -119,7 +174,7 @@ export function buildCityFilter(cityName) {
  */
 function buildStartUrl(cityName) {
   const filter = encodeURIComponent(buildCityFilter(cityName));
-  return `${PROPTX_BASE_URL}/Property?$filter=${filter}&$select=${PROPERTY_SELECT_FIELDS}&$expand=Media&$top=${PAGE_SIZE}`;
+  return `${PROPTX_BASE_URL}/Property?$filter=${filter}&$select=${PROPERTY_SELECT_FIELDS}&${MEDIA_EXPAND}&$top=${PAGE_SIZE}`;
 }
 
 /**
@@ -172,8 +227,17 @@ function extractPublicPhotoUrls(mediaArray) {
  * fallback guessing, ever (confirmed necessary: YearBuilt, condo fields,
  * etc. are inconsistently present even on real, complete listings).
  */
-export function mapPropertyToRow(p) {
+export function mapPropertyToRow(p, ingestCity = null) {
   const photos = extractPublicPhotoUrls(p.Media);
+  // Ottawa is ingested by county, so every row comes back under one of 51
+  // district names in City ("Barrhaven", "Kanata", "Glebe - Ottawa East and
+  // Area"). HomePilot has a single Ottawa card, so the card name is stored
+  // in city and the district is kept in community -- the same shape every
+  // other community-bearing municipality already uses. Doing it here rather
+  // than with a special case on the read path means /listings?city=Ottawa
+  // is an ordinary exact match, and a listing's own page reports "Ottawa",
+  // which is the name the app has a market record for.
+  const isOttawa = ingestCity === "Ottawa";
   return {
     listing_key: p.ListingKey,
     // listing_url: the old DDF-era schema requires this to be NOT NULL
@@ -188,12 +252,12 @@ export function mapPropertyToRow(p) {
     last_seen_at: new Date().toISOString(),
     created_at: new Date().toISOString(), // excluded from the ON CONFLICT update below, so it keeps the first-seen time
     list_price: p.ListPrice ?? null,
-    city: p.City ?? null,
+    city: isOttawa ? "Ottawa" : (p.City ?? null),
     // Bare TRREB district code for Toronto rows ("C07"); NULL elsewhere.
     city_district: parseTorontoDistrict(p.City),
     // Community within the municipality, normalized ("1045 - AC Acton" ->
     // "Acton"). NULL when PropTx sends nothing usable. See communities.js.
-    community: normalizeCommunity(p.CityRegion),
+    community: isOttawa ? normalizeCommunity(p.City) : normalizeCommunity(p.CityRegion),
     postal_code: p.PostalCode ?? null,
     display_address: p.UnparsedAddress ?? null,
     bedrooms: p.BedroomsTotal ?? null,
@@ -281,7 +345,7 @@ export async function ingestCityPage(db, token, cityName, pageUrl) {
       continue;
     }
     try {
-      statements.push(buildUpsertStatement(db, mapPropertyToRow(p)));
+      statements.push(buildUpsertStatement(db, mapPropertyToRow(p, cityName)));
     } catch (e) {
       mappingErrors.push({ listingKey: p.ListingKey, error: String(e.message || e) });
     }

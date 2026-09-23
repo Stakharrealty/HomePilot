@@ -106,12 +106,17 @@ function makeFakePropTx(log, failPages = new Set()) {
   // (~9x Mississauga) or a Toronto refresh starves them. Halton Hills, King
   // and Bradford West Gwillimbury are municipalities, not cards -- they carry
   // the Acton, Georgetown, King City and Bradford cards (see communities.js).
-  check("scope is the 7 ingested cities, small ones first and Toronto last",
-    JSON.stringify(auto.AUTO_INGEST_CITIES) === JSON.stringify(
-      ["Mississauga", "Hamilton", "Guelph", "Halton Hills", "King", "Bradford West Gwillimbury", "Toronto"]),
-    JSON.stringify(auto.AUTO_INGEST_CITIES));
-  check("Toronto is last so its refresh cannot starve the small cities",
-    auto.AUTO_INGEST_CITIES[auto.AUTO_INGEST_CITIES.length - 1] === "Toronto");
+  const CITIES = auto.AUTO_INGEST_CITIES;
+  check("every HomePilot city is ingested (47 targets covering all 49 cards)",
+    CITIES.length === 47, String(CITIES.length));
+  check("no city is listed twice", new Set(CITIES).size === CITIES.length);
+  // The two biggest markets are a third of the whole feed between them
+  // (Toronto 9,588 and Ottawa 3,779 of 37,791). A run works the list from
+  // the top until its budget is spent, so either one placed early would
+  // starve everything below it on every single firing.
+  check("the two largest markets are last, Toronto last of all",
+    CITIES[CITIES.length - 1] === "Toronto" && CITIES[CITIES.length - 2] === "Ottawa",
+    CITIES.slice(-2).join(", "));
   // The behavior checks below exercise one city at a time so page sequences stay readable.
   const ONE_CITY = { cities: ["Mississauga"] };
 
@@ -168,8 +173,14 @@ function makeFakePropTx(log, failPages = new Set()) {
     sqlite2.exec("CREATE TABLE listings (listing_key TEXT PRIMARY KEY)");
     const db2 = makeD1(sqlite2);
     let clock2 = Date.parse("2026-09-19T00:00:00Z");
-    // Each clock read advances 3s: budget 20s allows only a few pages per firing.
-    const slowNow = () => (clock2 += 3000);
+    // Each clock read advances a sixth of the budget, so a firing gets through
+    // only a page or two and the rest must resume on later firings. Derived
+    // from TIME_BUDGET_MS rather than hard-coded: when the budget was 20s a
+    // fixed 3s step exercised this, and raising it to 60s silently turned the
+    // assertion into a no-op (every page fit in one firing and "resume" was
+    // never tested at all).
+    const STEP = Math.ceil(auto.TIME_BUDGET_MS / 6);
+    const slowNow = () => (clock2 += STEP);
     log.length = 0;
     const firings = [];
     for (let i = 0; i < 10; i++) {

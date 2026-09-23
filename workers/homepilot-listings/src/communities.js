@@ -9,6 +9,7 @@
 //   Acton, Georgetown   -> City = "Halton Hills"
 //   King City           -> City = "King"
 //   Bradford            -> City = "Bradford West Gwillimbury"
+//   Bolton              -> City = "Caledon"
 //
 // CITY_ALIASES in cities.js resolves the card name to the municipality, so
 // the query finds rows at all. But the municipality is not the card: an
@@ -31,6 +32,16 @@
 //                       Schomberg 24, Pottageville 11
 //   Bradford W.G. (183) Bradford 137,
 //                       "Rural Bradford West Gwillimbury" 36, Bond Head 10
+//   Caledon (472)       Rural Caledon 237, Caledon East 42, Bolton West 41,
+//                       Bolton East 38, Palgrave 36, Bolton North 24,
+//                       Alton 16, Caledon Village 14, Inglewood 12,
+//                       Cheltenham 7, Mono Mills 5
+//
+// Bolton is the reason this file had to grow before Caledon could be
+// ingested. Caledon has 472 listings and only 103 of them are Bolton --
+// split across THREE community names, none of which is plain "Bolton".
+// Ingesting Caledon without this entry would have reproduced exactly the
+// bug this module exists to fix, on a card that had never been broken.
 //
 // Note the two shapes in the same municipality: bare names ("Georgetown")
 // and TRREB-coded ones ("1045 - AC Acton" -- numeric area code, then a
@@ -79,12 +90,18 @@ export function normalizeCommunity(raw) {
  *   home against King City's estate market.
  * - Bradford is the town proper; Bond Head and the rural belt are excluded
  *   for the same reason.
+ * - Bolton is all three of its compass-split community names, and nothing
+ *   else in Caledon. Caledon East, Palgrave, Alton, Inglewood, Cheltenham,
+ *   Caledon Village, Mono Mills and Rural Caledon are separate places, and
+ *   the app has no card for any of them -- so 369 of Caledon's 472
+ *   listings are deliberately not reachable rather than shown as Bolton.
  */
 export const CITY_COMMUNITIES = Object.freeze({
   "Acton": Object.freeze(["Acton"]),
   "Georgetown": Object.freeze(["Georgetown"]),
   "King City": Object.freeze(["King City"]),
   "Bradford": Object.freeze(["Bradford"]),
+  "Bolton": Object.freeze(["Bolton West", "Bolton East", "Bolton North"]),
 });
 
 /** Communities for a card name, or null if the card isn't community-scoped. */
@@ -121,4 +138,5 @@ export const COMMUNITY_MUNICIPALITY = Object.freeze({
   "Georgetown": "Halton Hills",
   "King City": "King",
   "Bradford": "Bradford West Gwillimbury",
+  "Bolton": "Caledon",
 });

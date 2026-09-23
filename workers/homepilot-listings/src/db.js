@@ -125,6 +125,17 @@ const SUBTYPE_EXPR = "TRIM(property_subtype)";
 // Re-measure before changing: if REFRESH_AFTER_HOURS changes, or a city large
 // enough to push a pass past ~30h is added, this needs to move with it. Too
 // tight and live listings vanish; too loose and it does nothing at all.
+//
+// Re-measured 2026-09-22, when the ingest went from 4 cities to all 49.
+// Against production, the 4 cities took ~5h for 580 pages (1.9 pages/min),
+// so 37,791 listings would have been ~13h per pass -- close enough to this
+// bound that a busy market would have started emptying cities that were
+// working fine. The city list therefore did not ship alone: PAGE_SIZE went
+// 25 -> 100 (made safe by filtering the Media expansion server-side) and
+// TIME_BUDGET_MS 20s -> 60s, which puts a full pass under an hour. 36h
+// stays, now with real headroom rather than by luck. The arithmetic is
+// asserted in tests/listings_city_coverage_test.js so it cannot quietly
+// stop being true.
 export const MAX_LISTING_AGE_HOURS = 36;
 
 export function freshnessCutoffIso(nowMs = Date.now()) {

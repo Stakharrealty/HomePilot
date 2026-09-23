@@ -1,8 +1,8 @@
-// Community cards: Acton, Georgetown, King City, Bradford.
+// Community cards: Acton, Georgetown, King City, Bradford, Bolton.
 //
-// These four HomePilot cards are not municipalities. PropTx stores them
-// under the municipality that contains them -- Halton Hills, King, Bradford
-// West Gwillimbury -- and names the community only in CityRegion. Two
+// These HomePilot cards are not municipalities. PropTx stores them under the
+// municipality that contains them -- Halton Hills, King, Bradford West
+// Gwillimbury, Caledon -- and names the community only in CityRegion. Two
 // separate things had to be true for the cards to work, and neither was:
 //
 //   1. the municipality has to be ingested at all (it wasn't, so the cards
@@ -13,7 +13,7 @@
 //
 // Seed data below is the REAL live distribution, confirmed 2026-09-22
 // against query.ampre.ca over every Active / For Sale / Residential listing
-// in the three municipalities (689 listings, CityRegion populated on 100%).
+// in the four municipalities (1,161 listings, CityRegion populated on 100%).
 //
 // Why real SQLite: the community narrowing is SQL. node:sqlite runs the
 // exact string getListingsByCity sends to D1, so a test that passes here
@@ -52,6 +52,17 @@ const LIVE = [
   ["Bradford West Gwillimbury", "Bradford", 137],
   ["Bradford West Gwillimbury", "Rural Bradford West Gwillimbury", 36],
   ["Bradford West Gwillimbury", "Bond Head", 10],
+  ["Caledon", "Rural Caledon", 237],
+  ["Caledon", "Caledon East", 42],
+  ["Caledon", "Bolton West", 41],
+  ["Caledon", "Bolton East", 38],
+  ["Caledon", "Palgrave", 36],
+  ["Caledon", "Bolton North", 24],
+  ["Caledon", "Alton", 16],
+  ["Caledon", "Caledon Village", 14],
+  ["Caledon", "Inglewood", 12],
+  ["Caledon", "Cheltenham", 7],
+  ["Caledon", "Mono Mills", 5],
 ];
 
 const INJECTION = "Acton" + String.fromCharCode(39) + "; DROP TABLE listings;--";
@@ -79,9 +90,14 @@ const INJECTION = "Acton" + String.fromCharCode(39) + "; DROP TABLE listings;--"
     "Bradford": "Bradford",
     "Rural Bradford West Gwillimbury": "Rural Bradford West Gwillimbury",
     "Bond Head": "Bond Head",
+    "Bolton West": "Bolton West",
+    "Bolton East": "Bolton East",
+    "Bolton North": "Bolton North",
+    "Rural Caledon": "Rural Caledon",
+    "Caledon East": "Caledon East",
   };
   const wrong = Object.entries(NORM).filter(([raw, want]) => comm.normalizeCommunity(raw) !== want);
-  check("normalizeCommunity handles all 15 real CityRegion values", wrong.length === 0,
+  check("normalizeCommunity handles every real CityRegion value seen in the feed", wrong.length === 0,
     wrong.map(([r]) => r + " -> " + comm.normalizeCommunity(r)).join(" | "));
   check("the two coded shapes both reduce to the bare name",
     comm.normalizeCommunity("1045 - AC Acton") === "Acton" &&
@@ -94,8 +110,12 @@ const INJECTION = "Acton" + String.fromCharCode(39) + "; DROP TABLE listings;--"
     check(card + ": alias and municipality table agree",
       cities.CITY_ALIASES[card] === comm.COMMUNITY_MUNICIPALITY[card],
       cities.CITY_ALIASES[card] + " vs " + comm.COMMUNITY_MUNICIPALITY[card]);
-    check(card + ": is a city the app actually shows",
-      cities.HOMEPILOT_CITIES.includes(card) && cities.PUBLIC_CITY_NAMES.includes(card));
+    // PUBLIC_CITY_NAMES, not HOMEPILOT_CITIES: a card can be display-only.
+    // Bolton is exactly that -- it has its own price record in the app but
+    // has never been a PropTx-queryable city name, the same arrangement the
+    // six Toronto sub-region cards use.
+    check(card + ": /listings accepts it as a city name",
+      cities.PUBLIC_CITY_NAMES.includes(card));
   }
   check("only community cards are community-scoped",
     comm.communitiesForCity("Halton Hills") === null &&
@@ -172,7 +192,7 @@ const INJECTION = "Acton" + String.fromCharCode(39) + "; DROP TABLE listings;--"
     for (let i = 0; i < count; i++) ins.run("K" + seq++, city, community, FRESH);
   }
   sqlite.exec("COMMIT");
-  check("seeded all 689 live listings", seq === 689, String(seq));
+  check("seeded all 1,161 live listings", seq === 1161, String(seq));
 
   const d1 = {
     prepare(sql) {
@@ -193,22 +213,34 @@ const INJECTION = "Acton" + String.fromCharCode(39) + "; DROP TABLE listings;--"
   const haltonHills = await card("Halton Hills");
   const kingCity = await card("King City");
   const bradford = await card("Bradford");
+  const bolton = await card("Bolton");
+  const caledon = await db.getListingsByCity(d1, "Caledon", 2000, null, 0, null, null, null);
 
   check("Acton shows its own 28 listings", acton.length === 28, String(acton.length));
   check("Georgetown shows its own 140", georgetown.length === 140, String(georgetown.length));
   check("King City shows 98, not all 243 of King township", kingCity.length === 98, String(kingCity.length));
   check("Bradford shows 137, excluding the 36 rural and 10 Bond Head", bradford.length === 137, String(bradford.length));
   check("Halton Hills, a real municipality card, still shows all 263", haltonHills.length === 263, String(haltonHills.length));
+  // Bolton is the case this file had to cover before Caledon could be
+  // ingested: three community names, none of them plain "Bolton", and 369
+  // of Caledon's 472 listings belong to other places entirely.
+  check("Bolton shows its 103 listings across all three Bolton names",
+    bolton.length === 103, String(bolton.length));
+  check("Bolton excludes Caledon East, Palgrave, Alton and Rural Caledon",
+    caledon.length === 472 && bolton.length < caledon.length, String(caledon.length));
 
   // The actual bug, stated as a test: without the narrowing, Acton IS Halton Hills.
   const unfiltered = await db.getListingsByCity(d1, "Halton Hills", 1000, null, 0, null, null, null);
   check("the narrowing is what makes Acton differ from its municipality",
     unfiltered.length === 263 && acton.length !== unfiltered.length);
+  check("a multi-name card matches every one of its names, not just the first",
+    new Set(bolton.map((l) => l.cityRegion)).size === 1 &&
+    db.cityMatchClause("Caledon", null, comm.communitiesForCity("Bolton")).binds.length === 4);
   const gKeys = new Set(georgetown.map((l) => l.listingKey));
   check("Acton and Georgetown are not the same list",
     acton.length !== georgetown.length && acton.every((l) => !gKeys.has(l.listingKey)));
   check("no card leaks a rural or neighbouring-hamlet listing",
-    [[acton, "Acton"], [georgetown, "Georgetown"], [kingCity, "King City"], [bradford, "Bradford"]]
+    [[acton, "Acton"], [georgetown, "Georgetown"], [kingCity, "King City"], [bradford, "Bradford"], [bolton, "Bolton"]]
       .every(([list, name]) => list.every((l) => l.cityRegion === name)));
 
   // --- 7. the card name reaches the frontend, so cost math uses the right market

@@ -54,6 +54,16 @@ export const CITY_ALIASES = {
   "Georgetown": "Halton Hills",
   "King City": "King",
   "Bradford": "Bradford West Gwillimbury",
+
+  // Grand Valley (added 2026-09-22, full-coverage rollout). Recorded in this
+  // Worker's own comments since 2026-09-18 as one of two "genuine zero-
+  // coverage cities (not a naming issue)". That was wrong: PropTx files it
+  // under the township's full legal name, "East Luther Grand Valley", and
+  // carries 46 active homes there. Confirmed live by querying
+  // contains(City,'Grand'), which returns East Luther Grand Valley and
+  // nothing else, and by the Dufferin county breakdown (531 listings across
+  // 8 municipalities, East Luther Grand Valley among them).
+  "Grand Valley": "East Luther Grand Valley",
 };
 
 // The full set of city names /listings should accept from the front end --
