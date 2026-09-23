@@ -27,15 +27,30 @@ const LD_STRETCH_MULTIPLIER = 1.10;
 // as monthly (Ontario condo fees are monthly, and the listing card already
 // shows it that way); an unrecognised frequency returns null so the caller
 // falls back to the labelled estimate instead of guessing.
+// Frequencies extended 2026-09-22 (audit): only monthly/annually/quarterly/
+// weekly were handled, so the other RESO AssociationFeeFrequency values fell
+// through to null and silently used the city ESTIMATE instead of the real fee.
+// A $700 semi-annual fee was shown as the $621 city estimate rather than $117.
+const LD_FEE_DIVISORS = {
+  monthly: 1, "semi-monthly": 0.5, semimonthly: 0.5,
+  annually: 12, annual: 12, yearly: 12,
+  "semi-annually": 6, "semi-annual": 6, semiannually: 6, "twice a year": 6,
+  quarterly: 3,
+  weekly: 1 / (52 / 12), "bi-weekly": 2 / (52 / 12), biweekly: 2 / (52 / 12),
+};
 function ldFeeToMonthly(fee, frequency) {
   const n = Number(fee);
   if (!Number.isFinite(n) || n <= 0) return null;
   const f = String(frequency || "monthly").trim().toLowerCase();
-  if (f === "monthly") return n;
-  if (f === "annually" || f === "annual" || f === "yearly") return n / 12;
-  if (f === "quarterly") return n / 3;
-  if (f === "weekly") return (n * 52) / 12;
-  return null;
+  // "One Time" is deliberately absent: a one-time charge is not a monthly cost
+  // and must not be folded into one. It falls through to the estimate.
+  const div = LD_FEE_DIVISORS[f];
+  if (!div) return null;
+  const monthly = n / div;
+  // Sanity bound. A condo fee outside this range is a feed error, not a fee;
+  // returning null falls back to the labelled city estimate rather than
+  // rendering it as fact.
+  return monthly >= 10 && monthly <= 5000 ? monthly : null;
 }
 
 // The market record calcCosts()/qualifiesForProperty() need. Toronto rows
@@ -51,12 +66,39 @@ function ldResolveMarket(listing) {
   return { market: { n: name, tx: 0.0105, ins: 100, avg: Number(listing.listPrice) || 0, min: 0, max: 0 }, known: false };
 }
 
+// Whether this listing is in the City of Toronto, for land transfer tax.
+//
+// Added 2026-09-22 (audit). calcClosingCosts() decides the Toronto municipal
+// LTT from an exact city-name match against its own six-card list. PropTx
+// stores Toronto as district-coded values ("Toronto C07"), which
+// regionForCity() normally maps to a card name -- but it returns null for a
+// plain "Toronto" row or any district code TRREB adds later. In that case the
+// name reaching calcClosingCosts was "Toronto C07", which matches nothing, and
+// the municipal LTT was silently dropped: cash required to close came out
+// $98,425 instead of $109,900 on a $750K home. An $11,475 understatement, with
+// nothing on screen indicating an omission.
+//
+// listing-detail.js already had this exact startsWith fallback in ldBackHref(),
+// so the plain-"Toronto" case was known -- the cost path just never used it.
+function ldIsTorontoListing(listing) {
+  const region = listing.cityRegion;
+  if (typeof region === "string" && region.startsWith("Toronto")) return true;
+  return typeof listing.city === "string" && /^Toronto\b/.test(listing.city.trim());
+}
+
 // The real PropTx figures, when present, that replace the engine's own
 // estimates. Condo fee only ever applies to condos.
 function ldOverrides(listing) {
   const o = {};
   const tax = Number(listing.taxAnnualAmount);
-  if (Number.isFinite(tax) && tax > 0) o.taxAnnual = tax;
+  // Sanity bound added 2026-09-22 (audit). Any finite positive number was
+  // previously accepted verbatim, so a plausible x100 feed error --
+  // taxAnnualAmount of 450000 instead of 4500 -- rendered as a property tax
+  // line of $37,500/month and a total of $42,393/month, presented to the buyer
+  // as this listing's real figure. Outside the bound we fall back to the
+  // city-rate estimate, which the UI already labels "(estimated)".
+  // $200-$200,000/yr spans a rural cabin to a high-end Toronto detached.
+  if (Number.isFinite(tax) && tax >= 200 && tax <= 200000) o.taxAnnual = tax;
   if (listing.propertyType === "condo") {
     const fee = ldFeeToMonthly(listing.associationFee, listing.associationFeeFrequency);
     if (fee) o.condoFeeMonthly = fee;
@@ -149,7 +191,13 @@ function ldClosingCosts(listing, profile) {
   const price = Number(listing.listPrice);
   if (!profile || !(price > 0)) return null;
   const { market } = ldResolveMarket(listing);
-  const cc = calcClosingCosts(market.n, price, profile.firstTimeBuyer === true);
+  // Pass a name calcClosingCosts() recognises as Toronto even when
+  // regionForCity() could not resolve the district code -- see
+  // ldIsTorontoListing() for why that happens and what it used to cost.
+  const cityForLtt = ldIsTorontoListing(listing) && !/^Toronto - /.test(market.n)
+    ? "Toronto - Downtown"
+    : market.n;
+  const cc = calcClosingCosts(cityForLtt, price, profile.firstTimeBuyer === true);
   const effectiveDn = Math.min(profile.downPayment, price);
   return { ...cc, effectiveDn, cashRequired: effectiveDn + cc.total };
 }
@@ -163,7 +211,10 @@ function ldFitFor(listing, computed, profile, budget) {
   const b = Number(budget);
   if (!computed || !(price > 0) || !Number.isFinite(b) || b <= 0) return null;
   if (price > b * LD_STRETCH_MULTIPLIER) return null; // past the ceiling: no badge, unchanged
+  // getFit() returns null when the cost or income isn't usable (2026-09-22).
+  // No badge is the correct outcome there — the same as being past the ceiling.
   const fit = ldWithEngine(profile, computed.net, () => getFit(computed.costs.total, null));
+  if (!fit) return null;
   return { cls: fit.cls, lbl: fit.lbl, ratio: fit.ratio };
 }
 

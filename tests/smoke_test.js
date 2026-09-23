@@ -1,6 +1,35 @@
+// Functional smoke test — loads a real page in jsdom, drives the real form,
+// and checks the engine produced sane results.
+//
+// REPAIRED 2026-09-22 (audit). Two things were wrong, and they compounded:
+//
+//   1. It loaded index.html, which stopped having a calculator when the form
+//      moved to calculator.html. Every run since then has thrown
+//      "Cannot set properties of null (setting 'value')" at the first
+//      getElementById("inc").
+//   2. It had no process.exit anywhere, so it ALWAYS exited 0. The
+//      "Functional smoke test" step in deploy.yml and dev-to-main.yml has
+//      therefore been reporting green while doing nothing, for as long as the
+//      calculator has lived on its own page.
+//
+// A gate that cannot fail is worse than no gate: it reads as coverage. This
+// version points at the page that actually has the form, asserts on what it
+// finds, and exits non-zero when an assertion fails.
+
 const { JSDOM, VirtualConsole } = require("jsdom");
 
-const url = "http://localhost:8843/index.html";
+const page = process.argv[2] || "calculator.html";
+const url = `http://localhost:8843/${page}`;
+
+let failures = 0;
+function check(name, cond, detail) {
+  if (cond) {
+    console.log(`  PASS - ${name}`);
+  } else {
+    failures++;
+    console.log(`  FAIL - ${name}${detail !== undefined ? ` :: ${detail}` : ""}`);
+  }
+}
 
 (async () => {
   const virtualConsole = new VirtualConsole();
@@ -16,48 +45,73 @@ const url = "http://localhost:8843/index.html";
 
   await new Promise((res) => setTimeout(res, 1000));
 
-  console.log("=== Phase 3: functional smoke test ===");
+  console.log(`=== Functional smoke test (${page}) ===`);
 
   // 1. City data sanity
   const cityCount = dom.window.eval("M.length");
-  console.log("Cities loaded (M.length):", cityCount, cityCount === 55 ? "OK" : "UNEXPECTED (expected 55)");
+  check("55 cities loaded", cityCount === 55, cityCount);
 
-  // 2. calcBP runs without throwing, on a plausible ANNUAL income input
-  const bpResult = dom.window.eval(`
-    (function() {
+  // 2. calcBP runs and returns a plausible, self-consistent answer
+  const bp = JSON.parse(dom.window.eval(`
+    (function () {
       try {
-        customMortgageRate = DEFAULT_MORTGAGE_RATE_PCT/100;
-        const r = calcBP(108000, 60000, 0); // annual income, down payment, existing debt
-        return JSON.stringify(r);
-      } catch (e) {
-        return "ERROR: " + e.message;
-      }
+        customMortgageRate = DEFAULT_MORTGAGE_RATE_PCT / 100;
+        firstTimeBuyer = false;
+        return JSON.stringify(calcBP(108000, 60000, 0));
+      } catch (e) { return JSON.stringify({ error: e.message }); }
     })()
-  `);
-  console.log("calcBP() sample output (108k income, 60k down):", bpResult);
+  `));
+  check("calcBP does not throw", !bp.error, bp.error);
+  check("calcBP returns a numeric buying power", Number.isFinite(bp.bp) && bp.bp > 0, bp.bp);
+  check("comfort range sits below the bank ceiling", bp.comfortBP < bp.bp, `${bp.comfortBP} vs ${bp.bp}`);
+  check("buying power is purchasable with the stated down payment",
+    dom.window.eval(`meetsMinDownPayment(${bp.bp}, 60000)`), `bp ${bp.bp} on 60000 down`);
 
-  // 3. Run go() the real way: fill the actual form fields a user would use, click Go.
-  const goResult = dom.window.eval(`
-    (function() {
+  // 3. Drive the real form the way a buyer would, then read the real DOM.
+  const go = JSON.parse(dom.window.eval(`
+    (function () {
       try {
         document.getElementById("inc").value = "108000";
         document.getElementById("dwn").value = "60000";
         document.getElementById("dbt").value = "0";
         document.getElementById("area").value = document.getElementById("area").options[0].value;
         document.getElementById("fam").value = document.getElementById("fam").options[0].value;
-        workArrangement = 'remote';
+        workArrangement = "remote";
         go();
-        return {
-          hasResults: Array.isArray(results) ? results.length : typeof results,
-          buyPower, comfortBuyPower,
-          errVisible: document.getElementById("err").style.display
-        };
-      } catch (e) {
-        return "ERROR: " + e.message + " | " + e.stack;
-      }
+        var cnt = document.getElementById("cnt");
+        var list = document.getElementById("list");
+        // render() emits one <div class="city"> per city card.
+        var cardCount = list ? list.querySelectorAll(".city").length : -1;
+        var m = cnt ? /(\\d+)\\s+(?:city|cities)/.exec(cnt.textContent) : null;
+        return JSON.stringify({
+          results: Array.isArray(results) ? results.length : -1,
+          buyPower: buyPower,
+          errVisible: document.getElementById("err").style.display,
+          bpShown: document.getElementById("bpV").textContent,
+          claimed: m ? Number(m[1]) : null,
+          cardCount: cardCount,
+        });
+      } catch (e) { return JSON.stringify({ error: e.message + " | " + e.stack }); }
     })()
-  `);
-  console.log("go() result (via real form fields):", goResult);
+  `));
+  check("go() does not throw", !go.error, go.error);
+  check("go() produced no error banner", go.errVisible !== "block", go.errVisible);
+  check("go() set a buying power", Number.isFinite(go.buyPower) && go.buyPower > 0, go.buyPower);
+  check("the buying power box shows a dollar figure", /^\$[\d,]+$/.test(String(go.bpShown)), go.bpShown);
+  check("go() produced city results", go.results > 0, go.results);
+  check("at least one city card rendered", go.cardCount > 0, go.cardCount);
+  // The headline count and the cards below it are derived from different
+  // tables; they diverged badly enough to say "38 cities match your budget"
+  // above an empty list. render() owns the count now — this asserts it stays
+  // owned there.
+  check("the city count matches the cards actually rendered",
+    go.claimed !== null && go.claimed === go.cardCount, `claimed ${go.claimed}, rendered ${go.cardCount}`);
 
-  console.log("Captured DOM errors:", errors.length ? errors : "none");
-})().catch((e) => console.error("Fatal:", e));
+  check("no uncaught DOM errors", errors.length === 0, errors.join(" | "));
+
+  console.log(`\n=== RESULT: ${failures === 0 ? "PASS" : `${failures} FAILED`} ===`);
+  process.exit(failures === 0 ? 0 : 1);
+})().catch((e) => {
+  console.error("Fatal:", e);
+  process.exit(1);
+});

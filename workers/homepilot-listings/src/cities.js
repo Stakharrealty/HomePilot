@@ -42,6 +42,18 @@ export const CITY_ALIASES = {
   "Toronto - Etobicoke": "Toronto",
   "Toronto - Scarborough": "Toronto",
   "Bolton": "Caledon",
+
+  // PropTx municipality names (added 2026-09-22, audit). The 2026-09-18 PropTx
+  // investigation recorded these four mismatches in this Worker's own comments
+  // -- "Acton and Georgetown both map to 'Halton Hills'; King City maps to
+  // 'King'; Bradford maps to 'Bradford West Gwillimbury'" -- but no aliases
+  // were ever added, so /listings?city=Acton queried `city = 'Acton'`, which
+  // matches zero PropTx rows. All four cities were permanently empty: not
+  // "no listings right now", but no listings ever, by construction.
+  "Acton": "Halton Hills",
+  "Georgetown": "Halton Hills",
+  "King City": "King",
+  "Bradford": "Bradford West Gwillimbury",
 };
 
 // The full set of city names /listings should accept from the front end --

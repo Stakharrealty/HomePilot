@@ -38,7 +38,7 @@ jobs:
           node-version: "22"
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Listing seal/badge removal test (no network required)
         run: node tests/listing_verified_seal_removed_test.js

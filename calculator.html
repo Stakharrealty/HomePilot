@@ -959,10 +959,32 @@ select{
   transition:box-shadow 0.2s,transform 0.1s;
 }
 .listing-card:hover{box-shadow:var(--shadow),0 0 0 1px rgba(29,158,117,0.1);transform:translateY(-1px)}
+/* Copied verbatim from index.html 2026-09-22 (audit). calculator.html loads
+   listings-display.js and renders listing cards, but never had the rules for
+   what that module emits -- carousel arrows, the photo counter, the empty-photo
+   placeholder and the link pills all rendered unstyled on this page. The two
+   files are ~97% duplicates; this is the drift that had already happened. */
+.listing-links{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;margin-left:-11px;margin-bottom:8px}
+.listing-detail-link,.listing-source-link{
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:11px;font-weight:700;letter-spacing:0.02em;
+  padding:4px 11px;border-radius:999px;
+  text-decoration:none;white-space:nowrap;
+  transition:filter 0.15s;
+}
+.listing-detail-link{background:var(--green-light,#E1F5EE);color:var(--green-mid,#0F6E50)}
+.listing-source-link{background:#E6F1FB;color:#185FA5}
+.listing-detail-link:hover,.listing-source-link:hover{filter:brightness(0.96);text-decoration:none}
+.listing-photo-empty{width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--ink-faint);font-size:12px;background:var(--surface)}
+.listing-photo-nav{position:absolute;top:50%;transform:translateY(-50%);width:36px;height:36px;border-radius:50%;border:0;background:rgba(0,0,0,.55);color:#fff;font-size:24px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0 0 3px;opacity:0;transition:opacity .15s}
+.listing-photo-prev{left:10px}.listing-photo-next{right:10px}
+.listing-photo-wrap:hover .listing-photo-nav,.listing-photo-nav:focus-visible{opacity:1}
+.listing-photo-nav:hover{background:rgba(0,0,0,.8)}
+.listing-photo-counter{position:absolute;right:10px;bottom:10px;background:rgba(0,0,0,.6);color:#fff;font-size:12px;font-weight:600;padding:3px 8px;border-radius:10px;pointer-events:none}
+@media(hover:none){.listing-photo-nav{display:none}}
 .listing-photo-wrap{position:relative;width:100%;aspect-ratio:4/3;background:var(--surface)}
 .listing-photo-wrap-clickable{cursor:pointer}
 .listing-photo{width:100%;height:100%;object-fit:cover;display:block}
-.listing-photo-empty{width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--ink-faint);font-size:12px;background:var(--surface)}
 .listing-body{padding:12px}
 .listing-price{font-size:19px;font-weight:800;color:var(--navy-mid);font-variant-numeric:tabular-nums;letter-spacing:-0.2px}
 .listing-price-row{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
@@ -1684,6 +1706,12 @@ document.addEventListener('keydown',function(e){
     render();
   }
 });
+
+// Restores a shared scenario from ?s=<id> (scenario-share.js). This call was
+// lost when the calculator moved off index.html, which silently broke every
+// share link the product had ever generated (audit, 2026-09-22). It must run
+// last, after every module has loaded.
+loadScenarioFromURL();
 </script>
 <!-- How this works info modal -->
 <div id="tourOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9500;align-items:center;justify-content:center;padding:20px">

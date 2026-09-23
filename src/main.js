@@ -70,21 +70,36 @@ function go(){
   }
   const area=document.getElementById("area").value,fam=document.getElementById("fam").value;
   const t=T[lang];
-  document.getElementById("err").style.display="none";
-  if(!inc||inc<1){document.getElementById("err").textContent=t.err;document.getElementById("err").style.display="block";return;}
+  // Validation hardened 2026-09-22 (audit). Previously: an income of exactly 1
+  // passed (`inc < 1` lets 1 through) and produced a buying power of $0; an
+  // income of 1e400 became Infinity and rendered the literal text "$NaN" to the
+  // buyer; a debt of Infinity silently collapsed buying power to the down
+  // payment with no error; a negative debt was accepted and INCREASED buying
+  // power; and when validation did reject the input, go() returned early
+  // without clearing the buying-power box, so the buyer saw an error message
+  // next to the previous run's number.
+  const err=document.getElementById("err");
+  const fail=(msg)=>{
+    err.textContent=msg; err.style.display="block";
+    const bp=document.getElementById("bpBox"); if(bp) bp.style.display="none";
+    const bpv=document.getElementById("bpV"); if(bpv) bpv.textContent="";
+    return false;
+  };
+  err.style.display="none";
+  if(!Number.isFinite(inc)||inc<1000) return void fail(t.err);
+  if(inc>10000000) return void fail("Please enter your annual household income before tax. That figure looks like a total net worth rather than a yearly income.");
   // A down payment is always required to purchase in Canada (min 5% on the
   // cheapest property). The per-property minimum-down-payment check against
   // each specific property's price happens inside getPriceForTypeStrict —
   // that's the correct place for it since "5% of what?" only makes sense
   // once an actual property price is known, not against theoretical buying power.
-  if(dn<=0){
-    document.getElementById("err").textContent="A down payment is required to purchase a home in Canada.";
-    document.getElementById("err").style.display="block";
-    return;
-  }
+  if(!Number.isFinite(dn)||dn<=0) return void fail("A down payment is required to purchase a home in Canada.");
+  if(dn>50000000) return void fail("That down payment is outside the range this calculator is built for.");
+  if(dbt<0) return void fail("Monthly debt payments can't be negative. Enter 0 if you have none.");
+  if(!Number.isFinite(dbt)||dbt>inc) return void fail("Your monthly debt payments look larger than your annual income. Enter the MONTHLY amount you pay, not the total balance owing.");
   const btn=document.getElementById("goBtn");btn.disabled=true;btn.innerHTML='<div class="spin"></div>';
   try{
-    const{bp:b,comfortBP:cBP,mo,comfortMo}=calcBP(inc,dn,dbt);
+    const{bp:b,comfortBP:cBP,mo,comfortMo,downPaymentLimited,incomeCapBP,downPaymentShortfall}=calcBP(inc,dn,dbt);
     buyPower=b;comfortBuyPower=cBP;fam_selected=fam;dn_selected=dn;grossMonthlyIncome=inc/12;netMonthlyIncome=estimateOntarioNetAnnual(inc)/12;
     window._allMarkets=M;
     const rf=RF[area],seen=new Set();
@@ -107,21 +122,38 @@ function go(){
         `<div style="flex:1;min-width:120px;background:rgba(255,255,255,0.18);border-radius:10px;padding:10px 12px">`+
           `<div style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;opacity:0.8;font-weight:600;margin-bottom:4px">Bank qualifies you for</div>`+
           `<div style="font-size:20px;font-weight:800">${fc(b)}</div>`+
-          `<div style="font-size:11px;opacity:0.7;margin-top:3px">Estimated ceiling — not a pre-approval</div>`+
+          `<div style="font-size:11px;opacity:0.7;margin-top:3px">${downPaymentLimited?'Limited by your down payment, not your income':'Estimated ceiling — not a pre-approval'}</div>`+
         `</div>`+
         `<div style="flex:1;min-width:120px;background:rgba(255,255,255,0.28);border-radius:10px;padding:10px 12px;border:1.5px solid rgba(255,255,255,0.4)">`+
           `<div style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;opacity:0.9;font-weight:700;margin-bottom:4px">✓ HomePilot comfort range</div>`+
           `<div style="font-size:20px;font-weight:800">${fc(cBP)}</div>`+
           `<div style="font-size:11px;opacity:0.75;margin-top:3px">Stay here to breathe financially</div>`+
         `</div>`+
-      `</div>`;
+      `</div>`+
+      // Savings-gap note (added 2026-09-22). When the down payment is what
+      // caps the buyer rather than their income, calcBP() now reports the
+      // ceiling income ALONE would support and how much more they would need
+      // saved to reach it. Without this the buyer just sees a smaller number
+      // and no reason for it — and the reason is the single most actionable
+      // thing HomePilot can tell someone at this stage: a savings target.
+      // Only ever shown when the gap is real (both figures present).
+      (downPaymentLimited && downPaymentShortfall>0 && incomeCapBP>b
+        ? `<div style="margin-top:12px;background:rgba(255,255,255,0.18);border-radius:10px;padding:10px 12px;border-left:3px solid rgba(255,255,255,0.55)">`+
+            `<div style="font-size:12px;font-weight:700;margin-bottom:3px">Your savings are the limit here, not your income</div>`+
+            `<div style="font-size:12px;opacity:0.9;line-height:1.5">On your income you could qualify for up to <b>${fc(incomeCapBP)}</b>. `+
+            `A home at that price needs a larger down payment than you have — about <b>${fc(downPaymentShortfall)} more saved</b> would get you there.</div>`+
+          `</div>`
+        : ``);
     const stressRateDisplay=(getStressRate(customMortgageRate)*100).toFixed(2)+'%';
     const rn=document.getElementById('rateNote');if(rn)rn.innerHTML=`Based on ${rateDisplay} mortgage rate · 25-year amortization (30-year available at 20%+ down) · Stress tested at ${stressRateDisplay} · <span style="color:rgba(255,255,255,0.6);font-style:italic">Educational estimate only — not a mortgage pre-approval. Actual qualification depends on lender underwriting, credit, and full application details.</span>`;
     const frn=document.getElementById('footerRateNote');
     if(frn) frn.innerHTML=`Estimates based on ${rateDisplay} mortgage rate, stress tested at ${stressRateDisplay} (higher of 5.25% or contract rate + 2%). Amortization: 25-year, or 30-year where 20%+ down qualifies. Property tax rates sourced from each municipality. Utilities estimated by family size and region. Maintenance at 1% of home value annually. Qualification estimates are educational only and do not represent mortgage approval — final qualification depends on lender underwriting, credit, property taxes, condo fees, heating costs, and program eligibility. Sandeep Takhar is a RE/MAX agent covering Bolton, Caledon, Orangeville and surrounding areas. English · Français · 中文 · Punjabi · Hindi · Urdu · 416-725-8087`;
     document.getElementById("bpBox").style.display="block";
     const es=document.getElementById("calcEmptyState");if(es)es.style.display="none";
-    document.getElementById("cnt").innerHTML="<span>"+results.length+" cities</span> match your budget — tap any city to see the full monthly breakdown";
+    // The "N cities match your budget" line is written by render() now, which
+    // is the only place that knows how many cities actually survive full
+    // qualification. Setting it here from results.length (the M-table
+    // pre-filter) is what made it disagree with the cards below it.
     document.getElementById("res").style.display="block";document.getElementById("cap").style.display="block";const pfb=document.getElementById("propFilterBar");if(pfb)pfb.style.display="block";
     activeProp='all';activeFit='all';
     document.querySelectorAll("[id^='pt-'],[id^='ft-']").forEach(b=>b.classList.remove("on"));const ptAll=document.getElementById('pt-all');if(ptAll)ptAll.classList.add('on');

@@ -127,7 +127,16 @@ Return ONLY valid JSON, no markdown, no explanation:
       '<div class="ai-section ai-negative"><div class="ai-section-header">⚠️ Trade-offs to know</div><div class="ai-section-body">'+escapeHtml(parsed.tradeOffs)+'</div></div>'+
       accessHtml+
       '<div class="ai-section ai-family"><div class="ai-section-header">📍 Lifestyle snapshot</div><div class="ai-section-body">'+escapeHtml(parsed.lifestyleSnapshot)+'</div></div>'+
-      '<div style="font-size:11px;color:#999;margin-top:10px;line-height:1.5">These observations are generated from HomePilot\'s city profiles and affordability analysis. They\'re intended to help compare cities and should be used alongside your own research.</div>';
+      // Provenance corrected 2026-09-22 (audit). The previous wording told the
+      // buyer these observations came from HomePilot's own city profiles and
+      // affordability data — language that describes a grounded system. The
+      // prompt built above contains a city name, an income and a buying power,
+      // and nothing else: no tax rates, no price tables, no condo fees, no
+      // desirability rating, no commute data. The commentary comes from an AI
+      // model's own training data, of unknown vintage. The old sentence told
+      // the buyer the text was backed by HomePilot's data when it was not.
+      // A regression test asserts the old claim does not come back.
+      '<div style="font-size:11px;color:#999;margin-top:10px;line-height:1.5">This summary is written by an AI model from general knowledge about ' + escapeHtml(cityName) + ', not from HomePilot\'s own data, and it may be out of date or incomplete. The Access to Work line above is the exception — that one comes from HomePilot\'s drive-time estimates. Every dollar figure elsewhere on this page is calculated by HomePilot, not by the AI. Use this as a starting point for your own research.</div>';
     aiBox.dataset.loaded="true";
   }catch(e){
     aiBox.innerHTML='<div style="font-size:12px;color:#c0392b;padding:12px;background:#fdf0ee;border-radius:8px">Could not load city insights. Please try again.</div>';

@@ -226,6 +226,12 @@ function renderHomePilotSection(view) {
     + ldRow("Total per month", fmtPrice(c.total), "ld-total")
     + `</div>`
     + `<p class="ld-assumptions">Mortgage assumptions: ${rateDisplay}% rate · ${amortYears}-year amortization · ${escapeHtml(fmtPrice(ma.downPayment))} down</p>`
+    // marketKnown was computed by buildHomePilotView() and then never rendered
+    // (audit, 2026-09-22). When a listing's city isn't one of HomePilot's 55,
+    // its property tax comes from a flat 1.05% provincial-average rate and its
+    // insurance from a generic base -- but the figures above were presented
+    // with exactly the same confidence as a real municipal rate. Say so.
+    + (view.marketKnown ? "" : `<p class="ld-muted">HomePilot doesn't have a cost profile for this municipality yet, so the property tax and insurance figures above use Ontario-wide averages rather than local rates. Treat them as rough.</p>`)
     + `<div class="ld-income">`
     + ldRow("Estimated take-home income", `${fmtPrice(view.net)}/mo`)
     + (view.pctOfIncome !== null ? ldRow("Housing cost as % of take-home income", `${Math.round(view.pctOfIncome)}%`) : "")

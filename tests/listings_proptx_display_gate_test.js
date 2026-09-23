@@ -61,15 +61,19 @@ function makeSqliteD1(sqlite, log) {
     tax_annual_amount REAL, tax_year INTEGER, association_fee REAL, association_fee_frequency TEXT,
     garage_type TEXT, basement TEXT, cooling TEXT, heat_type TEXT, mls_number TEXT, listed_date TEXT, virtual_tour_url TEXT, parking_spaces INTEGER,
     latitude REAL, longitude REAL,
-    source TEXT, transaction_type TEXT, property_subtype TEXT,
+    source TEXT, transaction_type TEXT, property_subtype TEXT, standard_status TEXT,
     lot_width REAL, lot_depth REAL, lot_size_source TEXT, living_area_range TEXT, approximate_age TEXT
   )`);
   const ins = sqlite.prepare(`INSERT INTO listings (listing_key, list_price, city, listing_url, brokerage_name,
-    photos, last_updated, source, transaction_type, property_subtype) VALUES (?, ?, 'Mississauga', '', 'TEST REALTY', '[]', ?, ?, ?, ?)`);
-  ins.run("HOME1", 850000, "2026-09-18T04", "PROPTX", "For Sale", "Detached");
-  ins.run("PARK1", 47800, "2026-09-18T03", "PROPTX", "For Sale", "Parking Space");
-  ins.run("DDF1", 800000, "2026-09-18T02", null, null, null);
-  ins.run("LEASE1", 3000, "2026-09-18T01", "PROPTX", "For Lease", "Detached");
+    photos, last_updated, source, transaction_type, property_subtype, standard_status) VALUES (?, ?, 'Mississauga', '', 'TEST REALTY', '[]', ?, ?, ?, ?, ?)`);
+  // standard_status + a fresh last_updated are part of the visibility contract
+  // (VISIBLE_LISTING_CLAUSE in db.js, 2026-09-22).
+  const FRESH = new Date().toISOString();
+
+  ins.run("HOME1", 850000, FRESH, "PROPTX", "For Sale", "Detached", "Active");
+  ins.run("PARK1", 47800, FRESH, "PROPTX", "For Sale", "Parking Space", "Active");
+  ins.run("DDF1", 800000, FRESH, null, null, null, null);
+  ins.run("LEASE1", 3000, FRESH, "PROPTX", "For Lease", "Detached", "Active");
 
   const worker = (await import(pathToFileURL(path.join(SRC_DIR, "index.js")).href)).default;
   async function get(qs) {

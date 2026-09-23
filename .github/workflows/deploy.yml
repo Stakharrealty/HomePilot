@@ -23,7 +23,7 @@ jobs:
           node-version: "22"
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Start local static server (for module-load and smoke tests)
         run: |
@@ -36,8 +36,22 @@ jobs:
       - name: Functional smoke test
         run: npm run test:smoke
 
-      - name: Regression suite (245 tests)
+      - name: Regression suite
         run: npm run test
+
+      # Dense monotonicity + minimum-down-payment invariants for the
+      # affordability engine. The regression suite samples down payments at
+      # {25k,50k,100k,150k,200k} and steps straight over the discontinuity at
+      # 33k-34k, so it reported those properties as holding while they were
+      # false. This one samples densely.
+      - name: Affordability engine invariants
+        run: npm run test:engine-invariants
+
+      # The insights Worker was an open, unauthenticated Anthropic proxy whose
+      # content guardrails lived client-side, where any caller could drop them.
+      # This asserts they are enforced server-side and the abuse paths stay shut.
+      - name: Insights worker hardening
+        run: npm run test:insights-hardening
 
       - name: Listings CI suite
         run: npm run test:listings-ci
@@ -82,6 +96,21 @@ jobs:
           cp disclaimer.html deploy/
           cp calculator.html deploy/
           cp -r src deploy/
+          # Build stamp (added 2026-09-22, audit): nothing in the deployed site
+          # said what version it was. There was no commit SHA, no build time, no
+          # version string anywhere in the HTML or JS, so the only way to know
+          # what production was running was to guess from the deploy history.
+          # Served as a static file, so it needs no page changes and cannot 404
+          # a script tag: curl https://myhomepilot.ca/build-info.json
+          cat > deploy/build-info.json << BUILDINFO
+          {
+            "commit": "${GITHUB_SHA}",
+            "ref": "${GITHUB_REF_NAME}",
+            "builtAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "runId": "${GITHUB_RUN_ID}"
+          }
+          BUILDINFO
+          echo "Deploying ${GITHUB_SHA} (${GITHUB_REF_NAME})"
           # Google Maps browser key — injected from repo secrets at build time so
           # the key is never stored in the repository. The key is referrer-locked
           # to myhomepilot.ca in Google Cloud. If the secret is unset, the map

@@ -21,9 +21,16 @@ separate, harmless Worker instead.
 found alongside its `wrangler.jsonc` in his local project files.
 
 - Live at: `homepilot-listings.stakharrealty.workers.dev`
-- Purpose: Stage 1 connectivity test for the CREA DDF (MLS listings) feed.
-  Exposes `/test` and `/metadata` endpoints to prove the DDF credentials and
-  API connection work, ahead of building real listing storage/display.
+- Purpose (**description corrected 2026-09-22, audit** — this said "Stage 1
+  connectivity test for the CREA DDF feed, exposes `/test` and `/metadata`",
+  which has been wrong since the PropTx migration): the production listings
+  API and ingest pipeline. Serves `/listings` and `/listing?key=` from a D1
+  database, and runs a cron every 2 minutes that pages the PropTx IDX feed
+  into that database from a saved cursor. Has its own migrations
+  (`migrations/0001`–`0005`) and its own deploy workflow
+  (`.github/workflows/deploy-listings.yml`).
+- Requires the `PROPTX_IDX_TOKEN` secret. Without it the cron returns
+  immediately and nothing is ever ingested, with no error anywhere.
 - Confidence: **100% — this is the actual deployed code**, not a
   reconstruction.
 - Folder name is unchanged (`workers/homepilot-listings/`) since this is
@@ -160,6 +167,41 @@ persistent data of its own (no KV/DB), so accidentally invoking it would at
 worst make a stray real call to Anthropic's API using the real API key, if
 that secret were also set on the -RECONSTRUCTED Worker (it won't be unless
 someone deliberately configures it).
+
+### ⚠ ACTION REQUIRED — the live Worker is still unhardened (2026-09-22 audit)
+
+The audit found the live `homepilot-insights` Worker is an **open,
+unauthenticated proxy to Anthropic**: it validates only that `body.prompt` is
+truthy and forwards it verbatim with the API key. Two consequences:
+
+1. Anyone can use the endpoint as a free Claude API billed to the HomePilot
+   Anthropic account. No rate limit, no origin check, no token. CORS does not
+   help — it restricts browsers, not `curl`.
+2. Every content guardrail (no commute times, no crime claims, no school
+   rankings, no price predictions, no demographic framing) lives **client-side
+   in `src/ai.js`**, inside a string the caller controls. A caller who does not
+   want them simply does not send them.
+
+The reconstruction in this folder has been hardened — server-side guardrails,
+origin + prompt-shape checks, and a per-IP rate limit, all covered by
+`tests/insights_worker_hardening_test.js`. **That fix is not live.** These
+changes only reach production when someone deploys this Worker, and deploying
+it means accepting the reconstruction as the source of truth, because the real
+source was never recovered.
+
+Two options, in order of preference:
+
+- **Recover the live source first.** `wrangler deployments list` plus the
+  Cloudflare dashboard may let you download the deployed bundle. Diff it
+  against this file, port the hardening onto the real source, deploy that.
+- **Adopt the reconstruction.** Rename the folder and the `wrangler.jsonc`
+  `name` back to `homepilot-insights`, set `ANTHROPIC_API_KEY`, deploy, and
+  confirm the city-insights panel still works on the live site. The outside
+  contract is verified by the client's own tests, so the risk is contained —
+  but it is a real cutover, not a no-op.
+
+Until one of those happens, the cheapest interim mitigation is a Cloudflare
+Rate Limiting rule on the Worker's route, which needs no deploy at all.
 
 ---
 

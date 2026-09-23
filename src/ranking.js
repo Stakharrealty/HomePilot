@@ -79,9 +79,15 @@ function getAnglePicks(cities) {
   const PLBL  = {detached:'Detached',semi:'Semi-Detached',town:'Townhouse',condo:'Condo'};
 
   // Attach commute + best qualifying type to every city
+  // hasZone added 2026-09-22: getWorkZone() now returns null instead of
+  // silently defaulting an unresolved work location to downtown Toronto. When
+  // no zone resolved we have no commute to measure, so cities are ranked on
+  // affordability alone — exactly the remote path — rather than every city
+  // being dropped for having a null commute (which would empty the picks).
+  const hasZone = workArrangement !== 'remote' && !!workZone;
   const enriched = cities.map(function(x) {
-    var cm = workArrangement !== 'remote' ? calcCommuteMinutes(x.n) : 0;
-    if(workArrangement !== 'remote' && cm === null) return null;
+    var cm = hasZone ? calcCommuteMinutes(x.n) : 0;
+    if(hasZone && cm === null) return null;
     // Find best qualifying type (highest type under buyPower + <45% burden)
     var bestType = null, bestPrice = null, bestCost = null, bestBurden = 1;
     var lowestBurden = 1, lowestType = null, lowestPrice = null, lowestCost = null;

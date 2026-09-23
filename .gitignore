@@ -14,3 +14,14 @@ src/maps-key.js
 # OS / editor noise
 .DS_Store
 Thumbs.db
+
+# Local investigation dumps from the PropTx/DDF field probes — raw feed
+# samples and page captures, kept out of the repo (audit, 2026-09-22).
+hpage_*.json
+*-result.json
+*-meta.json
+listings-*.json
+listing-keys.txt
+/files/
+/homepilot-worker/
+/HOMEPILOT MVP Regression Files/

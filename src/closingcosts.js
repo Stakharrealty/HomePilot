@@ -35,7 +35,20 @@ function calcLTT(price,isToronto,ftb){
   const provRebate=ftb?Math.min(provincial,4000):0,provNet=Math.max(0,provincial-provRebate);
   let municipal=0,muniRebate=0;
   if(isToronto){
-    if(price<=55000)municipal=price*0.005;else if(price<=250000)municipal=275+(price-55000)*0.010;else if(price<=400000)municipal=2225+(price-250000)*0.015;else if(price<=2000000)municipal=4475+(price-400000)*0.020;else municipal=36475+(price-2000000)*0.025;
+    // Toronto MLTT. The luxury tiers above $3M were added by the City of
+    // Toronto effective January 1, 2024 and were missing here (audit,
+    // 2026-09-22) — everything over $2M was charged a flat 2.5%, understating
+    // the municipal tax on high-value homes by six figures at the top end.
+    if(price<=55000)municipal=price*0.005;
+    else if(price<=250000)municipal=275+(price-55000)*0.010;
+    else if(price<=400000)municipal=2225+(price-250000)*0.015;
+    else if(price<=2000000)municipal=4475+(price-400000)*0.020;
+    else if(price<=3000000)municipal=36475+(price-2000000)*0.025;
+    else if(price<=4000000)municipal=61475+(price-3000000)*0.035;
+    else if(price<=5000000)municipal=96475+(price-4000000)*0.045;
+    else if(price<=10000000)municipal=141475+(price-5000000)*0.055;
+    else if(price<=20000000)municipal=416475+(price-10000000)*0.065;
+    else municipal=1066475+(price-20000000)*0.075;
     muniRebate=ftb?Math.min(municipal,4475):0;
   }
   const muniNet=Math.max(0,municipal-muniRebate);

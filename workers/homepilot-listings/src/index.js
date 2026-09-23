@@ -50,109 +50,27 @@ export default {
 
     try {
 
-      // ONE-TIME (2026-09-18): checks whether `listings` has a UNIQUE
-      // constraint/index on listing_key before running any upsert logic
-      // against it -- the planned ingest module relies on
-      // ON CONFLICT(listing_key), which requires one to exist. Read-only.
-      if (url.pathname === "/proptx-check-unique-constraint") {
-        const indexes = await env.DB.prepare("PRAGMA index_list(listings)").all();
-        const indexDetails = [];
-        for (const idx of indexes.results || []) {
-          const info = await env.DB.prepare(`PRAGMA index_info(${idx.name})`).all();
-          indexDetails.push({ name: idx.name, unique: idx.unique, columns: (info.results || []).map(c => c.name) });
-        }
-        return new Response(JSON.stringify({ indexes: indexDetails }, null, 2), {
-          headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
-        });
-      }
-
-      // ONE-TIME (2026-09-18): checks how many rows actually made it into
-      // D1 before the /proptx-ingest-test-mississauga run hit Cloudflare's
-      // Error 1102 (Worker exceeded resource limits) -- upserts that
-      // completed before the timeout are NOT rolled back, so this tells us
-      // whether the run made partial progress or failed before writing
-      // anything. Read-only.
-      if (url.pathname === "/proptx-check-partial-ingest") {
-        const count = await env.DB.prepare(
-          "SELECT COUNT(*) as n FROM listings WHERE city = 'Mississauga' AND source = 'PROPTX'"
-        ).first();
-        const sample = await env.DB.prepare(
-          "SELECT listing_key, list_price, list_office_name, tax_annual_amount, source FROM listings WHERE city = 'Mississauga' AND source = 'PROPTX' LIMIT 5"
-        ).all();
-        return new Response(JSON.stringify({
-          mississaugaPropTxRowsWritten: count.n,
-          sampleRows: sample.results,
-        }, null, 2), { headers: { "Content-Type": "application/json", ...corsHeaders(origin) } });
-      }
-
-      // TEMPORARY (2026-09-18): read-only census of every PropertySubType
-      // label PropTx uses for active residential for-sale listings -- see
-      // proptx-census.js. Feeds the home-type sorting and non-home
-      // blocking fixes. Never touches D1. Delete with the other /proptx-*
-      // test routes.
-      if (url.pathname === "/proptx-subtype-census") {
-        const census = await runSubtypeCensus(env.PROPTX_IDX_TOKEN);
-        return new Response(JSON.stringify(census, null, 2), {
-          headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
-        });
-      }
-
-      // /proptx-investigate (square footage/lot/year-built/MLS#/rental-item
-      // field investigation, 2026-09-22) was temporary and read-only -- see
-      // proptx-investigate.js, now removed along with this route per the
-      // investigation's own completion (findings captured in chat/report,
-      // not left running).
-
-      // ONE-TIME (2026-09-18): summarizes what the first real PropTx page
-      // actually saved -- transaction type (sale vs lease), property
-      // subtype, and how the existing condo/town/semi/detached
-      // classification treats these rows. Checks whether leases/commercial
-      // slipped in and whether the DDF-era type filters work on PropTx
-      // data. Read-only.
-      if (url.pathname === "/proptx-first-page-summary") {
-        const total = await env.DB.prepare("SELECT COUNT(*) as n FROM listings WHERE source='PROPTX'").first();
-        const byTxn = await env.DB.prepare("SELECT transaction_type, COUNT(*) as n FROM listings WHERE source='PROPTX' GROUP BY transaction_type").all();
-        const bySub = await env.DB.prepare("SELECT property_subtype, COUNT(*) as n FROM listings WHERE source='PROPTX' GROUP BY property_subtype").all();
-        const visible = await getListingsByCity(env.DB, "Mississauga", 50, null, 0, null);
-        const typeCounts = {};
-        for (const l of (visible.listings || visible || [])) {
-          typeCounts[l.propertyType] = (typeCounts[l.propertyType] || 0) + 1;
-        }
-        const samples = await env.DB.prepare("SELECT listing_key, list_price, transaction_type, property_subtype, structure_type, list_office_name, tax_annual_amount, association_fee, latitude, longitude FROM listings WHERE source='PROPTX' LIMIT 25").all();
-        return new Response(JSON.stringify({
-          totalPropTxRows: total.n,
-          byTransactionType: byTxn.results,
-          byPropertySubtype: bySub.results,
-          howSiteClassifiesThem: typeCounts,
-          rows: samples.results,
-        }, null, 2), { headers: { "Content-Type": "application/json", ...corsHeaders(origin) } });
-      }
-
-      // Read-only progress check for the automatic PropTx ingest (see
-      // proptx-auto-ingest.js). Replaces the old manual
-      // /proptx-ingest-test-mississauga route (removed 2026-09-18 -- the
-      // cron now does that work). Temporary; remove with the other
-      // /proptx-* routes once ingest is settled.
-      if (url.pathname === "/proptx-ingest-status") {
-        await ensureStateTable(env.DB);
-        const states = await env.DB.prepare("SELECT * FROM proptx_ingest_state ORDER BY city").all();
-        const cities = [];
-        for (const city of AUTO_INGEST_CITIES) {
-          const q = (where) => env.DB.prepare(
-            `SELECT COUNT(*) AS n FROM listings WHERE ${cityMatchClause(city).sql} AND source = 'PROPTX' AND transaction_type = 'For Sale' AND ${where}`
-          ).bind(...cityMatchClause(city).binds).first();
-          const homes = await q(SHOWN_HOMES_CLAUSE);
-          const nonHomesStillInDb = await q(`NOT (${SHOWN_HOMES_CLAUSE})`);
-          const byButton = {};
-          for (const [button, clause] of Object.entries(PROPERTY_TYPE_FILTERS)) {
-            byButton[button] = (await q(`${SHOWN_HOMES_CLAUSE} AND ${clause}`)).n;
-          }
-          cities.push({ city, homesInDb: homes.n, byButton, nonHomesStillInDb: nonHomesStillInDb.n });
-        }
-        return new Response(JSON.stringify({ progress: states.results || [], database: cities }, null, 2), {
-          headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
-        });
-      }
+      // REMOVED 2026-09-22 (audit). Six unauthenticated diagnostic routes lived
+      // here: /proptx-check-unique-constraint, /proptx-check-partial-ingest,
+      // /proptx-subtype-census, /proptx-first-page-summary and
+      // /proptx-ingest-status. Their own comments marked them ONE-TIME and
+      // TEMPORARY ("delete with the other /proptx-* test routes"); they were
+      // still public and still serving.
+      //
+      // They exposed the listings table index schema, row counts, raw listing
+      // rows with brokerage names, tax amounts and coordinates, and ingest
+      // error strings. /proptx-subtype-census was the serious one: it called
+      // PropTx API on EVERY request using PROPTX_IDX_TOKEN, turning an
+      // anonymous HTTP request into a third-party call on a metered,
+      // contractually-limited feed -- a free quota-exhaustion path.
+      // /proptx-ingest-status ran roughly six D1 queries per configured city
+      // per request.
+      //
+      // CORS did not protect any of them: it restricts browsers, not curl.
+      //
+      // Ingest progress is still readable with `wrangler d1 execute` against
+      // the proptx_ingest_state table. If a status route is wanted again, put
+      // it behind a bearer secret rather than making it public.
 
       // /test, /metadata, /field-probe, /ingest-probe, /ingest were CREA/DDF
       // diagnostic and ingest routes -- removed 2026-09-18 along with the
@@ -309,7 +227,10 @@ export default {
         status: 404, headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
       });
     } catch (err) {
-      return new Response(JSON.stringify({ error: err.message || String(err) }), {
+      // The real error goes to the Worker log, never to the caller: D1 error
+      // messages can carry SQL fragments and schema detail (audit, 2026-09-22).
+      console.error("homepilot-listings request failed:", err && err.stack ? err.stack : err);
+      return new Response(JSON.stringify({ error: "Something went wrong. Please try again shortly." }), {
         status: 500, headers: { "Content-Type": "application/json", ...corsHeaders(origin) },
       });
     }

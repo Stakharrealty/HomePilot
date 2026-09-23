@@ -86,10 +86,20 @@ async function main() {
   const sql1 = calls1[0].sql;
   const args1 = calls1[0].args;
   check("with searchBudget: SQL includes 'AND list_price <= ?'", /AND list_price <= \?/.test(sql1), sql1);
+  // Bind order gained a freshness cutoff between the city and the budget on
+  // 2026-09-22 (VISIBLE_LISTING_CLAUSE in db.js). Order still matters
+  // absolutely: D1 binds positionally and silently returns the wrong rows if
+  // it is wrong.
   check(
-    "with searchBudget: bind args are in correct positional order (city, budget*1.10, limit, offset)",
-    args1[0] === "Mississauga" && Math.abs(args1[1] - 990000) < 0.001 && args1[2] === 24 && args1[3] === 0,
+    "with searchBudget: bind args are in correct positional order (city, cutoff, budget*1.10, limit, offset)",
+    args1.length === 5 && args1[0] === "Mississauga" && typeof args1[1] === "string"
+      && Math.abs(args1[2] - 990000) < 0.001 && args1[3] === 24 && args1[4] === 0,
     JSON.stringify(args1)
+  );
+  check(
+    "the freshness cutoff bind is a real ISO timestamp in the past",
+    !Number.isNaN(Date.parse(args1[1])) && Date.parse(args1[1]) < Date.now(),
+    String(args1[1])
   );
 
   const calls2 = [];
@@ -98,8 +108,9 @@ async function main() {
   const args2 = calls2[0].args;
   check("WITHOUT searchBudget: SQL does NOT include a price clause", !/list_price <=/.test(sql2), sql2);
   check(
-    "WITHOUT searchBudget: bind args unchanged from before this fix (city, limit, offset only)",
-    args2.length === 3 && args2[0] === "Mississauga" && args2[1] === 24 && args2[2] === 0,
+    "WITHOUT searchBudget: bind args are city, cutoff, limit, offset (no budget bind)",
+    args2.length === 4 && args2[0] === "Mississauga" && typeof args2[1] === "string"
+      && args2[2] === 24 && args2[3] === 0,
     JSON.stringify(args2)
   );
 

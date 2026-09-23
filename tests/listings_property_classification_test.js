@@ -98,14 +98,18 @@ const CENSUS = [
     tax_annual_amount REAL, tax_year INTEGER, association_fee REAL, association_fee_frequency TEXT,
     garage_type TEXT, basement TEXT, cooling TEXT, heat_type TEXT, mls_number TEXT, listed_date TEXT, virtual_tour_url TEXT, parking_spaces INTEGER,
     latitude REAL, longitude REAL,
-    property_subtype TEXT, source TEXT, transaction_type TEXT,
+    property_subtype TEXT, source TEXT, transaction_type TEXT, standard_status TEXT,
     lot_width REAL, lot_depth REAL, lot_size_source TEXT, living_area_range TEXT, approximate_age TEXT
   )`);
   const ins = sqlite.prepare(`INSERT INTO listings (listing_key, list_price, city, listing_url, brokerage_name, photos,
-    last_updated, property_subtype, source, transaction_type) VALUES (?, 500000, 'Seedville', '', 'B', '[]', '2026-09-18', ?, 'PROPTX', 'For Sale')`);
+    last_updated, property_subtype, source, transaction_type, standard_status) VALUES (?, 500000, 'Seedville', '', 'B', '[]', ?, ?, 'PROPTX', 'For Sale', 'Active')`);
+  // standard_status + a fresh last_updated are part of the visibility contract
+  // (VISIBLE_LISTING_CLAUSE in db.js, 2026-09-22).
+  const FRESH = new Date().toISOString();
+
   let seq = 0;
   sqlite.exec("BEGIN");
-  for (const [label, count] of CENSUS) for (let i = 0; i < count; i++) ins.run(`S${seq++}`, label);
+  for (const [label, count] of CENSUS) for (let i = 0; i < count; i++) ins.run(`S${seq++}`, FRESH, label);
   sqlite.exec("COMMIT");
   const total = CENSUS.reduce((a, [, n]) => a + n, 0);
   check(`seeded ${total} rows at real census scale`, seq === total);
@@ -155,11 +159,11 @@ const CENSUS = [
   const e2e = new DatabaseSync(":memory:");
   e2e.exec(sqlite.prepare("SELECT sql FROM sqlite_master WHERE name='listings'").get().sql);
   const ins2 = e2e.prepare(`INSERT INTO listings (listing_key, list_price, city, listing_url, brokerage_name, photos,
-    last_updated, property_subtype, source, transaction_type) VALUES (?, ?, 'Mississauga', '', 'B', '[]', ?, ?, 'PROPTX', 'For Sale')`);
-  ins2.run("W12943244", 47800, "2026-09-18T01", "Parking Space");  // real row from the first page
-  ins2.run("W12326045", 2880000, "2026-09-18T02", "Detached");     // real row
-  ins2.run("SEMI1", 900000, "2026-09-18T03", "Semi-Detached ");
-  ins2.run("DUP1", 1200000, "2026-09-18T04", "Duplex");
+    last_updated, property_subtype, source, transaction_type, standard_status) VALUES (?, ?, 'Mississauga', '', 'B', '[]', ?, ?, 'PROPTX', 'For Sale', 'Active')`);
+  ins2.run("W12943244", 47800, FRESH, "Parking Space");  // real row from the first page
+  ins2.run("W12326045", 2880000, FRESH, "Detached");     // real row
+  ins2.run("SEMI1", 900000, FRESH, "Semi-Detached ");
+  ins2.run("DUP1", 1200000, FRESH, "Duplex");
   const d1 = {
     prepare(sql) { let a = []; const st = { bind(...x) { a = x; return st; }, async all() { return { results: e2e.prepare(sql).all(...a) }; } }; return st; },
   };

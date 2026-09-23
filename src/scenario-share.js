@@ -37,7 +37,14 @@ async function shareScenario() {
     const data = await res.json().catch(() => ({ ok: false }));
     if(!data.ok || !data.id) throw new Error('save_failed');
 
-    const url = 'https://myhomepilot.ca' + '?s=' + data.id;
+    // Points at calculator.html, not the site root (fixed 2026-09-22, audit).
+    // index.html became a marketing page with no calculator form on it, and
+    // loadScenarioFromURL() lost its only call site in the same change — so
+    // every share link generated since then landed on a page that ignored the
+    // ?s= parameter entirely. The feature looked like it worked (the button
+    // said "Copied!") while doing nothing, and it still wrote the buyer's
+    // income, debt and work postal code to KV for 180 days on every click.
+    const url = 'https://myhomepilot.ca/calculator.html?s=' + data.id;
     const shareText = "Here's my home buying scenario — take a look and tell me what you think";
     // Use native share sheet on mobile (WhatsApp, iMessage, etc.)
     if(navigator.share) {
@@ -110,7 +117,14 @@ async function loadScenarioFromURL() {
     if(p.rate && p.rate !== DEFAULT_MORTGAGE_RATE_PCT) {
       customMortgageRate = p.rate / 100;
     }
-    // Auto-run after a tick so DOM is ready
-    setTimeout(() => go(), 100);
+    // Auto-run after a tick so DOM is ready.
+    // Routed through requestCalculation() rather than go() (2026-09-22): the
+    // consent gate lives on the button, and a shared link is still a first
+    // visit for whoever opens it. Falls back to go() on any page that doesn't
+    // load consent.js, which is the pre-gate behaviour.
+    setTimeout(() => {
+      if (typeof requestCalculation === 'function') requestCalculation();
+      else go();
+    }, 100);
   } catch(e) { /* invalid or missing — ignore silently */ }
 }
