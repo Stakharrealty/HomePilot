@@ -111,6 +111,21 @@ function toggle(id){
   }
 }
 
+// Links to #cities and #listings (the nav's "Cities", the footer's "City
+// Discovery", "Listings" and city names) used to point at anchors that did not
+// exist anywhere (REVIEW_BACKLOG.md P0-4). They now land on the FAQ answers
+// about coverage and listings; this opens the answer they land on.
+function openFaqFromHash(){
+  const id = (window.location.hash || '').slice(1);
+  if(!id) return;
+  const item = document.getElementById(id);
+  if(!item || !item.classList || !item.classList.contains('faq-item') || item.classList.contains('open')) return;
+  const btn = item.querySelector('.faq-q');
+  if(btn) toggleFaq(btn);
+}
+window.addEventListener('hashchange', openFaqFromHash);
+document.addEventListener('DOMContentLoaded', openFaqFromHash);
+
 function toggleFaq(btn){
   // Accordion: clicking an open question closes it; clicking a closed one
   // opens it and closes any other currently-open item (matches v0's

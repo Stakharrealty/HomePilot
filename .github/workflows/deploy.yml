@@ -80,6 +80,12 @@ jobs:
       - name: Results outcome tests
         run: npm run test:results-outcomes
 
+      # The homepage says nothing the product does not back up, in any of its
+      # seven languages, and its example is the engine's real output
+      # (IMPROVEMENT_PLAN.md 1.3).
+      - name: Homepage claims test
+        run: npm run test:homepage-claims
+
       # Everything above must exit 0 or the workflow stops here —
       # GitHub Actions fails the whole run on the first non-zero exit,
       # so this step is unreachable unless all 4 suites passed.
