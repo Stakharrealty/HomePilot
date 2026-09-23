@@ -44,6 +44,9 @@ jobs:
       - name: City coverage test (all 49 cities reachable, ingest capacity)
         run: node --no-warnings tests/listings_city_coverage_test.js
 
+      - name: Price floor test ($1 sort-gaming listings never reach a buyer)
+        run: node --no-warnings tests/listings_price_floor_test.js
+
       - name: Pre-deploy tests (no network required)
         run: |
           node tests/listing_verified_seal_removed_test.js
