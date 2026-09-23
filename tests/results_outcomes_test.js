@@ -56,6 +56,10 @@ function search(win, b) {
   d.getElementById("fam").value = String(b.family || 3);
   d.getElementById("area").value = "all";
   win.eval(`setFTB(${b.firstTime === true})`);
+  // 2026-09-23 (IMPROVEMENT_PLAN.md 1.7): the rebate box and residency.
+  const box = d.getElementById("lttRebate");
+  if (box) { box.checked = b.neverOwnedAnywhere === true; win.eval(`setLttRebateConfirmed(${b.neverOwnedAnywhere === true})`); }
+  win.eval(`setResident(${b.resident !== false})`);
   win.eval(`setWorkArrangement(${JSON.stringify(b.work)})`);
   if (b.work !== "remote") {
     d.getElementById("workCity").value = b.workCity || "Toronto";
@@ -213,6 +217,41 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
   check("(7k) remote: no 'Shortest commute' sort, no commute limit", win.document.getElementById("sort-commute").style.display === "none" && win.eval("maxCommuteMin") === null);
   check("(7l) the property list uses the one fit function: no '<35 / <=45' leftovers in the page code",
     !/pct<35\)\{fitLbl='Great Fit'/.test(win.eval("render.toString()+selectPropType.toString()")));
+
+  // =============== 9. newcomers: the rebate and non-resident taxes (1.7) ===============
+  // Opens one Toronto city's cost breakdown the way a buyer taps it.
+  const breakdown = (city, type) => {
+    const id = "c-" + city.replace(/[^a-zA-Z0-9]/g, "-");
+    win.eval(`selectPropType(${JSON.stringify(id)}, ${JSON.stringify(type)}, ${JSON.stringify(city)})`);
+    const panel = win.document.getElementById("pt-panel-" + id + "-" + type);
+    return panel ? panel.textContent : "";
+  };
+  const cash = (text) => Number((/Estimated Cash Required to Close~\$([\d,]+)/.exec(text) || [])[1].replace(/,/g, ""));
+  const TOR = { income: 200000, down: 150000, debt: 0, family: 3, work: "remote" };
+  search(win, { ...TOR, firstTime: true, neverOwnedAnywhere: false });
+  check("(9a) the rebate box appears only for a first-time buyer, unticked", win.document.getElementById("ltt_rebate_row").style.display === "flex" && !win.document.getElementById("lttRebate").checked);
+  const torType = win.eval("PT['Toronto - Scarborough'].condo") ? "condo" : "town";
+  const newcomer = breakdown("Toronto - Scarborough", torType);
+  check("(9b) first-time buyer who hasn't confirmed never owning a home anywhere: no rebate in cash to close, and the panel says why",
+    !/First-Time Buyer Rebate/.test(newcomer) && /rebate not included/.test(newcomer), newcomer.slice(-400));
+  search(win, { ...TOR, firstTime: true, neverOwnedAnywhere: true });
+  const eligible = breakdown("Toronto - Scarborough", torType);
+  const rebate = Number((/First-Time Buyer Rebate-\$([\d,]+)/.exec(eligible) || [0, "0"])[1].replace(/,/g, ""));
+  check("(9c) confirmed and resident: Ontario + Toronto rebates, up to $8,475, come off cash to close",
+    rebate > 4000 && rebate <= 8475 && cash(newcomer) - cash(eligible) === rebate, `${rebate} / ${cash(newcomer)} vs ${cash(eligible)}`);
+  search(win, { ...TOR, firstTime: true, neverOwnedAnywhere: true, resident: false });
+  const nonRes = breakdown("Toronto - Scarborough", torType);
+  const price = win.eval(`PT['Toronto - Scarborough'][${JSON.stringify(torType)}]`);
+  check("(9d) non-resident: Ontario's 25% and Toronto's 10% are in cash to close, and no rebate",
+    nonRes.includes("Ontario Non-Resident Speculation Tax (25%)$" + Math.round(price * 0.25).toLocaleString("en-CA"))
+      && nonRes.includes("Toronto Non-Resident Speculation Tax (10%)$" + Math.round(price * 0.10).toLocaleString("en-CA"))
+      && !/First-Time Buyer Rebate/.test(nonRes), nonRes.slice(0, 600));
+  check("(9e) ...and the results say most non-Canadians can't buy yet", /January 1, 2027/.test(win.document.getElementById("bpSub").textContent));
+  win.eval("saveBuyerProfile()");
+  const saved = JSON.parse(win.sessionStorage.getItem("hp_buyer_profile_v1"));
+  check("(9f) the listing pages get the same answers (no rebate, non-resident)", saved.lttRebateEligible === false && saved.canadianResident === false);
+  search(win, { ...TOR, firstTime: false });
+  check("(9g) not a first-time buyer: the rebate box is hidden and unticked", win.document.getElementById("ltt_rebate_row").style.display === "none" && win.eval("lttRebateConfirmed") === false);
 
   check("(8) no uncaught script errors during any of this", errors.length === 0, errors.join(" | "));
 

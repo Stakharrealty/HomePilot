@@ -23,11 +23,53 @@ function checkDebtSanity(){
   const looksTooHigh = dbtVal > 0 && monthlyIncome > 0 && dbtVal > monthlyIncome*0.20;
   warnEl.style.display = looksTooHigh ? 'block' : 'none';
 }
-function setFTB(val){
-  firstTimeBuyer=val;const yes=document.getElementById('ftb-yes'),no=document.getElementById('ftb-no');
+// Paints a Yes/No button pair.
+function paintYesNo(yesId, noId, val){
+  const yes=document.getElementById(yesId),no=document.getElementById(noId);
+  if(!yes||!no)return;
   if(val){yes.style.background='#1D9E75';yes.style.color='#fff';yes.style.borderColor='#1D9E75';no.style.background='#fff';no.style.color='#555';no.style.borderColor='#e8e8e8';}
   else{no.style.background='#1D9E75';no.style.color='#fff';no.style.borderColor='#1D9E75';yes.style.background='#fff';yes.style.color='#555';yes.style.borderColor='#e8e8e8';}
 }
+function setFTB(val){
+  firstTimeBuyer=val;paintYesNo('ftb-yes','ftb-no',val);
+  // The land transfer tax rebate question only means anything for a
+  // first-time buyer (see lttRebateApplies below).
+  const row=document.getElementById('ltt_rebate_row');if(row)row.style.display=val?'flex':'none';
+  if(!val){lttRebateConfirmed=false;const cb=document.getElementById('lttRebate');if(cb)cb.checked=false;}
+}
+function setLttRebateConfirmed(val){ lttRebateConfirmed=val===true; }
+function setResident(val){ canadianResident=val===true; paintYesNo('res-yes','res-no',canadianResident); }
+
+// ── WHO GETS WHAT (added 2026-09-23, IMPROVEMENT_PLAN.md 1.7) ─────────────
+// "First-time buyer" means two different things, and the app used one answer
+// for both:
+//   - The 30-year insured amortization uses the federal definition, which a
+//     newcomer who owned a flat abroad years ago can still meet.
+//   - The land transfer tax rebates are stricter. Ontario's refund (up to
+//     $4,000) and Toronto's (up to $4,475) both require that the buyer has
+//     NEVER owned a home anywhere in the world, that their spouse has not
+//     either while married to them, and that the buyer is a Canadian citizen
+//     or permanent resident (or becomes one within 18 months).
+//     Sources, checked 2026-09-23: ontario.ca "Land transfer tax refunds for
+//     first-time homebuyers"; toronto.ca "MLTT & MNRST rebate opportunities".
+// So a newcomer who once owned a home abroad was shown a rebate of up to
+// $4,000 ($8,475 in Toronto) they would not receive, deducted from their
+// cash to close. The rebate now applies only when the buyer confirms both.
+function lttRebateApplies(isFirstTime, neverOwnedAnywhere, citizenOrPR){
+  return isFirstTime===true && neverOwnedAnywhere===true && citizenOrPR!==false;
+}
+
+// Non-resident speculation taxes, paid by foreign nationals (anyone who is not
+// a Canadian citizen or permanent resident). Checked 2026-09-23:
+//   - Ontario NRST: 25% of the price, province-wide, since October 25, 2022
+//     (ontario.ca "Non-Resident Speculation Tax").
+//   - Toronto MNRST: a further 10%, since January 1, 2025 (toronto.ca).
+// Both exempt Ontario Immigrant Nominee Program nominees, protected persons,
+// and foreign nationals buying with a citizen or PR spouse, and both rebate
+// buyers who become permanent residents within four years. The app cannot
+// know which applies, so it shows the tax and says so.
+const ONTARIO_NRST_RATE = 0.25;
+const TORONTO_MNRST_RATE = 0.10;
 
 function calcLTT(price,isToronto,ftb){
   let provincial=0;
@@ -55,9 +97,15 @@ function calcLTT(price,isToronto,ftb){
   return{provincial,provRebate,provNet,municipal,muniRebate,muniNet,total:provNet+muniNet,totalRebate:provRebate+muniRebate};
 }
 
-function calcClosingCosts(cityName,price,ftb){
+// `ftb` here means "the first-time buyer rebates apply" -- callers decide that
+// with lttRebateApplies() above, not with the bare first-time answer.
+// opts.foreignBuyer (added 2026-09-23): the buyer is not a Canadian citizen or
+// permanent resident, so the non-resident speculation taxes apply.
+function calcClosingCosts(cityName,price,ftb,opts){
   const torontoCities=['Toronto - Downtown','Toronto - West End','Toronto - East End','Toronto - North York','Toronto - Etobicoke','Toronto - Scarborough'];
-  const isToronto=torontoCities.includes(cityName),ltt=calcLTT(price,isToronto,ftb);
+  const foreignBuyer=!!(opts&&opts.foreignBuyer);
+  // A foreign buyer is never eligible for the first-time rebates.
+  const isToronto=torontoCities.includes(cityName),ltt=calcLTT(price,isToronto,ftb&&!foreignBuyer);
   // Legal fees scale with price (more complex transactions cost more)
   const legal=price>=1000000?3000:price>=700000?2500:2000;
   const titleIns=Math.round(price*0.0006); // ~0.06% of purchase price, min $400
@@ -65,8 +113,10 @@ function calcClosingCosts(cityName,price,ftb){
   const inspection=price>=800000?600:500;
   const moving=price>=800000?2500:2000;
   const adjustments=1500;
-  const total=ltt.total+legal+titleInsAdj+inspection+moving+adjustments;
-  return{ltt,legal,titleIns:titleInsAdj,inspection,moving,adjustments,total,isToronto};
+  const nrst=foreignBuyer?Math.round(price*ONTARIO_NRST_RATE):0;
+  const mnrst=foreignBuyer&&isToronto?Math.round(price*TORONTO_MNRST_RATE):0;
+  const total=ltt.total+legal+titleInsAdj+inspection+moving+adjustments+nrst+mnrst;
+  return{ltt,legal,titleIns:titleInsAdj,inspection,moving,adjustments,nrst,mnrst,foreignBuyer,total,isToronto};
 }
 
 function toggleCC(id){

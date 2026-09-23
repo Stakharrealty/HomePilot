@@ -197,9 +197,15 @@ function ldClosingCosts(listing, profile) {
   const cityForLtt = ldIsTorontoListing(listing) && !/^Toronto - /.test(market.n)
     ? "Toronto - Downtown"
     : market.n;
-  const cc = calcClosingCosts(cityForLtt, price, profile.firstTimeBuyer === true);
+  // Rebate only when the buyer confirmed they qualify; non-resident taxes when
+  // they are not a citizen or PR (2026-09-23, closingcosts.js). A bare
+  // first-time answer is not enough for the rebate.
+  const cc = calcClosingCosts(cityForLtt, price, profile.lttRebateEligible === true, { foreignBuyer: profile.canadianResident === false });
   const effectiveDn = Math.min(profile.downPayment, price);
-  return { ...cc, effectiveDn, cashRequired: effectiveDn + cc.total };
+  // A first-time, resident buyer who has not confirmed the rebate rules: the
+  // page says why no rebate is shown.
+  const firstTimeNoRebate = profile.firstTimeBuyer === true && profile.lttRebateEligible !== true && profile.canadianResident !== false;
+  return { ...cc, effectiveDn, cashRequired: effectiveDn + cc.total, firstTimeNoRebate };
 }
 
 // The fit tier for a listing whose costs are already computed, or null when

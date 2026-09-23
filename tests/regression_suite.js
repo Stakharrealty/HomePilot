@@ -201,6 +201,18 @@ suite('Core');
   const kingCityCount = run(`(function(){ var r = rankCities([M.find(c=>c.n==='King City')], {}); return r.ranked.length + r.stretchOnly.length; })()`);
   t('rankCities handles a city with sparse PT data without crashing', typeof kingCityCount === 'number');
   run('firstTimeBuyer=false;');
+
+  // Who gets the land transfer tax rebates, and who pays the non-resident
+  // taxes (2026-09-23, IMPROVEMENT_PLAN.md 1.7; sources in closingcosts.js).
+  t('rebate: first-time AND never owned anywhere AND citizen/PR, nothing less',
+    run('lttRebateApplies(true,true,true)') === true && run('lttRebateApplies(true,false,true)') === false
+    && run('lttRebateApplies(true,true,false)') === false && run('lttRebateApplies(false,true,true)') === false);
+  const nr = run(`calcClosingCosts('Toronto - Scarborough', 800000, true, {foreignBuyer:true})`);
+  t('non-resident in Toronto: 25% Ontario NRST + 10% Toronto MNRST, and no rebate', nr.nrst === 200000 && nr.mnrst === 80000 && nr.ltt.totalRebate === 0);
+  const nrOut = run(`calcClosingCosts('Hamilton', 800000, false, {foreignBuyer:true})`);
+  t('non-resident outside Toronto: 25% only', nrOut.nrst === 200000 && nrOut.mnrst === 0);
+  const res = run(`calcClosingCosts('Toronto - Scarborough', 800000, true)`);
+  t('resident, eligible: no speculation tax, rebates up to $8,475 in Toronto', res.nrst === 0 && res.mnrst === 0 && res.ltt.totalRebate === 8475);
 }
 {
   const gapInc=145000, gapDn=50800;

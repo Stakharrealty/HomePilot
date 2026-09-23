@@ -924,7 +924,7 @@ select{
 }
 
 /* ── FTB TOGGLE BUTTONS ──────────────────────────────────────── */
-#ftb-yes,#ftb-no{
+#ftb-yes,#ftb-no,#res-yes,#res-no{
   flex:1;padding:10px;
   border-radius:999px;
   font-family:var(--font);
@@ -1403,7 +1403,21 @@ select{
       <button id="ftb-yes" onclick="setFTB(true)" style="flex:1;padding:10px;border-radius:999px;border:1.5px solid #E4E7EC;background:#fff;color:#3D4555;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;font-family:var(--font)">Yes</button>
       <button id="ftb-no" onclick="setFTB(false)" style="flex:1;padding:10px;border-radius:999px;border:1.5px solid #1D9E75;background:#1D9E75;color:#fff;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;font-family:var(--font)">No</button>
     </div>
-    <div style="font-size:11px;color:#9CA3AF;margin-top:6px">First-time buyers may qualify for land transfer tax rebates</div>
+    <div style="font-size:11px;color:#9CA3AF;margin-top:6px" id="ftb_hint">First-time buyers may qualify for a 30-year mortgage and land transfer tax rebates</div>
+    <!-- The rebates have a stricter rule than the 30-year mortgage (2026-09-23, IMPROVEMENT_PLAN.md 1.7;
+         see closingcosts.js). Unticked by default, so no rebate is shown to someone who owned a home abroad. -->
+    <label id="ltt_rebate_row" style="display:none;align-items:flex-start;gap:8px;margin-top:10px;font-size:12.5px;color:#3D4555;line-height:1.45;cursor:pointer">
+      <input type="checkbox" id="lttRebate" onchange="setLttRebateConfirmed(this.checked)" style="margin-top:2px;flex-shrink:0">
+      <span id="ltt_lbl">Neither I nor my spouse has ever owned a home, anywhere in the world (including outside Canada)</span>
+    </label>
+  </div>
+  <div class="card" id="residencyCard">
+    <div class="lbl" id="res_lbl">Are you a Canadian citizen or permanent resident?</div>
+    <div style="display:flex;gap:10px;margin-top:8px">
+      <button id="res-yes" onclick="setResident(true)" style="flex:1;padding:10px;border-radius:999px;border:1.5px solid #1D9E75;background:#1D9E75;color:#fff;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;font-family:var(--font)">Yes</button>
+      <button id="res-no" onclick="setResident(false)" style="flex:1;padding:10px;border-radius:999px;border:1.5px solid #E4E7EC;background:#fff;color:#3D4555;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;font-family:var(--font)">No</button>
+    </div>
+    <div style="font-size:11px;color:#9CA3AF;margin-top:6px" id="res_hint">If not: extra taxes apply, and most non-Canadians can't buy a home here until 2027.</div>
   </div>
   <div class="card">
     <label class="lbl" style="display:flex;align-items:center;gap:6px;">

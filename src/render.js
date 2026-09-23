@@ -277,7 +277,9 @@ function selectPropType(cityId, tp, cityName) {
   const net   = (netMonthlyIncome || grossMonthlyIncome * 0.72) || 1; // guard: never zero
   const remaining = net - c.total;
   const burdenPct = net > 0 ? Math.round(c.total / net * 100) : 0;
-  const cc    = calcClosingCosts(cityName, price, firstTimeBuyer);
+  // Rebate only when the buyer confirmed they qualify, and non-resident taxes
+  // when they are not a citizen or PR (2026-09-23, closingcosts.js).
+  const cc    = calcClosingCosts(cityName, price, buyerLttRebateApplies(), { foreignBuyer: canadianResident === false });
   const effectiveDn = Math.min(dn_selected, price); // cash-rich buyer: can't put more down than the price
   const cashToClose = effectiveDn + cc.total;
   const PLBL  = {condo:'Condo',town:'Townhouse',semi:'Semi-Detached',detached:'Detached'};
@@ -341,13 +343,18 @@ function selectPropType(cityId, tp, cityName) {
   html += row('Down Payment', fc(dn_selected));
   html += row('Provincial Land Transfer Tax', fc(cc.ltt.provNet));
   if(cc.isToronto) html += row('Toronto Land Transfer Tax', fc(cc.ltt.muniNet));
-  if(firstTimeBuyer && cc.ltt.totalRebate > 0) html += row('First-Time Buyer Rebate', '-' + fc(cc.ltt.totalRebate), '#1D9E75');
+  if(cc.ltt.totalRebate > 0) html += row('First-Time Buyer Rebate', '-' + fc(cc.ltt.totalRebate), '#1D9E75');
+  if(cc.nrst > 0) html += row('Ontario Non-Resident Speculation Tax (25%)', fc(cc.nrst), '#C05A00');
+  if(cc.mnrst > 0) html += row('Toronto Non-Resident Speculation Tax (10%)', fc(cc.mnrst), '#C05A00');
   html += row('Legal Fees', '~' + fc(cc.legal));
   html += row('Title Insurance', '~' + fc(cc.titleIns));
   html += row('Home Inspection', '~' + fc(cc.inspection));
   html += row('Moving Costs', '~' + fc(cc.moving));
   html += row('Adjustments', '~' + fc(cc.adjustments));
   html += totalRow('Estimated Cash Required to Close', '~' + fc(cashToClose), '#1a1a1a');
+  if(firstTimeBuyer && canadianResident !== false && !buyerLttRebateApplies()) {
+    html += '<div class="ltt-rebate-note" style="font-size:11px;color:#6B5A1E;background:#FBF6E6;border-radius:8px;padding:8px 10px;margin-top:8px;line-height:1.5">First-time buyer land transfer tax rebate not included. It applies only if neither you nor your spouse has ever owned a home anywhere in the world, and you are a Canadian citizen or permanent resident. Tick the box under the first-time buyer question if that is you.</div>';
+  }
 
 
   html += '<div style="font-size:10px;color:#aaa;margin-top:10px;line-height:1.6">Estimates only — actual costs vary by transaction. New builds: HST may apply.</div>';

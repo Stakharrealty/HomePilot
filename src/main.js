@@ -39,6 +39,19 @@ let workZone = null;
 //                        buyer saw (REVIEW_BACKLOG.md P0-3).
 let maxCommuteMin = null, maxCommuteTouched = false, resultsSort = 'home', showOverCommute = false, shownCards = [];
 
+// Two answers the land transfer tax depends on (added 2026-09-23,
+// IMPROVEMENT_PLAN.md 1.7; the rules and their sources are in closingcosts.js):
+//   lttRebateConfirmed -- the buyer ticked "neither I nor my spouse has ever
+//                         owned a home, anywhere in the world". Off until
+//                         they do, so no rebate is shown to someone who
+//                         owned a home abroad.
+//   canadianResident   -- citizen or permanent resident. When false, the
+//                         non-resident speculation taxes apply, the rebates
+//                         don't, and the results say most non-Canadians
+//                         cannot buy yet.
+let lttRebateConfirmed = false, canadianResident = true;
+function buyerLttRebateApplies(){ return lttRebateApplies(firstTimeBuyer, lttRebateConfirmed, canadianResident); }
+
 function setWorkArrangement(type) {
   workArrangement = type;
   const sel = document.getElementById('waSelect');
@@ -206,6 +219,19 @@ function go(){
             `<div style="font-size:12px;font-weight:700;margin-bottom:3px">Your savings are the limit here, not your income</div>`+
             `<div style="font-size:12px;opacity:0.9;line-height:1.5">On your income you could qualify for up to <b>${fc(incomeCapBP)}</b>. `+
             `A home at that price needs a larger down payment than you have — about <b>${fc(downPaymentShortfall)} more saved</b> would get you there.</div>`+
+          `</div>`
+        : ``)+
+      // Non-residents (added 2026-09-23, IMPROVEMENT_PLAN.md 1.7). The federal
+      // ban on non-Canadians buying homes runs until January 1, 2027, with
+      // exceptions (e.g. work-permit holders with 183+ days left; CMHC,
+      // checked 2026-09-23). Ontario's 25% NRST and Toronto's 10% MNRST are
+      // added to cash to close in each city's breakdown.
+      (canadianResident===false
+        ? `<div id="nonResidentNote" style="margin-top:12px;background:rgba(255,255,255,0.18);border-radius:10px;padding:10px 12px;border-left:3px solid rgba(255,255,255,0.55)">`+
+            `<div style="font-size:12px;font-weight:700;margin-bottom:3px">If you're not a Canadian citizen or permanent resident</div>`+
+            `<div style="font-size:12px;opacity:0.9;line-height:1.5">Most non-Canadians can't buy a home in Canada until at least January 1, 2027 (a federal ban). Some are exempt — for example, many work-permit holders with at least 183 days left on their permit. `+
+            `If you can buy, Ontario charges a 25% non-resident speculation tax on the price, plus 10% in Toronto; it's included in each city's cash to close below, though some buyers are exempt or can get it back. `+
+            `Lenders also treat non-residents differently, so the figures above may be too high. Speak to a real estate lawyer before you make an offer.</div>`+
           `</div>`
         : ``);
     const stressRateDisplay=(getStressRate(customMortgageRate)*100).toFixed(2)+'%';

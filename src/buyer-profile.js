@@ -29,6 +29,10 @@ function readLiveBuyerProfile() {
       familySize: typeof fam_selected !== "undefined" ? fam_selected : "3",
       existingDebt: typeof existingDebt !== "undefined" ? existingDebt : 0,
       firstTimeBuyer: typeof firstTimeBuyer !== "undefined" ? firstTimeBuyer === true : false,
+      // The land transfer tax rebates and non-resident taxes (2026-09-23,
+      // closingcosts.js): the rebate only when the buyer confirmed they qualify.
+      lttRebateEligible: typeof buyerLttRebateApplies === "function" ? buyerLttRebateApplies() === true : false,
+      canadianResident: typeof canadianResident !== "undefined" ? canadianResident !== false : true,
       mortgageRate: typeof customMortgageRate !== "undefined" ? customMortgageRate : null,
       savedAt: Date.now(),
     };
@@ -69,6 +73,9 @@ function loadBuyerProfile() {
       familySize: String(fam),
       existingDebt: num(p.existingDebt, 0, 1e8) ? p.existingDebt : 0,
       firstTimeBuyer: p.firstTimeBuyer === true,
+      // Missing on a profile saved before 2026-09-23: no rebate, resident.
+      lttRebateEligible: p.lttRebateEligible === true,
+      canadianResident: p.canadianResident !== false,
       mortgageRate: rate,
     };
   } catch (e) {

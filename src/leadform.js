@@ -49,6 +49,8 @@ async function sub(){
     existingMonthlyDebt:debtVal,
     familySize:fam_selected,
     firstTimeBuyer:firstTimeBuyer,
+    neverOwnedAnywhere:lttRebateConfirmed,   // 2026-09-23: decides the LTT rebates
+    canadianResident:canadianResident,       // 2026-09-23: NRST / federal ban
     workCity:workCityVal,
     workArrangement:workArrangement,
     bankBuyingPower:buyPower,

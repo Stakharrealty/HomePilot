@@ -24,6 +24,9 @@ function setLang(l){
   const mcLbl=document.getElementById('mc_lbl');if(mcLbl)mcLbl.textContent=t.mc_lbl||"Longest commute you'd accept (one way)";
   const mcSel=document.getElementById('maxCommute');
   if(mcSel)[...mcSel.options].forEach(o=>{o.text=o.value==='none'?(t.mc_none||'No limit'):o.value+' '+(t.mc_min||'minutes');});
+  // First-time buyer, rebate and residency questions (translated from 2026-09-23).
+  [['ftb_lbl','ftb_lbl'],['ftb_hint','ftb_hint'],['ltt_lbl','ltt_lbl'],['res_lbl','res_lbl'],['res_hint','res_hint'],
+   ['ftb-yes','yes'],['ftb-no','no'],['res-yes','yes'],['res-no','no']].forEach(([id,k])=>{const el=document.getElementById(id);if(el&&t[k])el.textContent=t[k];});
   const waSelectEl=document.getElementById('waSelect');
   if(waSelectEl&&waSelectEl.options.length>=3){
     waSelectEl.options[0].text=t.wa_remote||'Remote';
