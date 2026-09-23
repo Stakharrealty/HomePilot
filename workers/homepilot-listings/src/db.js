@@ -1,5 +1,6 @@
 import { BUTTON_TYPES, SHOWN_SUBTYPES, subtypesForButton, sqlInList } from "./home-types.js";
 import { isDistrictCode, regionForCity } from "./toronto-districts.js";
+import { cardForCommunity } from "./communities.js";
 
 // homepilot-listings — db module
 // D1 read path (getListingsByCity) and property-type classification logic
@@ -193,22 +194,38 @@ export function idxCappedLimit(limit, offset) {
 // matches all of them (and a bare "Toronto" row if one ever exists).
 // `districts` (optional, Toronto only) narrows to one sub-region card's
 // TRREB district codes via the city_district column; codes are validated
-// and inlined as literals, never user input. Returns the SQL plus the
-// positional binds it needs (none for Toronto, one for everyone else).
-export function cityMatchClause(city, districts = null) {
+// and inlined as literals, never user input.
+// `communities` (optional) narrows to one community card's own
+// neighbourhoods within a municipality that holds several -- Acton and
+// Georgetown inside Halton Hills, King City inside King, Bradford inside
+// Bradford West Gwillimbury. Bound as parameters, not inlined. See
+// communities.js for where the values come from.
+// Returns the SQL plus the positional binds it needs, in placeholder order.
+export function cityMatchClause(city, districts = null, communities = null) {
+  let sql, binds;
   if (city === "Toronto") {
     const base = "(city = 'Toronto' OR city LIKE 'Toronto %')";
     if (Array.isArray(districts) && districts.length > 0) {
       const codes = districts.filter(isDistrictCode);
       if (codes.length !== districts.length) throw new Error("Invalid Toronto district code");
-      return { sql: `${base} AND city_district IN (${codes.map((c) => `'${c}'`).join(", ")})`, binds: [] };
+      sql = `${base} AND city_district IN (${codes.map((c) => `'${c}'`).join(", ")})`;
+      binds = [];
+    } else {
+      sql = base;
+      binds = [];
     }
-    return { sql: base, binds: [] };
+  } else {
+    sql = "city = ?";
+    binds = [city];
   }
-  return { sql: "city = ?", binds: [city] };
+  if (Array.isArray(communities) && communities.length > 0) {
+    sql += ` AND community IN (${communities.map(() => "?").join(", ")})`;
+    binds = [...binds, ...communities];
+  }
+  return { sql, binds };
 }
 
-const LISTING_COLUMNS = `listing_key, list_price, city, postal_code, bedrooms, bathrooms,
+const LISTING_COLUMNS = `listing_key, list_price, city, community, postal_code, bedrooms, bathrooms,
               parking_total, parking_spaces, listing_url, brokerage_name, photos, last_updated,
               public_remarks, display_address, year_built, lot_size_area, lot_size_units,
               tax_annual_amount, tax_year, association_fee, association_fee_frequency,
@@ -226,8 +243,8 @@ function buildDerivedTypeCase() {
     END AS derived_property_type`;
 }
 
-export async function getListingsByCity(db, city, limit = 20, propertyType = null, offset = 0, searchBudget = null, districts = null) {
-  const cityMatch = cityMatchClause(city, districts);
+export async function getListingsByCity(db, city, limit = 20, propertyType = null, offset = 0, searchBudget = null, districts = null, communities = null) {
+  const cityMatch = cityMatchClause(city, districts, communities);
   const typeClause = propertyType && PROPERTY_TYPE_FILTERS[propertyType]
     ? ` AND ${PROPERTY_TYPE_FILTERS[propertyType]}`
     : "";
@@ -280,10 +297,14 @@ function mapListingRow(row) {
     listingKey: row.listing_key,
     listPrice: row.list_price,
     city: row.city,
-    // HomePilot's own market name for this listing ("Toronto - North York"
-    // for a "Toronto C07" row; null outside Toronto). Lets the detail page
-    // pick the right city record for its cost math.
-    cityRegion: regionForCity(row.city),
+    // HomePilot's own market name for this listing: "Toronto - North York"
+    // for a "Toronto C07" row, and "Acton" for a Halton Hills row whose
+    // community is Acton. Lets the detail page pick the right city record
+    // for its cost math -- without this, an Acton listing would be costed
+    // against Halton Hills and a King City listing against nothing at all,
+    // since the app has no "King" record. Null when the row's own city is
+    // already the card name (Hamilton, Guelph, Halton Hills itself).
+    cityRegion: regionForCity(row.city) || cardForCommunity(row.city, row.community),
     postalCode: row.postal_code,
     bedrooms: row.bedrooms,
     bathrooms: row.bathrooms,

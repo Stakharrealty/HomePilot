@@ -101,7 +101,17 @@ function makeFakePropTx(log, failPages = new Set()) {
 
 (async () => {
   const auto = await import(pathToFileURL(path.join(SRC_DIR, "proptx-auto-ingest.js")).href);
-  check("scope is Mississauga, Hamilton, Guelph, Toronto (Toronto last)", JSON.stringify(auto.AUTO_INGEST_CITIES) === JSON.stringify(["Mississauga", "Hamilton", "Guelph", "Toronto"]));
+  // Order is load-bearing, not cosmetic: a run works through this list until
+  // its time budget is spent, so every small city must come before Toronto
+  // (~9x Mississauga) or a Toronto refresh starves them. Halton Hills, King
+  // and Bradford West Gwillimbury are municipalities, not cards -- they carry
+  // the Acton, Georgetown, King City and Bradford cards (see communities.js).
+  check("scope is the 7 ingested cities, small ones first and Toronto last",
+    JSON.stringify(auto.AUTO_INGEST_CITIES) === JSON.stringify(
+      ["Mississauga", "Hamilton", "Guelph", "Halton Hills", "King", "Bradford West Gwillimbury", "Toronto"]),
+    JSON.stringify(auto.AUTO_INGEST_CITIES));
+  check("Toronto is last so its refresh cannot starve the small cities",
+    auto.AUTO_INGEST_CITIES[auto.AUTO_INGEST_CITIES.length - 1] === "Toronto");
   // The behavior checks below exercise one city at a time so page sequences stay readable.
   const ONE_CITY = { cities: ["Mississauga"] };
 

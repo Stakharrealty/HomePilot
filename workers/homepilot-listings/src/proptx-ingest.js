@@ -1,5 +1,6 @@
 import { classifySubtype } from "./home-types.js";
 import { parseTorontoDistrict } from "./toronto-districts.js";
+import { normalizeCommunity } from "./communities.js";
 // homepilot-listings — PropTx IDX ingest module
 // Pulls Active listings from PropTx's RESO Web API (query.ampre.ca) for a
 // given city and upserts them into the `listings` D1 table with
@@ -85,6 +86,13 @@ const PROPERTY_SELECT_FIELDS = [
   // ApproximateAge is 41% populated (the correct building-age field --
   // YearBuilt is confirmed 0% across the full 1,090-listing sample).
   "LotWidth", "LotDepth", "LotSizeSource", "LivingAreaRange", "ApproximateAge",
+  // CityRegion (migration 0006). PropTx names the community within the
+  // municipality here -- the only field that tells an Acton listing apart
+  // from a Georgetown one, since both are stored as City = "Halton Hills".
+  // Confirmed live 2026-09-22: populated on 100% of the 689 Active homes in
+  // Halton Hills, King and Bradford West Gwillimbury (zero nulls). See
+  // communities.js for the values and why they are normalized before storage.
+  "CityRegion",
 ].join(",");
 
 /**
@@ -183,6 +191,9 @@ export function mapPropertyToRow(p) {
     city: p.City ?? null,
     // Bare TRREB district code for Toronto rows ("C07"); NULL elsewhere.
     city_district: parseTorontoDistrict(p.City),
+    // Community within the municipality, normalized ("1045 - AC Acton" ->
+    // "Acton"). NULL when PropTx sends nothing usable. See communities.js.
+    community: normalizeCommunity(p.CityRegion),
     postal_code: p.PostalCode ?? null,
     display_address: p.UnparsedAddress ?? null,
     bedrooms: p.BedroomsTotal ?? null,

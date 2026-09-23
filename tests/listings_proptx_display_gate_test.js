@@ -54,7 +54,7 @@ function makeSqliteD1(sqlite, log) {
 
   const sqlite = new DatabaseSync(":memory:");
   sqlite.exec(`CREATE TABLE listings (
-    listing_key TEXT PRIMARY KEY, list_price REAL, city TEXT, postal_code TEXT,
+    listing_key TEXT PRIMARY KEY, list_price REAL, city TEXT, community TEXT, postal_code TEXT,
     bedrooms INTEGER, bathrooms INTEGER, parking_total INTEGER, listing_url TEXT,
     brokerage_name TEXT, photos TEXT, last_updated TEXT, public_remarks TEXT,
     display_address TEXT, year_built INTEGER, lot_size_area REAL, lot_size_units TEXT,

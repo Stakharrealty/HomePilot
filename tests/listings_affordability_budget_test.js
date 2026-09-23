@@ -188,7 +188,7 @@ async function main() {
   );
   // Updated 2026-09-18: the route now passes cappedLimit (PropTx Article
   // 6.3(b), 100 per search) instead of the raw limit.
-  check("index.js passes searchBudget into getListingsByCity", /getListingsByCity\(env\.DB, city, cappedLimit, propertyType, offset, searchBudget, torontoDistricts\)/.test(indexSrc));
+  check("index.js passes searchBudget into getListingsByCity", /getListingsByCity\(env\.DB, city, cappedLimit, propertyType, offset, searchBudget, torontoDistricts, communities\)/.test(indexSrc));
 
   // --- 8. listings-display.js: fetchListings/openListingsWindow wiring ---
   const displaySrc = fs.readFileSync(path.join(__dirname, "..", "src", "listings-display.js"), "utf8");

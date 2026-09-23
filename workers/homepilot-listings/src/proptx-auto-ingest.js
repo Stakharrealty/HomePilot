@@ -19,8 +19,9 @@
 //     stops until the next refresh window restarts it
 //
 // Scope: Mississauga, Hamilton, Guelph, Toronto (Toronto uses its own
-// startswith filter -- see buildCityFilter() in proptx-ingest.js). More
-// cities get added here as each is verified.
+// startswith filter -- see buildCityFilter() in proptx-ingest.js), plus
+// Halton Hills, King and Bradford West Gwillimbury. More cities get added
+// here as each is verified.
 
 import { ingestCityPage } from "./proptx-ingest.js";
 
@@ -28,7 +29,20 @@ import { ingestCityPage } from "./proptx-ingest.js";
 // budget is spent, so the small cities go before Toronto (~9x Mississauga)
 // and a Toronto refresh can never starve them. Each city resumes from its
 // saved cursor, so Toronto spreads across many cron firings by design.
-export const AUTO_INGEST_CITIES = ["Mississauga", "Hamilton", "Guelph", "Toronto"];
+// Three of these are MUNICIPALITIES that a HomePilot card resolves to
+// through CITY_ALIASES, not city names the app shows: Halton Hills carries
+// the Acton and Georgetown cards, King carries King City, and Bradford West
+// Gwillimbury carries Bradford. Ingesting the municipality is the only way
+// those cards get any listings at all -- PropTx has no rows under the card
+// names themselves (confirmed live 2026-09-22: City eq 'Acton',
+// 'Georgetown', 'King City' and 'Bradford' each return exactly 0, while the
+// three municipalities return 263, 243 and 183). The read path narrows each
+// card back down to its own community -- see communities.js.
+export const AUTO_INGEST_CITIES = [
+  "Mississauga", "Hamilton", "Guelph",
+  "Halton Hills", "King", "Bradford West Gwillimbury",
+  "Toronto",
+];
 export const MAX_PAGES_PER_RUN = 20;
 export const TIME_BUDGET_MS = 20000;
 export const MAX_CONSECUTIVE_ERRORS = 5;

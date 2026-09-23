@@ -23,7 +23,22 @@ function check(name, ok, detail) {
   const list = auto.AUTO_INGEST_CITIES;
   check("Mississauga, Hamilton, Guelph, Toronto are all ingested", ["Mississauga", "Hamilton", "Guelph", "Toronto"].every((c) => list.includes(c)), list.join());
   check("Toronto is last, so its refresh can't starve the small cities", list[list.length - 1] === "Toronto");
-  check("every ingested city is a known HomePilot city", list.every((c) => cities.HOMEPILOT_CITIES.includes(c)));
+  // An ingested name is either a city the app shows, or a PropTx MUNICIPALITY
+  // that a shown city resolves to through CITY_ALIASES ("Halton Hills" carries
+  // the Acton and Georgetown cards, "King" carries King City, "Bradford West
+  // Gwillimbury" carries Bradford). Anything else is a typo that would ingest
+  // nothing and go unnoticed.
+  const aliasTargets = new Set(Object.values(cities.CITY_ALIASES));
+  check("every ingested city is a HomePilot city or a municipality one aliases to",
+    list.every((c) => cities.HOMEPILOT_CITIES.includes(c) || aliasTargets.has(c)),
+    list.filter((c) => !cities.HOMEPILOT_CITIES.includes(c) && !aliasTargets.has(c)).join());
+  // The regression this rollout exists to prevent: a card aliased to a
+  // municipality nobody ingests is not "empty right now", it is empty forever.
+  const comms = await load("communities.js");
+  for (const card of Object.keys(comms.CITY_COMMUNITIES)) {
+    const muni = cities.CITY_ALIASES[card];
+    check(card + " resolves to " + muni + ", which is actually ingested", list.includes(muni));
+  }
 
   // --- ingest filters
   const dec = (c) => decodeURIComponent(ing.buildCityFilter(c));
@@ -88,7 +103,9 @@ function check(name, ok, detail) {
   check("SQL injection through a district code is rejected", threw);
 
   const idx = fs.readFileSync(path.join(SRC, "index.js"), "utf8");
-  check("index.js passes the sub-region districts into the query", /districtsForRegion\(requestedCity\)/.test(idx) && /searchBudget, torontoDistricts\)/.test(idx));
+  check("index.js passes the sub-region districts into the query", /districtsForRegion\(requestedCity\)/.test(idx) && /searchBudget, torontoDistricts, communities\)/.test(idx));
+  check("index.js passes the community narrowing into the query too",
+    idx.includes("communitiesForCity(requestedCity)") && idx.includes("torontoDistricts, communities)"));
   // The ingest-status route that used to call cityMatchClause(city) was one of
   // the six unauthenticated diagnostic routes removed on 2026-09-22. What still
   // matters is that cityMatchClause remains the single place Toronto matching
