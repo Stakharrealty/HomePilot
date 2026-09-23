@@ -119,7 +119,9 @@ function _comparatorFor(sort, commuteKnown) {
 //   onlyType   -- a home type the buyer filtered to, or null for all types.
 // Returns:
 //   ranked      -- cities with a comfortable home, in order. Each shows the
-//                  most home the buyer can comfortably afford there.
+//                  most home the buyer can comfortably afford there -- or,
+//                  sorted by 'cost', the cheapest home they can comfortably
+//                  afford there.
 //   stretchOnly -- cities the bank would lend for, but where nothing is
 //                  comfortable; each shows its cheapest option, lowest cost first.
 //   overCommute -- cities past the commute limit, shortest drive first. Never
@@ -133,6 +135,8 @@ function rankCities(cities, opts) {
   const commuteKnown = workArrangement !== 'remote' && !!workZone;
   const limit = commuteKnown && Number.isFinite(o.maxCommute) && o.maxCommute > 0 ? o.maxCommute : null;
   const net = netMonthlyIncome || grossMonthlyIncome * 0.72;
+  // Decided before the loop: the sort also picks which home each card leads with.
+  const sort = RESULT_SORTS.includes(o.sort) && (o.sort !== 'commute' || commuteKnown) ? o.sort : 'home';
   const ranked = [], stretchOnly = [], overCommute = [];
   const seen = new Set();
   for (const city of cities || []) {
@@ -140,9 +144,16 @@ function rankCities(cities, opts) {
     seen.add(city.n);
     const options = types.map((t) => qualifyingOption(city, t)).filter(Boolean);
     if (!options.length) continue;
-    // Most home first: HOME_ORDER puts detached first, so the first
-    // comfortable option is the most home; the last option is the cheapest.
-    const comfortable = options.find(isComfortable) || null;
+    // Which comfortable home a card leads with depends on the sort. "Most
+    // home" and "shortest commute" lead with the most home (HOME_ORDER puts
+    // detached first). "Lowest monthly cost" leads with the cheapest. Until
+    // 2026-09-23 it led with the most home too, and sorted by that, so a
+    // place with a $2,426 condo ranked below a condo-only place at $2,916.
+    const comfortableOpts = options.filter(isComfortable);
+    const comfortable = !comfortableOpts.length ? null
+      : sort === 'cost' ? comfortableOpts.reduce((a, b) => (b.costs.total < a.costs.total ? b : a))
+      : comfortableOpts[0];
+    // Nothing comfortable: the last option in HOME_ORDER, the cheapest type.
     const chosen = comfortable || options[options.length - 1];
     const commuteMin = commuteKnown ? commuteEstimateMin(city.n) : null;
     const entry = {
@@ -154,7 +165,6 @@ function rankCities(cities, opts) {
     else if (comfortable) ranked.push(entry);
     else stretchOnly.push(entry);
   }
-  const sort = RESULT_SORTS.includes(o.sort) && (o.sort !== 'commute' || commuteKnown) ? o.sort : 'home';
   ranked.sort(_comparatorFor(sort, commuteKnown));
   stretchOnly.sort(_comparatorFor('cost', commuteKnown));
   overCommute.sort(_comparatorFor('commute', true));
@@ -164,7 +174,7 @@ function rankCities(cities, opts) {
 // The rule in force, in one sentence, for the line above the results.
 function rankRuleSentence(sort, commuteKnown) {
   if (sort === 'commute') return 'Ranked by shortest estimated drive to work, then the most home you can comfortably afford.';
-  if (sort === 'cost') return 'Ranked by lowest monthly cost.';
+  if (sort === 'cost') return 'Ranked by lowest monthly cost: each place shows the cheapest home you can comfortably afford there.';
   return commuteKnown
     ? 'Ranked by the most home you can comfortably afford, shortest commute first.'
     : 'Ranked by the most home you can comfortably afford, lowest monthly cost first.';

@@ -31,7 +31,7 @@ const SRC = path.join(__dirname, "..", "workers", "homepilot-listings", "src");
 
 (async () => {
   // "King City" is both an ingest city and an alias, so de-duplicate.
-  const PUBLIC_CITY_NAMES = [...new Set((await import(pathToFileURL(path.join(SRC, "cities.js")).href).PUBLIC_CITY_NAMES)];
+  const PUBLIC_CITY_NAMES = [...new Set((await import(pathToFileURL(path.join(SRC, "cities.js")).href)).PUBLIC_CITY_NAMES)];
   const { MIN_LISTING_PRICE } = await import(pathToFileURL(path.join(SRC, "db.js")).href);
 
   const problems = [];

@@ -81,3 +81,12 @@ function estimateOntarioNetAnnual(grossAnnual){
 
   return Math.max(0,g-(fed+ont+surtax+ohp+cpp+cpp2+ei));
 }
+
+// Take-home pay for a household of one or two earners (added 2026-09-23,
+// IMPROVEMENT_PLAN.md 3.3). Canada taxes each person separately, so two people
+// earning $65K each keep about $560 a month more than one person earning
+// $130K. The calculator used to tax a couple's combined income as if one
+// person earned it all, which pushed every couple's "% of take-home" up.
+function estimateHouseholdNetAnnual(income1, income2){
+  return estimateOntarioNetAnnual(income1)+estimateOntarioNetAnnual(income2);
+}

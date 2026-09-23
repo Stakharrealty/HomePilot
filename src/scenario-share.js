@@ -15,7 +15,11 @@
 async function shareScenario() {
   try {
     const payload = {
-      inc:  parseFloat(document.getElementById('inc').value)  || 0,
+      // The household total (2026-09-23). The share service keeps only these
+      // seven fields and its code isn't in git, so the partner's income can't
+      // travel separately: the link keeps the right buying power, and the
+      // recipient's take-home is estimated as one earner, as before.
+      inc:  readIncomes().total,
       dn:   parseFloat(document.getElementById('dwn').value)  || 0,
       dbt:  parseFloat(document.getElementById('dbt').value)  || 0,
       fam:  document.getElementById('fam').value,
@@ -101,6 +105,9 @@ async function loadScenarioFromURL() {
     if(!p) return;
 
     if(p.inc)  document.getElementById('inc').value  = p.inc;
+    // The link carries the household total in one number, so a partner
+    // income typed earlier must not be added on top of it.
+    if(p.inc && document.getElementById('inc2')) document.getElementById('inc2').value = '';
     if(p.dn)   document.getElementById('dwn').value  = p.dn;
     if(p.dbt)  document.getElementById('dbt').value  = p.dbt || 0;
     if(p.fam)  document.getElementById('fam').value  = p.fam;
