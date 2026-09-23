@@ -521,6 +521,16 @@ select{
 .count{font-size:14px;color:var(--ink-soft);margin-bottom:14px;font-weight:500}
 .count span{color:var(--green);font-weight:700}
 
+/* ── RANKING RULE, NOTES, CARD HEADLINE (2026-09-23) ───────────── */
+.rank-notes{font-size:12.5px;color:var(--ink-soft);margin:-6px 0 14px;line-height:1.55}
+.rank-rule{font-weight:600;color:var(--ink-mid)}
+.rank-note{margin-top:3px}
+.link-btn{background:none;border:none;padding:0;color:var(--green);font-weight:700;font-size:inherit;cursor:pointer;text-decoration:underline;font-family:inherit}
+.card-headline{font-size:12.5px;color:var(--ink-mid);margin-top:3px;font-weight:600;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.fit-pill{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px}
+.more-section{margin-top:18px}
+.lead-field-err{display:none;color:#b91c1c;font-size:13px;margin-top:10px;text-align:center}
+
 /* ── FILTER PILLS ────────────────────────────────────────────── */
 .filters{display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap;align-items:center}
 .filter-group{margin-bottom:16px}
@@ -914,7 +924,7 @@ select{
 }
 
 /* ── FTB TOGGLE BUTTONS ──────────────────────────────────────── */
-#ftb-yes,#ftb-no{
+#ftb-yes,#ftb-no,#res-yes,#res-no{
   flex:1;padding:10px;
   border-radius:999px;
   font-family:var(--font);
@@ -1313,7 +1323,7 @@ select{
     </label>
     <div class="tooltip-box" id="dwn-tooltip">
       <div>The amount of cash you have saved and ready to put toward a home purchase.</div>
-      <div style="margin-top:4px">Minimum in Canada: 5% for homes under $500K, 10% for the portion between $500K–$999K, 20% for $1M+</div>
+      <div style="margin-top:4px">Minimum in Canada: 5% of the first $500K, 10% of the portion from $500K to $1.5M, and 20% of the whole price at $1.5M or more</div>
       <div style="margin-top:4px;color:#1D9E75;font-weight:600">More down payment = lower mortgage = lower monthly costs</div>
     </div>
     <input type="number" id="dwn" placeholder="e.g. 80000" min="0">
@@ -1350,6 +1360,19 @@ select{
         <label class="lbl" id="wp_lbl" style="margin-bottom:5px;">Work postal code <span style="color:#bbb;font-weight:400">(optional)</span></label>
         <input type="text" id="workPostal" placeholder="e.g. L6Y 0A1" maxlength="7" style="text-transform:uppercase;">
       </div>
+      <!-- A hard limit, not a weight (2026-09-23, IMPROVEMENT_PLAN.md 1.4): places past it are set
+           aside before ranking. Defaults to 60 for daily and 90 for hybrid (setWorkArrangement). -->
+      <div style="margin-top:10px;">
+        <label class="lbl" id="mc_lbl" for="maxCommute" style="margin-bottom:5px;">Longest commute you'd accept (one way)</label>
+        <select id="maxCommute" onchange="setMaxCommute(this.value)">
+          <option value="30">30 minutes</option>
+          <option value="45">45 minutes</option>
+          <option value="60">60 minutes</option>
+          <option value="75">75 minutes</option>
+          <option value="90">90 minutes</option>
+          <option value="none" selected>No limit</option>
+        </select>
+      </div>
     </div>
     <div style="font-size:11px;color:#9CA3AF;margin-top:8px;" id="wa_hint">Remote workers get recommendations ranked purely by affordability.</div>
   </div>
@@ -1380,7 +1403,21 @@ select{
       <button id="ftb-yes" onclick="setFTB(true)" style="flex:1;padding:10px;border-radius:999px;border:1.5px solid #E4E7EC;background:#fff;color:#3D4555;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;font-family:var(--font)">Yes</button>
       <button id="ftb-no" onclick="setFTB(false)" style="flex:1;padding:10px;border-radius:999px;border:1.5px solid #1D9E75;background:#1D9E75;color:#fff;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;font-family:var(--font)">No</button>
     </div>
-    <div style="font-size:11px;color:#9CA3AF;margin-top:6px">First-time buyers may qualify for land transfer tax rebates</div>
+    <div style="font-size:11px;color:#9CA3AF;margin-top:6px" id="ftb_hint">First-time buyers may qualify for a 30-year mortgage and land transfer tax rebates</div>
+    <!-- The rebates have a stricter rule than the 30-year mortgage (2026-09-23, IMPROVEMENT_PLAN.md 1.7;
+         see closingcosts.js). Unticked by default, so no rebate is shown to someone who owned a home abroad. -->
+    <label id="ltt_rebate_row" style="display:none;align-items:flex-start;gap:8px;margin-top:10px;font-size:12.5px;color:#3D4555;line-height:1.45;cursor:pointer">
+      <input type="checkbox" id="lttRebate" onchange="setLttRebateConfirmed(this.checked)" style="margin-top:2px;flex-shrink:0">
+      <span id="ltt_lbl">Neither I nor my spouse has ever owned a home, anywhere in the world (including outside Canada)</span>
+    </label>
+  </div>
+  <div class="card" id="residencyCard">
+    <div class="lbl" id="res_lbl">Are you a Canadian citizen or permanent resident?</div>
+    <div style="display:flex;gap:10px;margin-top:8px">
+      <button id="res-yes" onclick="setResident(true)" style="flex:1;padding:10px;border-radius:999px;border:1.5px solid #1D9E75;background:#1D9E75;color:#fff;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;font-family:var(--font)">Yes</button>
+      <button id="res-no" onclick="setResident(false)" style="flex:1;padding:10px;border-radius:999px;border:1.5px solid #E4E7EC;background:#fff;color:#3D4555;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;font-family:var(--font)">No</button>
+    </div>
+    <div style="font-size:11px;color:#9CA3AF;margin-top:6px" id="res_hint">If not: extra taxes apply, and most non-Canadians can't buy a home here until 2027.</div>
   </div>
   <div class="card">
     <label class="lbl" style="display:flex;align-items:center;gap:6px;">
@@ -1417,13 +1454,14 @@ select{
     <div class="bp-lbl" id="bp_lbl">Your estimated buying power</div>
     <div class="bp-val" id="bpV"></div>
     <div class="bp-sub" id="bpSub" style="font-size:13px;line-height:1.5"></div>
-    <div class="bp-sub" id="bp_sub_txt" style="margin-top:6px;opacity:0.7">This is the maximum home price you can qualify for. Tap any city below to see the full monthly cost breakdown.</div>
+    <div class="bp-sub" id="bp_sub_txt" style="margin-top:6px;opacity:0.7">This is an estimate of the most a lender might approve — not a pre-approval. Tap any city below to see the full monthly cost breakdown.</div>
     <div id="rateNote" style="font-size:11px;color:rgba(255,255,255,0.6);margin-top:6px;line-height:1.5">Based on 4.19% mortgage rate · Stress tested at 6.19% · Educational estimate only — not a mortgage pre-approval.</div>
   </div>
 
   <div class="results-section" id="res">
     <div class="sec-title" id="cities_title_el">Cities you can afford</div>
     <div class="count" id="cnt"></div>
+    <div class="rank-notes" id="rankNotes"></div>
     </div>
     <div class="filter-group" id="propFilterBar" style="display:none">
       <div class="filter-label">Property Type</div>
@@ -1433,6 +1471,15 @@ select{
         <button id="pt-town"     onclick="filtProp('town',this)"     class="fb">Townhomes</button>
         <button id="pt-semi"     onclick="filtProp('semi',this)"     class="fb">Semi-Detached</button>
         <button id="pt-detached" onclick="filtProp('detached',this)" class="fb">Detached</button>
+      </div>
+    </div>
+    <!-- One ranking, three orders (2026-09-23, IMPROVEMENT_PLAN.md 1.4). See rankCities() in src/ranking.js. -->
+    <div class="filter-group" id="sortBar" style="display:none">
+      <div class="filter-label">Sort by</div>
+      <div class="filters">
+        <button id="sort-home"    onclick="setResultsSort('home')"    class="fb on">Most home</button>
+        <button id="sort-commute" onclick="setResultsSort('commute')" class="fb">Shortest commute</button>
+        <button id="sort-cost"    onclick="setResultsSort('cost')"    class="fb">Lowest monthly cost</button>
       </div>
     </div>
     <div id="topPicks"></div>
@@ -1504,6 +1551,7 @@ select{
       <div id="scenarioResults" style="margin-top:16px"></div>
     </div>
     <div id="list"></div>
+    <div id="listMore"></div>
   </div>
 
   <button class="cmp-btn" id="cmpBtn" onclick="buildCompare()">📊 Compare Selected</button>
@@ -1520,8 +1568,8 @@ select{
   <div class="cap" id="cap">
     <h3 id="ctt">Ready to see real homes in your budget?</h3>
     <p id="ctp">Sandeep will send you a curated list of homes matching your budget across the cities that fit. No pressure, no spam — just real homes.</p>
-    <div class="fld"><label class="lbl" id="fn_lbl">Full name</label><input type="text" id="nm" placeholder="Your name"></div>
-    <div class="fld"><label class="lbl" id="em_lbl">Email address</label><input type="email" id="em" placeholder="you@email.com"></div>
+    <div class="fld"><label class="lbl" id="fn_lbl" for="nm">Full name</label><input type="text" id="nm" placeholder="Your name" required aria-required="true" autocomplete="name"></div>
+    <div class="fld"><label class="lbl" id="em_lbl" for="em">Email address</label><input type="email" id="em" placeholder="you@email.com" required aria-required="true" autocomplete="email"></div>
     <div class="fld"><label class="lbl" id="ph_lbl">Phone number</label><input type="tel" id="ph" placeholder="416-000-0000"></div>
     <div class="fld">
       <label class="lbl" id="q1_lbl">Are you currently renting or do you own?</label>
@@ -1543,6 +1591,7 @@ select{
       </select>
     </div>
     <button class="sub-btn" id="subBtn" onclick="showTransparencyModal()"><span id="st">Send me homes in my budget</span></button>
+    <p id="leadFieldErr" class="lead-field-err" role="alert"></p>
     <p id="leadErr" style="display:none;color:#b91c1c;font-size:13px;margin-top:10px;text-align:center;">Something went wrong sending your info. Please try again, or reach out directly.</p>
   </div>
 
@@ -1580,7 +1629,7 @@ select{
           <li><a href="/#cities">Hamilton</a></li>
           <li><a href="/#cities">Kitchener</a></li>
           <li><a href="/#cities">Barrie</a></li>
-          <li><a href="/#cities">London</a></li>
+          <li><a href="/#cities">Ottawa</a></li>
           <li><a href="/#cities">Oshawa</a></li>
           <li><a href="/#cities">Guelph</a></li>
         </ul>
@@ -1661,7 +1710,6 @@ select{
 <script src="src/utils.js"></script>
 <script src="src/closingcosts.js"></script>
 <script src="src/compare.js"></script>
-<script src="src/homepilot-score.js"></script>
 <script src="src/scenario-sandbox.js"></script>
 <script src="src/report.js"></script>
 <script src="src/ui-helpers.js"></script>
@@ -1721,7 +1769,7 @@ loadScenarioFromURL();
       <li><strong style="font-size:13px;color:#111318">Income</strong><div style="font-size:13px;color:#3D4555;line-height:1.55">Enter your total household income before taxes. If two people are buying together, add both incomes.</div></li>
       <li><strong style="font-size:13px;color:#111318">Down payment</strong><div style="font-size:13px;color:#3D4555;line-height:1.55">How much you've saved toward a down payment. This affects your mortgage insurance and monthly costs.</div></li>
       <li><strong style="font-size:13px;color:#111318">Existing debt</strong><div style="font-size:13px;color:#3D4555;line-height:1.55">Car loans, credit cards, other monthly payments. Leave at 0 if none — this affects how much a lender would qualify you for.</div></li>
-      <li><strong style="font-size:13px;color:#111318">How you work</strong><div style="font-size:13px;color:#3D4555;line-height:1.55">Remote workers get ranked purely by affordability. Hybrid or daily commuters get cities filtered by realistic commute time too.</div></li>
+      <li><strong style="font-size:13px;color:#111318">How you work</strong><div style="font-size:13px;color:#3D4555;line-height:1.55">Remote workers get ranked purely by affordability. Hybrid or daily commuters get cities filtered by the longest commute they'll accept, using estimated drive times.</div></li>
       <li><strong style="font-size:13px;color:#111318">Area</strong><div style="font-size:13px;color:#3D4555;line-height:1.55">Narrow results to a specific part of Ontario, or leave it broad to see everything you can afford.</div></li>
       <li><strong style="font-size:13px;color:#111318">First-time buyer</strong><div style="font-size:13px;color:#3D4555;line-height:1.55">This can unlock different programs and incentives that affect what you can afford.</div></li>
       <li><strong style="font-size:13px;color:#111318">Household size</strong><div style="font-size:13px;color:#3D4555;line-height:1.55">Used to estimate realistic living costs and space needs for your household.</div></li>

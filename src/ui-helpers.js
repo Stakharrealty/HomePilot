@@ -21,6 +21,12 @@ function setLang(l){
   if(wpLbl){const span=wpLbl.querySelector('span');const txt=t.wp_lbl||'Work postal code';if(span){wpLbl.childNodes[0].textContent=txt+' ';} else wpLbl.textContent=txt;}
   const workCity=document.getElementById('workCity');if(workCity)workCity.placeholder=t.wc_ph||'e.g. Brampton';
   const workPostal=document.getElementById('workPostal');if(workPostal)workPostal.placeholder=t.wp_ph||'e.g. L6Y 0A1';
+  const mcLbl=document.getElementById('mc_lbl');if(mcLbl)mcLbl.textContent=t.mc_lbl||"Longest commute you'd accept (one way)";
+  const mcSel=document.getElementById('maxCommute');
+  if(mcSel)[...mcSel.options].forEach(o=>{o.text=o.value==='none'?(t.mc_none||'No limit'):o.value+' '+(t.mc_min||'minutes');});
+  // First-time buyer, rebate and residency questions (translated from 2026-09-23).
+  [['ftb_lbl','ftb_lbl'],['ftb_hint','ftb_hint'],['ltt_lbl','ltt_lbl'],['res_lbl','res_lbl'],['res_hint','res_hint'],
+   ['ftb-yes','yes'],['ftb-no','no'],['res-yes','yes'],['res-no','no']].forEach(([id,k])=>{const el=document.getElementById(id);if(el&&t[k])el.textContent=t[k];});
   const waSelectEl=document.getElementById('waSelect');
   if(waSelectEl&&waSelectEl.options.length>=3){
     waSelectEl.options[0].text=t.wa_remote||'Remote';
@@ -108,6 +114,21 @@ function toggle(id){
   }
 }
 
+// Links to #cities and #listings (the nav's "Cities", the footer's "City
+// Discovery", "Listings" and city names) used to point at anchors that did not
+// exist anywhere (REVIEW_BACKLOG.md P0-4). They now land on the FAQ answers
+// about coverage and listings; this opens the answer they land on.
+function openFaqFromHash(){
+  const id = (window.location.hash || '').slice(1);
+  if(!id) return;
+  const item = document.getElementById(id);
+  if(!item || !item.classList || !item.classList.contains('faq-item') || item.classList.contains('open')) return;
+  const btn = item.querySelector('.faq-q');
+  if(btn) toggleFaq(btn);
+}
+window.addEventListener('hashchange', openFaqFromHash);
+document.addEventListener('DOMContentLoaded', openFaqFromHash);
+
 function toggleFaq(btn){
   // Accordion: clicking an open question closes it; clicking a closed one
   // opens it and closes any other currently-open item (matches v0's
@@ -132,11 +153,30 @@ function toggleFaq(btn){
 // de-duplication.
 
 
+// The lead form's required fields (added 2026-09-23, REVIEW_BACKLOG.md P1-12).
+// "Send me homes in my budget" used to do nothing at all when the name or
+// email was empty -- no message, no highlight -- so a buyer at the moment of
+// intent could reasonably conclude the site was broken. Returns the message
+// shown (empty when the fields are fine) and marks the bad fields.
+function checkLeadFields(){
+  const nmEl=document.getElementById("nm"), emEl=document.getElementById("em");
+  const nm=String((nmEl&&nmEl.value)||"").trim(), em=String((emEl&&emEl.value)||"").trim();
+  const t=(typeof T!=='undefined'&&T[lang])||{};
+  const nameOk=!!nm, emailOk=/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em);
+  let msg="";
+  if(!nm||!em) msg=t.lead_missing||"Please enter your name and email so Sandeep can send you homes.";
+  else if(!emailOk) msg=t.lead_bad_email||"That email address doesn't look complete. Please check it.";
+  if(nmEl&&nmEl.setAttribute) nmEl.setAttribute("aria-invalid",String(!nameOk));
+  if(emEl&&emEl.setAttribute) emEl.setAttribute("aria-invalid",String(!emailOk));
+  const errEl=document.getElementById("leadFieldErr");
+  if(errEl){ errEl.textContent=msg; errEl.style.display=msg?"block":"none"; }
+  return msg;
+}
+
 function showTransparencyModal(){
-  // Same required-field guard sub() already applies, checked here too so the modal
-  // doesn't pop up for an incomplete form.
-  const nm=document.getElementById("nm").value, em=document.getElementById("em").value;
-  if(!nm||!em) return;
+  // Same required-field guard sub() applies, checked here first so the modal
+  // doesn't pop up for an incomplete form -- and now says why.
+  if(checkLeadFields()) return;
   const ov=document.getElementById('transparencyModalOverlay');
   if(ov){ ov.style.display='flex'; }
 }

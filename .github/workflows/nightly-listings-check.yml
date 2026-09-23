@@ -1,0 +1,30 @@
+name: Nightly live listings check
+
+# IMPROVEMENT_PLAN.md 1.6. Every other listings test runs against fixtures;
+# this one asks the real, deployed listings API what a buyer would see right
+# now, and fails -- which emails the repo owner -- if a $1 price, a fractional
+# resort share, a building lot, a parking space or a broken query reaches the
+# site. See tests/live_listings_check.js for the rules and why each exists.
+#
+# Read-only: it calls the public /listings route exactly as the site does. It
+# deploys nothing and needs no secrets. It does not call PropTx.
+
+on:
+  schedule:
+    - cron: "30 9 * * *" # 09:30 UTC, early morning in Toronto
+  workflow_dispatch: {}
+
+jobs:
+  live-listings:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Check the live listings API for junk
+        run: node tests/live_listings_check.js

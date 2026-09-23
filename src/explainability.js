@@ -35,54 +35,54 @@ function getFit(monthlyCost,_grossMonthlyIncome){
   return{lbl:t.fit_stretch_lbl,cls:"fs",score,msg:t.fit_stretch_msg,ratio};
 }
 
-function buildWhyRankedBullets(x, c, net, accessTier, displayPropType, displayPrice) {
-  // Returns structured array of bullet strings — used by tests and by buildWhyRanked().
-  // Bullets describe WHY THE CITY RANKED — not why the cheapest property ranked.
+// Returns [{ key, tone, text }]: tone is 'good', 'neutral' or 'bad', and
+// buildWhyRanked() picks the icon from it (REVIEW_BACKLOG.md P1-6).
+//
+// CHANGED 2026-09-23 (IMPROVEMENT_PLAN.md 1.4 / 1.5):
+//   - The 4th argument is the estimated drive in minutes (rankCities()'s
+//     commuteMin), not an access tier. "Limited Commute to your workplace"
+//     covered 71 minutes to eight hours; the bullet now states the estimate.
+//   - Which home types count, and which are comfortable, come from
+//     qualifyingOption() / isComfortable() in ranking.js -- the same full
+//     qualification and the same definition of comfortable the ranking uses.
+//     These bullets used to check only the minimum down payment and call
+//     anything under 45% "within comfort range", so they could disagree with
+//     the card they sat on.
+function buildWhyRankedBullets(x, c, net, commuteMin, displayPropType, displayPrice) {
   const bullets = [];
-  const pt = PT[x.n] || {};
-  const TIERS = ['condo','town','semi','detached'];
   const PLBL  = {condo:'Condo',town:'Townhouse',semi:'Semi-Detached',detached:'Detached'};
   const safenet = (net && net > 0) ? net : null;
 
-  // BULLET 1 — Commute (city-level signal)
+  // BULLET 1 — Commute: a fact, not a verdict. The buyer's own limit has
+  // already set aside anything too far.
   if(workArrangement === 'daily' || workArrangement === 'hybrid') {
-    if(accessTier) bullets.push({ key:'commute', text: accessTier.label + ' to your workplace' });
+    if(Number.isFinite(commuteMin)) bullets.push({ key:'commute', tone:'neutral', text: 'Estimated commute: about ' + commuteMin + ' min drive each way' });
   } else {
-    bullets.push({ key:'commute', text: 'Commute not a factor — remote work' });
+    bullets.push({ key:'commute', tone:'neutral', text: 'Commute not a factor — remote work' });
   }
 
-  // BULLET 2 — Affordability range across all qualifying types (city-level)
-  if(safenet) {
-    const qualifying = TIERS.filter(tp => pt[tp] && pt[tp] <= buyPower && meetsMinDownPayment(pt[tp], dn_selected));
-    if(qualifying.length >= 2) {
-      const lowestPt  = qualifying[0];
-      const highestPt = qualifying[qualifying.length - 1];
-      const lowestC   = calcCosts(x, pt[lowestPt],  fam_selected, dn_selected, lowestPt);
-      const highestC  = calcCosts(x, pt[highestPt], fam_selected, dn_selected, highestPt);
-      const loPct     = Math.round(lowestC.total  / safenet * 100);
-      const hiPct     = Math.round(highestC.total / safenet * 100);
-      bullets.push({ key:'affordability', text: 'Housing options from ' + loPct + '% to ' + hiPct + '% of take-home pay' });
-    } else if(qualifying.length === 1) {
-      const onlyC   = calcCosts(x, pt[qualifying[0]], fam_selected, dn_selected, qualifying[0]);
-      const onlyPct = Math.round(onlyC.total / safenet * 100);
-      bullets.push({ key:'affordability', text: PLBL[qualifying[0]] + ' at ' + onlyPct + '% of take-home pay' });
+  // Every type the buyer can actually buy here, cheapest first.
+  const options = ['condo','town','semi','detached'].map(tp => qualifyingOption(x, tp)).filter(Boolean);
+
+  // BULLET 2 — Share of take-home across those types
+  if(safenet && options.length) {
+    const pct = (o) => Math.round(o.costs.total / safenet * 100);
+    if(options.length >= 2) {
+      bullets.push({ key:'affordability', tone:'neutral', text: 'Homes here from ' + pct(options[0]) + '% to ' + pct(options[options.length - 1]) + '% of take-home pay' });
+    } else {
+      bullets.push({ key:'affordability', tone:'neutral', text: PLBL[options[0].type] + ' at ' + pct(options[0]) + '% of take-home pay' });
     }
   }
 
-  // BULLET 3 — Comfort zone count vs total available
-  const comfortTypes = TIERS.filter(tp => {
-    if(!pt[tp] || pt[tp] > buyPower) return false;
-    if(!safenet) return false;
-    const cc = calcCosts(x, pt[tp], fam_selected, dn_selected, tp);
-    return (cc.total / safenet) < 0.45;
-  });
-  const availableTypes = TIERS.filter(tp => pt[tp] && pt[tp] <= buyPower);
-  if(comfortTypes.length > 0 && comfortTypes.length === availableTypes.length) {
-    bullets.push({ key:'options', text: comfortTypes.length + ' housing type' + (comfortTypes.length > 1 ? 's' : '') + ' within comfort range' });
-  } else if(comfortTypes.length > 0) {
-    bullets.push({ key:'options', text: comfortTypes.length + ' of ' + availableTypes.length + ' housing types within comfort range' });
-  } else if(availableTypes.length > 0) {
-    bullets.push({ key:'options', text: availableTypes.length + ' housing type' + (availableTypes.length > 1 ? 's' : '') + ' available — all stretch territory' });
+  // BULLET 3 — How many of them are comfortable
+  const comfortable = options.filter(isComfortable);
+  const plural = (n) => n + ' home type' + (n > 1 ? 's' : '');
+  if(comfortable.length > 0 && comfortable.length === options.length) {
+    bullets.push({ key:'options', tone:'good', text: plural(comfortable.length) + ' you can comfortably afford' });
+  } else if(comfortable.length > 0) {
+    bullets.push({ key:'options', tone:'good', text: comfortable.length + ' of ' + options.length + ' home types you can comfortably afford' });
+  } else if(options.length > 0) {
+    bullets.push({ key:'options', tone:'bad', text: plural(options.length) + ' available — all a stretch' });
   }
 
   return bullets;

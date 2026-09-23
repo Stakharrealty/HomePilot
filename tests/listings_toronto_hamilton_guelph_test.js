@@ -97,9 +97,12 @@ function check(name, ok, detail) {
     !Number.isNaN(Date.parse(c1[0].args[0])) && Date.parse(c1[0].args[0]) < Date.now(), c1[0].args[0]);
   const c2 = []; await db.getListingsByCity(fakeD1(c2), "Toronto", 20, "condo", 0, 800000, dist.districtsForRegion("Toronto - Downtown"));
   check("Toronto sub-region: adds city_district IN ('C01',...)", /city_district IN \('C01', 'C02', 'C08', 'C09', 'C10'\)/.test(c2[0].sql), c2[0].sql);
-  check("Toronto sub-region: binds are cutoff, budget*1.10, limit, offset",
-    c2[0].args.length === 4 && typeof c2[0].args[0] === "string"
-    && Math.abs(c2[0].args[1] - 880000) < 0.01 && c2[0].args[2] === 20 && c2[0].args[3] === 0,
+  // With a budget the default order is best match, whose ORDER BY reads the
+  // budget twice (2026-09-23) -- those two binds sit before limit/offset.
+  check("Toronto sub-region: binds are cutoff, budget*1.10, budget, budget, limit, offset",
+    c2[0].args.length === 6 && typeof c2[0].args[0] === "string"
+    && Math.abs(c2[0].args[1] - 880000) < 0.01 && c2[0].args[2] === 800000 && c2[0].args[3] === 800000
+    && c2[0].args[4] === 20 && c2[0].args[5] === 0,
     JSON.stringify(c2[0].args));
   const c3 = []; await db.getListingsByCity(fakeD1(c3), "Hamilton", 20, null, 0, null);
   check("Hamilton: plain city = ? with the city bound first", /WHERE city = \? AND/.test(c3[0].sql) && c3[0].args[0] === "Hamilton");
@@ -109,9 +112,9 @@ function check(name, ok, detail) {
   check("SQL injection through a district code is rejected", threw);
 
   const idx = fs.readFileSync(path.join(SRC, "index.js"), "utf8");
-  check("index.js passes the sub-region districts into the query", /districtsForRegion\(requestedCity\)/.test(idx) && /searchBudget, torontoDistricts, communities\)/.test(idx));
+  check("index.js passes the sub-region districts into the query", /districtsForRegion\(requestedCity\)/.test(idx) && /searchBudget, torontoDistricts, communities, \{ minBeds, sort \}\)/.test(idx));
   check("index.js passes the community narrowing into the query too",
-    idx.includes("communitiesForCity(requestedCity)") && idx.includes("torontoDistricts, communities)"));
+    idx.includes("communitiesForCity(requestedCity)") && idx.includes("torontoDistricts, communities, { minBeds, sort })"));
   // The ingest-status route that used to call cityMatchClause(city) was one of
   // the six unauthenticated diagnostic routes removed on 2026-09-22. What still
   // matters is that cityMatchClause remains the single place Toronto matching

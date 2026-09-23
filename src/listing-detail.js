@@ -56,6 +56,9 @@ function buildHomePilotView(listing, profile, budget) {
     closing: null,         // ldClosingCosts() result (Section 1)
     verdict: null,      // "fg" | "fo" | "fs" (getFit's cls) or null
     verdictLabel: null, // getFit's label, from i18n
+    // A 55+ / adult-lifestyle community (ldAgeRestricted, listing-fit.js):
+    // labelled, not hidden, since the app does not know the buyer's age.
+    ageRestricted: typeof ldAgeRestricted === "function" && ldAgeRestricted(listing),
   };
   const computed = profile ? computeListingCosts(listing, profile) : null;
   if (!computed) return view;
@@ -102,6 +105,9 @@ function renderClosingCostsBlock(closing) {
     + ldRow("Ontario land transfer tax", fmtPrice(closing.ltt.provNet));
   if (closing.isToronto) rows += ldRow("Toronto municipal land transfer tax", fmtPrice(closing.ltt.muniNet));
   if (closing.ltt.totalRebate > 0) rows += ldRow("First-time buyer land transfer tax rebate", `-${fmtPrice(closing.ltt.totalRebate)}`, "ld-credit");
+  // Non-resident speculation taxes (2026-09-23, closingcosts.js).
+  if (closing.nrst > 0) rows += ldRow("Ontario non-resident speculation tax (25%)", fmtPrice(closing.nrst));
+  if (closing.mnrst > 0) rows += ldRow("Toronto non-resident speculation tax (10%)", fmtPrice(closing.mnrst));
   rows += ldRow("Legal fees (estimated)", fmtPrice(closing.legal))
     + ldRow("Title insurance (estimated)", fmtPrice(closing.titleIns))
     + ldRow("Home inspection (estimated)", fmtPrice(closing.inspection))
@@ -111,6 +117,8 @@ function renderClosingCostsBlock(closing) {
   return `<div class="ld-onetime"><h3>Estimated cash required to purchase</h3><div class="ld-costs">${rows}</div>`
     + `<p class="ld-muted ld-disclosure">These are estimates only and will vary by transaction -- new builds may attract HST. `
     + `Land transfer tax and rebate figures are approximate and not a substitute for a lawyer's calculation. `
+    + (closing.firstTimeNoRebate ? `The first-time buyer rebate is not included: it applies only if neither you nor your spouse has ever owned a home anywhere in the world, and you are a Canadian citizen or permanent resident. ` : "")
+    + (closing.foreignBuyer ? `Non-resident speculation tax is included because you said you are not a Canadian citizen or permanent resident; some buyers are exempt or can get it back, and most non-Canadians cannot buy a home until at least January 1, 2027. ` : "")
     + `This is not financial, legal, or mortgage advice -- speak with a licensed mortgage professional and a real estate lawyer before making a purchase decision.</p></div>`;
 }
 
@@ -169,7 +177,7 @@ function fullListingFacts(listing) {
   const realFee = ldFeeToMonthly(listing.associationFee, listing.associationFeeFrequency);
   return [
     factOrOmit("Property type", LD_TYPE_LABELS[listing.propertyType]),
-    factOrOmit("Beds", listing.bedrooms),
+    factOrOmit("Beds", typeof ldBedsText === "function" ? ldBedsText(listing) : listing.bedrooms),
     factOrOmit("Baths", listing.bathrooms),
     ldSizeFact(listing),
     factOrOmit("Parking spaces", listing.parkingSpaces),
@@ -207,6 +215,7 @@ function renderHomePilotSection(view) {
     ? ` <span class="listing-affordability-badge listing-fit-${view.verdict}">${escapeHtml(view.verdictLabel)}</span>`
     : "";
   let html = `<h2>HomePilot view</h2><div class="ld-price">${escapeHtml(fmtPrice(view.price))}${badge}</div>`;
+  if (view.ageRestricted) html += `<p class="listing-age-note">Age-restricted community (55+ or adult lifestyle) — check the age rules</p>`;
   if (!view.costs) {
     html += `<p class="ld-muted ld-noprofile">See what this home would cost you each month, and what you'd have left over: enter your income and down payment in <a href="https://myhomepilot.ca">HomePilot</a>, then open this listing again.</p>`;
     sec.innerHTML = html;

@@ -31,7 +31,13 @@ function buildCompare(){
   const data=cmpSelected.map(cityName=>{
     const r=results.find(x=>x.n===cityName);
     let type=activeProp, price=null;
-    if(activeProp==='all'){
+    // The home the card showed (shownCards, 2026-09-23), so the comparison
+    // compares what the buyer ticked -- not the most expensive type the bank
+    // would allow, which is what this picked before.
+    const card=(Array.isArray(shownCards)?shownCards:[]).find(c=>c.city===cityName);
+    if(card){
+      type=card.type;price=card.price;
+    } else if(activeProp==='all'){
       for(const tp of TIERS){ const p=getPriceForTypeStrict(cityName,tp,buyPower); if(p){type=tp;price=p;break;} }
     } else {
       price=getPriceForTypeStrict(cityName,activeProp,buyPower);
@@ -42,7 +48,8 @@ function buildCompare(){
     // The compare table needs a row per selected city, so an unratable city
     // shows a dash rather than being silently dropped from the comparison.
     const fit=getFit(c.total,grossMonthlyIncome);
-    const drive=workArrangement!=='remote'?calcCommuteMinutes(cityName):(DRIVE_TO_TORONTO[cityName]||null);
+    // Same rounded estimate the card shows (commuteEstimateMin, ranking.js).
+    const drive=workArrangement!=='remote'?commuteEstimateMin(cityName):(DRIVE_TO_TORONTO[cityName]||null);
     return{name:cityName,price,total:c.total,
       fitCls:fit?fit.cls:'',fitLbl:fit?fit.lbl:'—',fitScore:fit?fit.score:null,drive};
   });

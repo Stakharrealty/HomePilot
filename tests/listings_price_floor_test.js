@@ -1,14 +1,23 @@
 // Price floor: $1 listings must never reach a buyer.
 //
 // Some agents list a real, ordinary house at $1 so it sorts to the top of every
-// low-to-high search. HomePilot orders by list_price ASC, so those listings sat
-// at position 1 of the affected city's page -- and because they are genuine
+// low-to-high search. HomePilot ordered by list_price ASC, so those listings sat
+// at position 1 of the affected city's page (the default order is best match
+// since 2026-09-23, but "Lowest price" is still an option) -- and because they are genuine
 // Detached / Semi / Townhouse / Condo records at real addresses, no home-type
 // rule could ever catch them. Only a price floor can.
 //
 // The seed data below is REAL: the 36 listings live in production on
 // 2026-09-23, with their true subtypes and cities, alongside the genuinely
 // cheap-but-real inventory that must stay visible.
+//
+// The floor was raised from $10,000 to $75,000 the same day (IMPROVEMENT_PLAN.md
+// 1.1). Between the $1 listings and the first ordinary home, production held
+// exactly six listings, $21,000 to $48,500, all FRACTIONAL shares of one
+// Collingwood resort condo ("1/17th share, three annual vacation weeks"). They
+// are what home-types.js already blocks as Timeshare / Co-Ownership: no
+// ordinary mortgage exists for one, so every monthly cost the app printed for
+// them was fiction. After them, nothing until $110,000.
 //
 // Why real SQLite: the floor is part of VISIBLE_LISTING_CLAUSE, which is SQL.
 // node:sqlite runs the exact string both endpoints send to D1, so this cannot
@@ -43,13 +52,19 @@ const GAMED = [
   ["G9", 1, "Hamilton", "Detached", "2 Norfolk Street N"],
 ];
 
+// Real fractional resort shares from production (the cheapest and the dearest
+// of the six). Filed as "Condo Apartment"; not a home anyone can mortgage.
+const FRACTIONAL = [
+  ["F1", 21000, "Collingwood", "Condo Apartment", "9 Harbour Street 6112/6114"],
+  ["F2", 48500, "Collingwood", "Condo Apartment", "9 Harbour Street E 6411/6413"],
+];
+
 // Real inventory that is genuinely cheap and MUST stay visible.
 const REAL_CHEAP = [
-  ["R1", 21000, "Collingwood", "Condo Apartment", "9 Harbour Street 6112/6114"],
-  ["R2", 48500, "Collingwood", "Condo Apartment", "9 Harbour Street E 6411/6413"],
   ["R3", 119000, "Hamilton", "Detached", "a genuinely cheap rural home"],
   ["R4", 185000, "Welland", "Detached", "a genuinely cheap rural home"],
   ["R5", 529999, "Grand Valley", "Detached", "an ordinary home"],
+  ["R6", 134900, "Hamilton", "Condo Apartment", "the cheapest ordinary condo in production"],
 ];
 
 (async () => {
@@ -62,10 +77,20 @@ const REAL_CHEAP = [
   // A floor of $2 would clear today's 36 and reopen the exploit tomorrow at $2.
   check("the floor is high enough that the next cheapest rung is not gameable",
     db.MIN_LISTING_PRICE >= 1000, String(db.MIN_LISTING_PRICE));
-  // Production's cheapest REAL listings are $21,000 (Collingwood fractional
-  // condos). The floor must stay below them or it starts hiding real homes.
-  check("the floor stays below the cheapest real listing in production ($21,000)",
-    db.MIN_LISTING_PRICE < 21000, String(db.MIN_LISTING_PRICE));
+  // The floor sits inside the empty band production showed on 2026-09-23:
+  // above the dearest fractional share ($48,500) and at or below the next
+  // listing up ($110,000). Move it outside that band and it either lets the
+  // fractional shares back in or starts hiding ordinary homes.
+  check("the floor clears every fractional resort share (dearest: $48,500)",
+    db.MIN_LISTING_PRICE > 48500, String(db.MIN_LISTING_PRICE));
+  check("the floor stays at or below the next listing up in production ($110,000)",
+    db.MIN_LISTING_PRICE <= 110000, String(db.MIN_LISTING_PRICE));
+  // The browser applies the same floor again (listing-fit.js). Two numbers
+  // that must agree are asserted equal, not trusted to stay equal.
+  const fitSrc = require("fs").readFileSync(path.join(__dirname, "..", "src", "listing-fit.js"), "utf8");
+  const clientFloor = (fitSrc.match(/const LD_MIN_LISTING_PRICE = (\d+);/) || [])[1];
+  check("the browser's floor (LD_MIN_LISTING_PRICE) equals the server's",
+    Number(clientFloor) === db.MIN_LISTING_PRICE, `${clientFloor} vs ${db.MIN_LISTING_PRICE}`);
 
   check("the floor is part of the shared visibility clause, so BOTH endpoints get it",
     db.VISIBLE_LISTING_CLAUSE.includes("list_price >= " + db.MIN_LISTING_PRICE),
@@ -94,7 +119,7 @@ const REAL_CHEAP = [
     " property_subtype, listing_url, brokerage_name, photos, last_updated, source," +
     " transaction_type, standard_status)" +
     " VALUES (?, ?, ?, ?, ?, '', 'B', '[]', ?, 'PROPTX', 'For Sale', 'Active')");
-  for (const [k, p, c, t, a] of [...GAMED, ...REAL_CHEAP]) ins.run(k, p, c, a, t, FRESH);
+  for (const [k, p, c, t, a] of [...GAMED, ...FRACTIONAL, ...REAL_CHEAP]) ins.run(k, p, c, a, t, FRESH);
   // A NULL-priced row: nothing this app shows a buyer can be computed from it.
   sqlite.prepare("INSERT INTO listings (listing_key, list_price, city, display_address," +
     " property_subtype, listing_url, brokerage_name, photos, last_updated, source," +
@@ -131,14 +156,15 @@ const REAL_CHEAP = [
   const nullRow = await db.getListingByKey(d1, "NULLP");
   check("a listing with no price at all is not servable", nullRow === null);
 
-  // --- 3. and the real inventory is untouched
+  // --- 3. the fractional shares go, and the real inventory is untouched
   const collingwood = await db.getListingsByCity(d1, "Collingwood", 100);
-  check("the $21,000 Collingwood condo is still shown (it is real inventory)",
-    collingwood.some((r) => r.listingKey === "R1"),
-    collingwood.map((r) => r.listingKey).join(","));
+  check("the Collingwood fractional resort shares are not shown",
+    collingwood.length === 0, collingwood.map((r) => r.listingKey + "@" + r.listPrice).join(","));
+  check("nor served on a detail page", (await db.getListingByKey(d1, "F1")) === null);
   const hamilton = await db.getListingsByCity(d1, "Hamilton", 100);
-  check("Hamilton keeps its genuinely cheap real home and loses only the $1 one",
-    hamilton.some((r) => r.listingKey === "R3") && !hamilton.some((r) => r.listingKey === "G9"),
+  check("Hamilton keeps its genuinely cheap real homes and loses only the $1 one",
+    hamilton.some((r) => r.listingKey === "R3") && hamilton.some((r) => r.listingKey === "R6")
+      && !hamilton.some((r) => r.listingKey === "G9"),
     hamilton.map((r) => r.listingKey).join(","));
   const grandValley = await db.getListingsByCity(d1, "Grand Valley", 100);
   check("ordinary listings are completely unaffected",

@@ -15,18 +15,15 @@ function _downloadReportInner() {
   var net = netMonthlyIncome || grossMonthlyIncome * 0.72;
   var TIERS = ['condo','town','semi','detached'];
   var PLBL  = {condo:'Condo',town:'Townhouse',semi:'Semi-Detached',detached:'Detached'};
-  var fitColors = {'Good Fit':'pr-badge-g','Moderate':'pr-badge-b','Aggressive':'pr-badge-a','Stretch':'pr-badge-a','High Pressure':'pr-badge-r'};
+  // Badge colours from getFit()'s class -- the one Great / Good / Stretch
+  // function (REVIEW_BACKLOG.md P1-21). This report had its own <=35 / <=45 /
+  // <=55 ladder and a label map with names the app never uses (Moderate,
+  // Aggressive, High Pressure).
+  var FIT_BADGE = { fg:'pr-badge-g', fo:'pr-badge-b', fs:'pr-badge-a' };
 
   function fc(n){ return '$'+(n||0).toLocaleString('en-CA',{maximumFractionDigits:0}); }
 
-  function pctClass(p){
-    if(p<=35) return 'pr-badge-g';
-    if(p<=45) return 'pr-badge-b';
-    if(p<=55) return 'pr-badge-a';
-    return 'pr-badge-r';
-  }
-
-  var waLabels = {daily:'Daily commuter',hybrid:'Hybrid (2-3 days/wk)',remote:'Remote / Work from home'};
+  var waLabels = {daily:'Daily commuter',hybrid:'Hybrid (2–4 days/wk)',remote:'Remote / Work from home'};
 
   var profileHTML =
     '<div class="pr-profile-item"><div class="pr-profile-lbl">Gross Income</div><div class="pr-profile-val">'+fc(grossMonthlyIncome*12)+'/yr</div></div>' +
@@ -36,53 +33,45 @@ function _downloadReportInner() {
     '<div class="pr-profile-item"><div class="pr-profile-lbl">Work Style</div><div class="pr-profile-val">'+(waLabels[workArrangement]||workArrangement)+'</div></div>' +
     '<div class="pr-profile-item"><div class="pr-profile-lbl">Buying Power</div><div class="pr-profile-val">'+fc(buyPower)+'</div></div>';
 
-  // Use full ranked results list — top 5 unique cities
-  if(!results || !results.length) { alert('No results to export — please run your search first.'); return; }
-  var seenCities = {};
-  var topResults = [];
-  for(var i=0; i<results.length && topResults.length<5; i++) {
-    if(!seenCities[results[i].n]) {
-      seenCities[results[i].n] = true;
-      topResults.push(results[i]);
-    }
-  }
+  // The first five cards the buyer was shown, in the same order (shownCards,
+  // kept by render()). CHANGED 2026-09-23: this used to take the top of
+  // results, which was sorted by homePilotSort() -- a hidden order the screen
+  // never used -- so the report could list different cities from the page.
+  if(!Array.isArray(shownCards) || !shownCards.length) { alert('No results to export — please run your search first.'); return; }
+  var topResults = shownCards.slice(0, 5).map(function(card){
+    return { card: card, x: M.find(function(m){ return m.n === card.city; }) };
+  }).filter(function(r){ return r.x; });
   
-  var cityCards = topResults.map(function(x, idx) {
-    var pt = PT[x.n] || {};
-    var qualifying = TIERS.filter(function(t){ return pt[t] && pt[t] <= buyPower && meetsMinDownPayment(pt[t], dn_selected); });
+  var cityCards = topResults.map(function(r, idx) {
+    var x = r.x, card = r.card;
+    // Every type the buyer can actually buy here (full qualification), cheapest first.
+    var qualifying = TIERS.map(function(tp){ return qualifyingOption(x, tp); }).filter(Boolean);
     if(!qualifying.length) return '';
 
-    var loType = qualifying[0];
-    var hiType = qualifying[qualifying.length-1];
-    var loC = calcCosts(x, pt[loType], fam_selected, dn_selected, loType);
-    var hiC = calcCosts(x, pt[hiType], fam_selected, dn_selected, hiType);
+    var loC = qualifying[0].costs;
+    var hiC = qualifying[qualifying.length-1].costs;
     var loPct = Math.round(loC.total/net*100);
     var hiPct = Math.round(hiC.total/net*100);
 
-    var fitResult = getFit(loC.total, grossMonthlyIncome);
-    var fitLabel  = (fitResult && fitResult.lbl) || 'Good Fit';
-    var badgeClass = fitColors[fitLabel] || 'pr-badge-g';
+    // The badge is the card's own: the home it recommended, and its label.
+    var headline = qualifying.filter(function(o){ return o.type === card.type; })[0] || qualifying[0];
+    var fitLabel  = headline.fit.lbl;
+    var badgeClass = FIT_BADGE[headline.fit.cls] || 'pr-badge-b';
 
-    var commuteStr = 'Remote / Work from home';
-    if(workArrangement !== 'remote') {
-      var cm = calcCommuteMinutes(x.n);
-      var tier = getAccessTier(cm);
-      commuteStr = cm ? (tier ? tier.label + ' \u00b7 ' + cm + ' min' : cm + ' min') : '';
-    }
+    var commuteStr = workArrangement === 'remote' ? 'Remote / Work from home'
+      : (card.commuteMin !== null ? 'About ' + card.commuteMin + ' min drive each way (estimate)' : '');
 
-    var _cm = workArrangement !== 'remote' ? calcCommuteMinutes(x.n) : null;
-    var accessTier = _cm ? getAccessTier(_cm) : null;
-    var bullets = buildWhyRankedBullets(x, loC, net, accessTier, loType, pt[loType]);
-    var bulletsHTML = bullets.map(function(b){ return '<div class="pr-bullet"><span class="pr-bullet-check">\u2713</span>'+b.text+'</div>'; }).join('');
+    var bullets = buildWhyRankedBullets(x, headline.costs, net, card.commuteMin, headline.type, headline.price);
+    var BULLET_ICON = { good:'\u2713', neutral:'\u00b7', bad:'!' };
+    var bulletsHTML = bullets.map(function(b){ return '<div class="pr-bullet"><span class="pr-bullet-check">'+(BULLET_ICON[b.tone]||'\u00b7')+'</span>'+b.text+'</div>'; }).join('');
 
-    var ladderRows = qualifying.map(function(tp){
-      var c = calcCosts(x, pt[tp], fam_selected, dn_selected, tp);
-      var p = Math.round(c.total/net*100);
+    var ladderRows = qualifying.map(function(o){
+      var p = Math.round(o.costs.total/net*100);
       return '<div class="pr-ladder-row">' +
-        '<span class="pr-ladder-type">'+PLBL[tp]+' \u00b7 '+fc(pt[tp])+'</span>' +
+        '<span class="pr-ladder-type">'+PLBL[o.type]+' \u00b7 '+fc(o.price)+'</span>' +
         '<div class="pr-ladder-right">' +
-          '<span class="pr-ladder-cost">'+fc(c.total)+'/mo</span>' +
-          '<span class="pr-ladder-pct '+pctClass(p)+'">'+p+'%</span>' +
+          '<span class="pr-ladder-cost">'+fc(o.costs.total)+'/mo</span>' +
+          '<span class="pr-ladder-pct '+(FIT_BADGE[o.fit.cls]||'pr-badge-b')+'">'+p+'%</span>' +
         '</div></div>';
     }).join('');
 
@@ -114,7 +103,7 @@ function _downloadReportInner() {
     '</div>';
   }).join('');
 
-  if(!cityCards.trim()) { alert('DEBUG: cityCards empty. topResults: ' + topResults.length + ' first city: ' + (topResults[0]&&topResults[0].n) + ' PT entry: ' + (PT[topResults[0]&&topResults[0].n] ? Object.keys(PT[topResults[0].n]).join(',') : 'none')); return; }
+  if(!cityCards.trim()) { alert('No results to export — please run your search first.'); return; }
   var dateStr = new Date().toLocaleDateString('en-CA', {year:'numeric',month:'long',day:'numeric'});
 
   var reportHTML =

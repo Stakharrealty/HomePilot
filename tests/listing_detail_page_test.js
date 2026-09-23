@@ -402,13 +402,29 @@ async function openPage({ listing, status = 200, profile, budget, search, fetchT
     has(hpT2, "Ontario land transfer tax" + fmt(ccTor.ltt.provNet)) && has(hpT2, "Toronto municipal land transfer tax" + fmt(ccTor.ltt.muniNet)) &&
     ccTor.isToronto === true, hpT2);
 
-  const FTB_PROFILE = { ...PROFILE, firstTimeBuyer: true };
+  // Since 2026-09-23 (IMPROVEMENT_PLAN.md 1.7) the rebate needs more than a
+  // first-time answer: the buyer must also have confirmed that neither they
+  // nor their spouse ever owned a home anywhere, and be a citizen or PR
+  // (lttRebateEligible in the saved profile; the rules are in closingcosts.js).
+  const FTB_PROFILE = { ...PROFILE, firstTimeBuyer: true, lttRebateEligible: true };
   const ccFTB = eng.calcClosingCosts("Mississauga", 850000, true);
   const FT = await openPage({ listing: BASE, profile: FTB_PROFILE, budget: 900000 });
   const hpFT = FT.doc.getElementById("ldHomePilot").textContent;
-  check("(N5) first-time buyer: LTT rebate row shown with the correct amount, and it actually lowers the net LTT vs. the non-FTB case",
+  check("(N5) eligible first-time buyer: LTT rebate row shown with the correct amount, and it actually lowers the net LTT vs. the non-FTB case",
     has(hpFT, "First-time buyer land transfer tax rebate-" + fmt(ccFTB.ltt.totalRebate)) &&
     ccFTB.ltt.totalRebate > 0 && ccFTB.ltt.provNet < ccBase.ltt.provNet, hpFT);
+  // A newcomer who once owned a home abroad answers "first-time" (they may
+  // qualify for the 30-year mortgage) but gets no rebate -- and is told why.
+  const NEWCOMER = await openPage({ listing: BASE, profile: { ...PROFILE, firstTimeBuyer: true }, budget: 900000 });
+  const hpNC = NEWCOMER.doc.getElementById("ldHomePilot").textContent;
+  check("(N5b) first-time buyer who has not confirmed the rebate rules: no rebate row, and the page says why",
+    !has(hpNC, "land transfer tax rebate-") && has(hpNC, "The first-time buyer rebate is not included"), hpNC);
+  const ccNR = eng.calcClosingCosts("Mississauga", 850000, true, { foreignBuyer: true });
+  const NR = await openPage({ listing: BASE, profile: { ...PROFILE, firstTimeBuyer: true, lttRebateEligible: true, canadianResident: false }, budget: 900000 });
+  const hpNR = NR.doc.getElementById("ldHomePilot").textContent;
+  check("(N5c) non-resident: 25% non-resident speculation tax shown, no rebate, and the federal ban mentioned",
+    ccNR.nrst === 212500 && ccNR.ltt.totalRebate === 0 && has(hpNR, "Ontario non-resident speculation tax (25%)" + fmt(212500))
+      && !has(hpNR, "land transfer tax rebate-") && has(hpNR, "January 1, 2027"), hpNR);
   check("(N6) non-first-time buyer: no rebate row at all", !has(hp2, "land transfer tax rebate"));
   check("(N7) first-time buyer's total cash required is lower than the non-FTB total at the identical price (rebate reduces it)",
     (170000 + ccFTB.total) < (170000 + ccBase.total));

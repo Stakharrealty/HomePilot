@@ -23,6 +23,66 @@
 // Same 10% stretch tolerance the listings API and results page use.
 const LD_STRETCH_MULTIPLIER = 1.10;
 
+// The listings API's price floor and land rule, applied again here (added
+// 2026-09-23, IMPROVEMENT_PLAN.md 1.1: "on the server and again in the
+// browser"). The server is the real gate -- MIN_LISTING_PRICE and
+// NOT_LAND_OR_UNIT_CLAUSE in workers/homepilot-listings/src/db.js, where the
+// evidence behind both is written up. This copy exists so a stale or
+// misbehaving API can never get a $1 price, a fractional resort share or a
+// building lot costed and badged as a home. Keep the number equal to the
+// server's.
+const LD_MIN_LISTING_PRICE = 75000;
+
+// True when this listing is something the app should cost as a home: priced at
+// or above the floor, and not a zero-bedroom lot (any non-condo) or a
+// zero-bedroom, zero-bathroom "condo" (parking or a commercial unit). A studio
+// condo -- no bedroom, one bathroom -- is a home. A missing count is not
+// evidence either way, so it passes, exactly as it does on the server.
+function ldIsListableHome(listing) {
+  if (!listing) return false;
+  const price = Number(listing.listPrice);
+  if (!(price >= LD_MIN_LISTING_PRICE)) return false;
+  const count = (v) => (v === null || v === undefined || v === "" ? null : Number(v));
+  const beds = count(listing.bedrooms), baths = count(listing.bathrooms);
+  if (beds === 0 && (baths === 0 || listing.propertyType !== "condo")) return false;
+  if (ldIsLeasedTenure(listing)) return false;
+  return true;
+}
+
+// Life-lease and land-lease listings (added 2026-09-23): hidden on the server
+// by NOT_LEASED_TENURE_CLAUSE in the Worker's db.js, where the evidence is.
+// A life lease cannot carry a mortgage ("cash only offers"); a land lease adds
+// a $500-$1,000 monthly land fee this app does not cost. Same phrases, same
+// denial rule ("Has Deed (Not Life Lease)" keeps the listing).
+const LD_LIFE_LEASE = /life[\s-]?lease/i;
+const LD_LIFE_LEASE_DENIED = /\b(?:not(?: a)?|non|no)[\s-]life[\s-]?lease/i;
+const LD_LAND_LEASE = /land[\s-]lease|leased land/i;
+function ldIsLeasedTenure(listing) {
+  const text = String((listing && listing.publicRemarks) || "");
+  return (LD_LIFE_LEASE.test(text) && !LD_LIFE_LEASE_DENIED.test(text)) || LD_LAND_LEASE.test(text);
+}
+
+// Age-restricted communities (55+, adult lifestyle) are real homes, and some
+// buyers qualify, so they are labelled rather than hidden: the app doesn't
+// know the buyer's age, and a family of four should not fall for one. The
+// phrases were checked against production descriptions on 2026-09-23 ("55+
+// gated community", "Adult Lifestyle Community", "(55+)"); a bare "seniors" is
+// not used -- it mostly appears as "would suit families or seniors".
+const LD_AGE_RESTRICTED = /\b(?:55|60|65)\s*(?:\+|plus)\s*(?:adult|active|gated|lifestyle|communit|building|residence|condo|living|complex|village|park|only|independent)|\((?:55|60|65)\s*\+\)|adult[\s-]lifestyle|adult[\s-](?:only|community|communities|living)|retirement (?:community|residence|living)/i;
+function ldAgeRestricted(listing) {
+  return LD_AGE_RESTRICTED.test(String((listing && listing.publicRemarks) || ""));
+}
+
+// Bedrooms as a buyer would say them: "1 + den" when PropTx counted a den as a
+// bedroom (the API's effectiveBedrooms, EFFECTIVE_BEDROOMS_EXPR in db.js).
+// null when there is no count at all -- never a guessed one.
+function ldBedsText(listing) {
+  if (!listing || listing.bedrooms === null || listing.bedrooms === undefined || listing.bedrooms === "") return null;
+  const total = Number(listing.bedrooms), eff = Number(listing.effectiveBedrooms);
+  if (Number.isFinite(eff) && Number.isFinite(total) && eff === total - 1) return eff + " + den";
+  return String(listing.bedrooms);
+}
+
 // PropTx AssociationFee -> a monthly amount. A missing frequency is treated
 // as monthly (Ontario condo fees are monthly, and the listing card already
 // shows it that way); an unrecognised frequency returns null so the caller
@@ -134,10 +194,11 @@ function ldNetIncome(profile) {
 }
 
 // What this listing costs this buyer each month. Null when there's no
-// profile or no usable price.
+// profile, no usable price, or the listing is not a home at all (see
+// ldIsListableHome) -- so neither the card nor the detail page can badge it.
 function computeListingCosts(listing, profile) {
   const price = Number(listing.listPrice);
-  if (!profile || !(price > 0)) return null;
+  if (!profile || !(price > 0) || !ldIsListableHome(listing)) return null;
   const { market, known } = ldResolveMarket(listing);
   const overrides = ldOverrides(listing);
   const net = ldNetIncome(profile);
@@ -197,9 +258,15 @@ function ldClosingCosts(listing, profile) {
   const cityForLtt = ldIsTorontoListing(listing) && !/^Toronto - /.test(market.n)
     ? "Toronto - Downtown"
     : market.n;
-  const cc = calcClosingCosts(cityForLtt, price, profile.firstTimeBuyer === true);
+  // Rebate only when the buyer confirmed they qualify; non-resident taxes when
+  // they are not a citizen or PR (2026-09-23, closingcosts.js). A bare
+  // first-time answer is not enough for the rebate.
+  const cc = calcClosingCosts(cityForLtt, price, profile.lttRebateEligible === true, { foreignBuyer: profile.canadianResident === false });
   const effectiveDn = Math.min(profile.downPayment, price);
-  return { ...cc, effectiveDn, cashRequired: effectiveDn + cc.total };
+  // A first-time, resident buyer who has not confirmed the rebate rules: the
+  // page says why no rebate is shown.
+  const firstTimeNoRebate = profile.firstTimeBuyer === true && profile.lttRebateEligible !== true && profile.canadianResident !== false;
+  return { ...cc, effectiveDn, cashRequired: effectiveDn + cc.total, firstTimeNoRebate };
 }
 
 // The fit tier for a listing whose costs are already computed, or null when

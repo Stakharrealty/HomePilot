@@ -11,7 +11,7 @@
 // for every city (no fallback, per explicit product decision).
 
 import { districtsForRegion } from "./toronto-districts.js";
-import { getListingsByCity, getListingByKey, cityMatchClause, idxCappedLimit, SHOWN_HOMES_CLAUSE, PROPERTY_TYPE_FILTERS } from "./db.js";
+import { getListingsByCity, getListingByKey, cityMatchClause, idxCappedLimit, effectiveSort, validMinBeds, SHOWN_HOMES_CLAUSE, PROPERTY_TYPE_FILTERS } from "./db.js";
 import { CITY_ALIASES, PUBLIC_CITY_NAMES, HOMEPILOT_CITIES } from "./cities.js";
 import { communitiesForCity } from "./communities.js";
 import { runSubtypeCensus } from "./proptx-census.js";
@@ -219,14 +219,20 @@ export default {
         const budgetParam = parseFloat(url.searchParams.get("budget"));
         const searchBudget = Number.isFinite(budgetParam) && budgetParam > 0 ? budgetParam : null;
 
+        // beds / sort (added 2026-09-23, IMPROVEMENT_PLAN.md 1.1): minimum
+        // bedrooms (1-5; anything else means any) and the order -- best
+        // match, price or newest. See validMinBeds() / LISTING_SORTS in db.js.
+        const minBeds = validMinBeds(url.searchParams.get("beds"));
+        const sort = effectiveSort(url.searchParams.get("sort"), searchBudget !== null);
+
         // PROPTX_DISPLAY_ENABLED gate (added 2026-09-18) -- see its
         // definition at the top of this file. While false, buyers get the
         // normal empty state for every city.
         const listings = PROPTX_DISPLAY_ENABLED && cappedLimit > 0
-          ? await getListingsByCity(env.DB, city, cappedLimit, propertyType, offset, searchBudget, torontoDistricts, communities)
+          ? await getListingsByCity(env.DB, city, cappedLimit, propertyType, offset, searchBudget, torontoDistricts, communities, { minBeds, sort })
           : [];
         return new Response(
-          JSON.stringify({ city: requestedCity, propertyType: propertyType || "all", offset, searchBudget, count: listings.length, listings }, null, 2),
+          JSON.stringify({ city: requestedCity, propertyType: propertyType || "all", offset, searchBudget, minBeds, sort, count: listings.length, listings }, null, 2),
           { headers: { "Content-Type": "application/json", ...corsHeaders(origin) } }
         );
       }
