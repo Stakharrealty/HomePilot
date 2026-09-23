@@ -301,9 +301,12 @@ function renderListingCard(listing, searchBudget) {
   //   - listedDateFact + listedDateAgo: top-right, beside the price; the age
   //     ("16 Days Ago") is computed live from the listed date on every render.
   const bedsBathsRow = [
-    factOrOmit("Beds", listing.bedrooms),
+    // "1 + den" rather than "2" when PropTx counted a den (ldBedsText, listing-fit.js).
+    factOrOmit("Beds", typeof ldBedsText === "function" ? ldBedsText(listing) : listing.bedrooms),
     factOrOmit("Baths", listing.bathrooms),
   ].filter(Boolean).join(" · ");
+  // A 55+ / adult-lifestyle community is labelled, not hidden (ldAgeRestricted).
+  const ageRestricted = typeof ldAgeRestricted === "function" && ldAgeRestricted(listing);
   const listedDateFact = factOrOmit("Listed", formatListedDate(listing.listedDate));
   const listedDateAgo = listedDateFact ? listedDaysAgoText(listing.listedDate) : null;
   // MLS segment is omitted until the row has been backfilled by an ingest.
@@ -372,6 +375,7 @@ function renderListingCard(listing, searchBudget) {
         ` : ""}
       </div>
       ${addressEsc ? `<div class="listing-address">${addressEsc}</div>` : ""}
+      ${ageRestricted ? `<div class="listing-age-note">Age-restricted community (55+ or adult lifestyle) — check the age rules</div>` : ""}
       ${bedsBathsRow || monthlyCost ? `<div class="listing-meta listing-facts-row">${bedsBathsRow ? `<span class="listing-facts-text">${bedsBathsRow}</span>` : ""}${monthlyCost ? `<span class="listing-monthly-cost">${escapeHtml(fmtPrice(monthlyCost))}/mo</span>` : ""}</div>` : ""}
       ${detailHref ? `<div class="listing-links">
         <a class="listing-detail-link" href="${escapeHtml(detailHref)}">Full HomePilot Analysis</a>

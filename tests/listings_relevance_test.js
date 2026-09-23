@@ -52,6 +52,13 @@ const HAMILTON = [
   ["C7", 485000, "Condo Apartment", 2, 2, "2026-09-07"],  // $1,000 past the ceiling
   ["D1", 420000, "Detached", 3, 1, "2026-09-08"],
   ["D2", 470000, "Semi-Detached", null, null, "2026-09-09"], // bedroom count missing
+  // Added 2026-09-23 (market research): tenures the app cannot cost, and dens.
+  ["LIFE", 430000, "Leasehold Condo", 2, 1, "2026-09-11", "Well Managed Life Lease Senior Residence (55+). Requires cash only offers as no mortgage can be registered against a life lease."],
+  ["DEED", 432000, "Condo Apartment", 2, 1, "2026-09-12", "Ideal for seniors. Has Deed (Not Life Lease). Newly renovated."],
+  ["LAND", 420000, "Detached", 2, 1, "2026-09-13", "A land lease community with a current lease fee of $604.97 per month."],
+  ["DEN1", 436000, "Condo Apartment", 2, 1, "2026-09-14", "Bright 1+den suite with a walkout balcony."],
+  ["DEN2", 437000, "Condo Apartment", 3, 2, "2026-09-15", "Spacious 2 bedroom plus den corner unit."],
+  ["AGE", 433000, "Condo Townhouse", 2, 2, "2026-09-16", "Bungalow townhome in a 55+ gated community."],
 ];
 
 function seed() {
@@ -69,9 +76,9 @@ function seed() {
     "living_area_range TEXT, approximate_age TEXT, public_remarks_full TEXT, photos_full TEXT)");
   const fresh = new Date().toISOString();
   const ins = sqlite.prepare("INSERT INTO listings (listing_key, list_price, city, property_subtype, bedrooms," +
-    " bathrooms, listed_date, listing_url, brokerage_name, photos, last_updated, source, transaction_type, standard_status)" +
-    " VALUES (?, ?, 'Hamilton', ?, ?, ?, ?, '', 'Test Realty', '[]', ?, 'PROPTX', 'For Sale', 'Active')");
-  for (const [k, p, st, bd, ba, ld] of HAMILTON) ins.run(k, p, st, bd, ba, ld + "T12:00:00Z", fresh);
+    " bathrooms, listed_date, public_remarks, listing_url, brokerage_name, photos, last_updated, source, transaction_type, standard_status)" +
+    " VALUES (?, ?, 'Hamilton', ?, ?, ?, ?, ?, '', 'Test Realty', '[]', ?, 'PROPTX', 'For Sale', 'Active')");
+  for (const [k, p, st, bd, ba, ld, remarks] of HAMILTON) ins.run(k, p, st, bd, ba, ld + "T12:00:00Z", remarks || null, fresh);
   return {
     prepare(sql) {
       let a = [];
@@ -89,7 +96,7 @@ function seed() {
   const worker = (await load("index.js")).default;
   const d1 = seed();
   const keys = (rows) => rows.map((r) => r.listingKey);
-  const NOT_HOMES = ["LOT1", "LOT2", "LOT3", "PARK", "GAMED", "FRAC"];
+  const NOT_HOMES = ["LOT1", "LOT2", "LOT3", "PARK", "GAMED", "FRAC", "LIFE", "LAND"];
 
   // =============== 1. what is never shown ===============
   const everything = await db.getListingsByCity(d1, "Hamilton", 100, null, 0, null);
@@ -115,7 +122,7 @@ function seed() {
   // =============== 3. best match ===============
   const best = await db.getListingsByCity(d1, "Hamilton", 100, "condo", 0, 440000, null, null, { minBeds: 2, sort: "best" });
   check("(3a) best match: at-or-under budget first, closest first, then the stretch band closest first",
-    keys(best).join(",") === "C2,C9,C3,C4,C8,C5,C6", keys(best).join(","));
+    keys(best).join(",") === "C2,DEN2,AGE,DEED,C9,C3,C4,C8,C5,C6", keys(best).join(","));
   check("(3b) a tie on price goes to the newer listing (C9 listed after C3)", keys(best).indexOf("C9") < keys(best).indexOf("C3"));
   check("(3c) nothing past the 10% ceiling (C7 at $485,000 on a $440,000 budget)", !keys(best).includes("C7"));
   const byDefault = await db.getListingsByCity(d1, "Hamilton", 100, "condo", 0, 440000, null, null, { minBeds: 2 });
@@ -151,7 +158,7 @@ function seed() {
   };
   const r1 = await call("city=Hamilton&type=condo&budget=440000&beds=2");
   check("(6a) route: beds=2 and a budget give best match, 2+ bedrooms",
-    r1.sort === "best" && r1.minBeds === 2 && keys(r1.listings).join(",") === "C2,C9,C3,C4,C8,C5,C6", JSON.stringify([r1.sort, r1.minBeds, keys(r1.listings)]));
+    r1.sort === "best" && r1.minBeds === 2 && keys(r1.listings).join(",") === "C2,DEN2,AGE,DEED,C9,C3,C4,C8,C5,C6", JSON.stringify([r1.sort, r1.minBeds, keys(r1.listings)]));
   const r2 = await call("city=Hamilton&beds=abc&sort=nonsense");
   check("(6b) route: junk beds/sort values mean any bedrooms and the default order", r2.minBeds === null && r2.sort === "newest", JSON.stringify([r2.minBeds, r2.sort]));
   const r3 = await call("city=Hamilton&sort=price");
@@ -264,6 +271,39 @@ function seed() {
   check("(7x) empty state names the bedroom minimum and suggests fewer bedrooms",
     !!empty && /with 4\+ bedrooms/.test(empty.textContent) && /fewer bedrooms/.test(empty.textContent), empty && empty.textContent);
   check("(7y) ...and keeps the controls so the buyer can loosen it", !!root4.querySelector(".listings-refine"));
+
+  // =============== 8. tenures the app cannot cost, dens, and 55+ (2026-09-23) ===============
+  const anyBeds = keys(await db.getListingsByCity(d1, "Hamilton", 100, null, 0, null));
+  check("(8a) a life lease is not shown (no mortgage can be registered against one)", !anyBeds.includes("LIFE"));
+  check("(8b) ...but a listing that says it is NOT a life lease is", anyBeds.includes("DEED"));
+  check("(8c) a land-lease home is not shown (its land fee is not in the monthly cost)", !anyBeds.includes("LAND"));
+  check("(8d) neither is served on a detail page", (await db.getListingByKey(d1, "LIFE")) === null && (await db.getListingByKey(d1, "LAND")) === null);
+  const one = await db.getListingsByCity(d1, "Hamilton", 100, null, 0, null, null, null, { minBeds: 1 });
+  const den1 = one.find((r) => r.listingKey === "DEN1");
+  check("(8e) a '1+den' condo stored as 2 bedrooms counts as 1", !!den1 && den1.bedrooms === 2 && den1.effectiveBedrooms === 1);
+  check("(8f) ...so it is not in a 2+ bedroom search, but is in a 1+ search", !keys(twoPlus).includes("DEN1") && keys(one).includes("DEN1"));
+  const three = keys(await db.getListingsByCity(d1, "Hamilton", 100, null, 0, null, null, null, { minBeds: 3 }));
+  check("(8g) a '2 bedroom plus den' stored as 3 is in a 2+ search, not a 3+ one", keys(best).includes("DEN2") && !three.includes("DEN2"));
+  const plain2 = one.find((r) => r.listingKey === "C2");
+  check("(8h) a real 2-bedroom keeps its 2", plain2 && plain2.effectiveBedrooms === 2);
+  check("(8i) browser: the same tenure rule", !win.ldIsListableHome({ listPrice: 430000, propertyType: "condo", bedrooms: 2, bathrooms: 1, publicRemarks: "Life Lease for Senior Living" })
+    && win.ldIsListableHome({ listPrice: 430000, propertyType: "condo", bedrooms: 2, bathrooms: 1, publicRemarks: "Has Deed (Not Life Lease)" })
+    && !win.ldIsListableHome({ listPrice: 420000, propertyType: "detached", bedrooms: 2, bathrooms: 1, publicRemarks: "a land-lease community" }));
+  check("(8j) browser: beds read '1 + den', and a plain count is untouched",
+    win.ldBedsText({ bedrooms: 2, effectiveBedrooms: 1 }) === "1 + den" && win.ldBedsText({ bedrooms: 2, effectiveBedrooms: 2 }) === "2" && win.ldBedsText({ bedrooms: 3 }) === "3" && win.ldBedsText({}) === null);
+  check("(8k) browser: 55+ and adult-lifestyle communities are recognised, 'suits seniors' is not",
+    win.ldAgeRestricted({ publicRemarks: "in a 55+ gated community" }) && win.ldAgeRestricted({ publicRemarks: "Adult Lifestyle Community" })
+    && win.ldAgeRestricted({ publicRemarks: "Residence (55+). Bright unit" }) && !win.ldAgeRestricted({ publicRemarks: "would suit family, couple or seniors" }));
+  // On the page: the 55+ townhome is shown, labelled; the den condo says so.
+  win.fetch = async (u) => { const res = await worker.fetch(new Request(String(u)), { DB: d1 }); const body = await res.json(); return { ok: res.ok, json: async () => body }; };
+  const root5 = win.document.createElement("div");
+  win.document.body.appendChild(root5);
+  await win.renderLiveListings("Hamilton", root5, "condo", 440000, { sort: "best", minBeds: null });
+  const cardFor = (key) => [...root5.querySelectorAll(".listing-card")].find((c) => (c.querySelector("a.listing-detail-link") || { getAttribute: () => "" }).getAttribute("href").includes("key=" + key + "&"));
+  const ageCard = cardFor("AGE"), denCard = cardFor("DEN1");
+  check("(8l) the 55+ home is on the page, with the age label", !!ageCard && /Age-restricted community/.test(ageCard.textContent));
+  check("(8m) an ordinary home carries no age label", !!cardFor("C2") && !/Age-restricted/.test(cardFor("C2").textContent));
+  check("(8n) the 1+den condo reads 'Beds: 1 + den'", !!denCard && denCard.textContent.includes("Beds: 1 + den"), denCard && denCard.querySelector(".listing-facts-row") && denCard.querySelector(".listing-facts-row").textContent);
 
   console.log("=== RESULT: " + passed + " passed, " + failed + " failed ===");
   process.exit(failed === 0 ? 0 : 1);

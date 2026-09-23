@@ -45,7 +45,42 @@ function ldIsListableHome(listing) {
   const count = (v) => (v === null || v === undefined || v === "" ? null : Number(v));
   const beds = count(listing.bedrooms), baths = count(listing.bathrooms);
   if (beds === 0 && (baths === 0 || listing.propertyType !== "condo")) return false;
+  if (ldIsLeasedTenure(listing)) return false;
   return true;
+}
+
+// Life-lease and land-lease listings (added 2026-09-23): hidden on the server
+// by NOT_LEASED_TENURE_CLAUSE in the Worker's db.js, where the evidence is.
+// A life lease cannot carry a mortgage ("cash only offers"); a land lease adds
+// a $500-$1,000 monthly land fee this app does not cost. Same phrases, same
+// denial rule ("Has Deed (Not Life Lease)" keeps the listing).
+const LD_LIFE_LEASE = /life[\s-]?lease/i;
+const LD_LIFE_LEASE_DENIED = /\b(?:not(?: a)?|non|no)[\s-]life[\s-]?lease/i;
+const LD_LAND_LEASE = /land[\s-]lease|leased land/i;
+function ldIsLeasedTenure(listing) {
+  const text = String((listing && listing.publicRemarks) || "");
+  return (LD_LIFE_LEASE.test(text) && !LD_LIFE_LEASE_DENIED.test(text)) || LD_LAND_LEASE.test(text);
+}
+
+// Age-restricted communities (55+, adult lifestyle) are real homes, and some
+// buyers qualify, so they are labelled rather than hidden: the app doesn't
+// know the buyer's age, and a family of four should not fall for one. The
+// phrases were checked against production descriptions on 2026-09-23 ("55+
+// gated community", "Adult Lifestyle Community", "(55+)"); a bare "seniors" is
+// not used -- it mostly appears as "would suit families or seniors".
+const LD_AGE_RESTRICTED = /\b(?:55|60|65)\s*(?:\+|plus)\s*(?:adult|active|gated|lifestyle|communit|building|residence|condo|living|complex|village|park|only|independent)|\((?:55|60|65)\s*\+\)|adult[\s-]lifestyle|adult[\s-](?:only|community|communities|living)|retirement (?:community|residence|living)/i;
+function ldAgeRestricted(listing) {
+  return LD_AGE_RESTRICTED.test(String((listing && listing.publicRemarks) || ""));
+}
+
+// Bedrooms as a buyer would say them: "1 + den" when PropTx counted a den as a
+// bedroom (the API's effectiveBedrooms, EFFECTIVE_BEDROOMS_EXPR in db.js).
+// null when there is no count at all -- never a guessed one.
+function ldBedsText(listing) {
+  if (!listing || listing.bedrooms === null || listing.bedrooms === undefined || listing.bedrooms === "") return null;
+  const total = Number(listing.bedrooms), eff = Number(listing.effectiveBedrooms);
+  if (Number.isFinite(eff) && Number.isFinite(total) && eff === total - 1) return eff + " + den";
+  return String(listing.bedrooms);
 }
 
 // PropTx AssociationFee -> a monthly amount. A missing frequency is treated

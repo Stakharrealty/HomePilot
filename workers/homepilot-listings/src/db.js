@@ -231,10 +231,61 @@ export const NOT_LAND_OR_UNIT_CLAUSE =
   `NOT (COALESCE(bedrooms, -1) = 0 AND (COALESCE(bathrooms, -1) = 0 OR ` +
   `${SUBTYPE_EXPR} NOT IN ${sqlInList(CONDO_SUBTYPES)}))`;
 
+// Phrase tests on the listing description. Phrases are constants in this file,
+// never user input, and contain no quotes.
+const REMARKS_EXPR = "LOWER(COALESCE(public_remarks, ''))";
+function remarksMention(phrases) {
+  return `(${phrases.map((p) => `${REMARKS_EXPR} LIKE '%${p}%'`).join(" OR ")})`;
+}
+
+// NOT_LEASED_TENURE_CLAUSE (added 2026-09-23, IMPROVEMENT_PLAN.md 1.1, from the
+// market research that day). Two kinds of listing that look like ordinary homes
+// but cannot be bought the way this app costs them. Measured in production:
+//   - LIFE LEASE (35 listings): a right to occupy, usually in a 55+ building
+//     (Yee Hong, Mon Sheong, St Paul's Terrace...). Their own descriptions say
+//     it: "requires cash only offers as no mortgage can be registered against
+//     a life lease". Every mortgage payment HomePilot would print is fiction --
+//     the same reason home-types.js already blocks Timeshare and Co-Ownership.
+//   - LAND LEASE (55): a house or townhouse on rented land in a Parkbridge-
+//     style community (Wilmot Creek, Sandy Cove, Black Creek). A land fee of
+//     $500-$1,000 a month is not in HomePilot's monthly cost, and ordinary
+//     mortgages rarely apply.
+// Unlike "land value" (rejected, see above), these phrases were checked in
+// context and are precise. Three descriptions DENY a life lease ("Has Deed
+// (Not Life Lease)"), so a denial keeps the listing; nothing denies a land lease.
+// Age-restricted (55+) homes are NOT hidden -- the app doesn't know the buyer's
+// age -- they are labelled on the card instead (ldAgeRestricted, listing-fit.js).
+const LIFE_LEASE_PHRASES = ["life lease", "life-lease", "lifelease"];
+const LIFE_LEASE_DENIALS = ["not life lease", "not a life lease", "not life-lease", "not a life-lease", "non-life lease", "no life lease"];
+const LAND_LEASE_PHRASES = ["land lease", "land-lease", "leased land"];
+export const NOT_LEASED_TENURE_CLAUSE =
+  `NOT ((${remarksMention(LIFE_LEASE_PHRASES)} AND NOT ${remarksMention(LIFE_LEASE_DENIALS)}) OR ${remarksMention(LAND_LEASE_PHRASES)})`;
+
+// EFFECTIVE_BEDROOMS_EXPR (added 2026-09-23, same item: "Stop counting 1+den as
+// 2 bedrooms"). PropTx's BedroomsTotal counts a condo's den as a bedroom:
+// measured that day, 968 two-bedroom condos said "1+den" (or "1 bedroom plus
+// den", ...) in their own description, and 387 three-bedroom condos said
+// "2+den". A family asking for 2+ bedrooms was shown a thousand one-bedroom
+// units. The count is corrected only when the description names the den AND
+// the stored total is exactly one more -- so a real 2-bedroom whose text merely
+// mentions a den keeps its 2. Houses are untouched ("3+1" there is usually a
+// real basement bedroom). The bedroom filter and the card both use this.
+const ONE_PLUS_DEN = ["1+den", "1 + den", "1 +den", "1+ den", "1 bedroom plus den", "1 bedroom + den",
+  "1-bedroom plus den", "1-bedroom + den", "one bedroom plus den", "one bedroom + den", "one-bedroom plus den",
+  "1 bed + den", "1 bed plus den", "1 bdrm + den", "1 bdrm plus den", "1br + den", "1br+den",
+  "1 bedroom and den", "one bedroom and den"];
+const TWO_PLUS_DEN = ["2+den", "2 + den", "2 bedroom plus den", "2 bedroom + den", "2-bedroom plus den",
+  "2-bedroom + den", "two bedroom plus den", "two bedroom + den", "2 bed + den", "2 bedrooms plus den",
+  "2 bedrooms + den", "2 bedroom and den"];
+export const EFFECTIVE_BEDROOMS_EXPR =
+  `CASE WHEN bedrooms = 2 AND ${SUBTYPE_EXPR} IN ${sqlInList(CONDO_SUBTYPES)} AND ${remarksMention(ONE_PLUS_DEN)} THEN 1 ` +
+  `WHEN bedrooms = 3 AND ${SUBTYPE_EXPR} IN ${sqlInList(CONDO_SUBTYPES)} AND ${remarksMention(TWO_PLUS_DEN)} THEN 2 ` +
+  `ELSE bedrooms END`;
+
 // Only real homes on the allow-list are ever returned -- a parking space,
 // locker, vacant land, commercial unit, or any label PropTx adds later is
 // blocked here even if it's already sitting in D1.
-export const SHOWN_HOMES_CLAUSE = `${SUBTYPE_EXPR} IN ${sqlInList(SHOWN_SUBTYPES)} AND ${NOT_LAND_OR_UNIT_CLAUSE}`;
+export const SHOWN_HOMES_CLAUSE = `${SUBTYPE_EXPR} IN ${sqlInList(SHOWN_SUBTYPES)} AND ${NOT_LAND_OR_UNIT_CLAUSE} AND ${NOT_LEASED_TENURE_CLAUSE}`;
 
 // STRETCH_MULTIPLIER (added 2026-07-29, affordability-consistency fix):
 // MUST stay in sync with the identical 1.10 stretch tolerance already used
@@ -392,7 +443,7 @@ export async function getListingsByCity(db, city, limit = 20, propertyType = nul
   const hasBudget = Number.isFinite(searchBudget) && searchBudget > 0;
   const budgetClause = hasBudget ? ` AND list_price <= ?` : "";
   const minBeds = validMinBeds(options && options.minBeds);
-  const bedsClause = minBeds !== null ? ` AND bedrooms >= ?` : "";
+  const bedsClause = minBeds !== null ? ` AND ${EFFECTIVE_BEDROOMS_EXPR} >= ?` : "";
   const orderBy = orderByFor(effectiveSort(options && options.sort, hasBudget), searchBudget);
 
   // derivedTypeCase (added 2026-07-29, classification fix): built from the
@@ -420,7 +471,8 @@ export async function getListingsByCity(db, city, limit = 20, propertyType = nul
   const result = await db
     .prepare(
       `SELECT ${LISTING_COLUMNS},
-              ${derivedTypeCase}
+              ${derivedTypeCase},
+              ${EFFECTIVE_BEDROOMS_EXPR} AS effective_bedrooms
        FROM listings
        WHERE ${cityMatch.sql} AND ${VISIBLE_LISTING_CLAUSE} AND ${SHOWN_HOMES_CLAUSE}${typeClause}${budgetClause}${bedsClause}
        ORDER BY ${orderBy.sql}
@@ -449,6 +501,9 @@ function mapListingRow(row) {
     cityRegion: regionForCity(row.city) || cardForCommunity(row.city, row.community),
     postalCode: row.postal_code,
     bedrooms: row.bedrooms,
+    // Bedrooms without a den PropTx counted as one (EFFECTIVE_BEDROOMS_EXPR);
+    // the same as bedrooms for every listing that does not name a den.
+    effectiveBedrooms: row.effective_bedrooms === undefined ? row.bedrooms : row.effective_bedrooms,
     bathrooms: row.bathrooms,
     parkingTotal: row.parking_total,
     parkingSpaces: row.parking_spaces,
@@ -519,7 +574,8 @@ export async function getListingByKey(db, listingKey) {
   const result = await db
     .prepare(
       `SELECT ${LISTING_COLUMNS}, public_remarks_full, photos_full,
-              ${derivedTypeCase}
+              ${derivedTypeCase},
+              ${EFFECTIVE_BEDROOMS_EXPR} AS effective_bedrooms
        FROM listings
        WHERE listing_key = ? AND ${VISIBLE_LISTING_CLAUSE} AND ${SHOWN_HOMES_CLAUSE}
        LIMIT 1`
