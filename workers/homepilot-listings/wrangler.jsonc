@@ -12,8 +12,25 @@
   // ceiling Cloudflare allows on Workers Paid for CPU-bound tasks -- not
   // maxed out, just enough headroom that a busy ingest run doesn't get
   // cut off by Error 1102 ("Worker exceeded resource limits").
+  //
+  // Raised 30000 -> 90000 (2026-09-22, full-coverage rollout). This did not
+  // move when TIME_BUDGET_MS in proptx-auto-ingest.js went 20s -> 60s, which
+  // left a 30s CPU ceiling sitting underneath a 60s wall-clock budget: a
+  // firing that used its whole budget could be killed by the CPU limit
+  // (Error 1102) before it spent it. The ingest survives that -- saveState()
+  // runs after every page, so a killed run resumes from the last cursor --
+  // but it would silently cap throughput below what the budget was raised to
+  // buy, and the failure would not appear in last_error because a CPU kill is
+  // not a catchable exception.
+  //
+  // 90s is chosen so the CPU ceiling can never be the binding constraint: a
+  // firing cannot use more than its 60s budget plus one page of overshoot, so
+  // any figure above that makes TIME_BUDGET_MS the only limiter, which is the
+  // one the code reasons about. Still far below the 5-minute ceiling
+  // Cloudflare allows on Workers Paid. Asserted in
+  // tests/listings_city_coverage_test.js so the two cannot drift apart again.
   "limits": {
-    "cpu_ms": 30000
+    "cpu_ms": 90000
   },
   "d1_databases": [
     {

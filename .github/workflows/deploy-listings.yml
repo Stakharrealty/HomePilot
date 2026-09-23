@@ -38,6 +38,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Community cards test (Acton/Georgetown/King City/Bradford/Bolton)
+        run: node --no-warnings tests/listings_community_cards_test.js
+
+      - name: City coverage test (all 49 cities reachable, ingest capacity)
+        run: node --no-warnings tests/listings_city_coverage_test.js
+
       - name: Pre-deploy tests (no network required)
         run: |
           node tests/listing_verified_seal_removed_test.js

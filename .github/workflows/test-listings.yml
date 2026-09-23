@@ -51,3 +51,9 @@ jobs:
 
       - name: Affordability budget test (no network required)
         run: node --no-warnings tests/listings_affordability_budget_test.js
+
+      - name: Community cards test (Acton/Georgetown/King City/Bradford/Bolton, real SQLite)
+        run: node --no-warnings tests/listings_community_cards_test.js
+
+      - name: City coverage test (all 49 cities reachable, ingest capacity)
+        run: node --no-warnings tests/listings_city_coverage_test.js

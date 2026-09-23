@@ -13,6 +13,7 @@
 import { districtsForRegion } from "./toronto-districts.js";
 import { getListingsByCity, getListingByKey, cityMatchClause, idxCappedLimit, SHOWN_HOMES_CLAUSE, PROPERTY_TYPE_FILTERS } from "./db.js";
 import { CITY_ALIASES, PUBLIC_CITY_NAMES, HOMEPILOT_CITIES } from "./cities.js";
+import { communitiesForCity } from "./communities.js";
 import { runSubtypeCensus } from "./proptx-census.js";
 import { runAutoIngest, ensureStateTable, AUTO_INGEST_CITIES } from "./proptx-auto-ingest.js";
 
@@ -185,6 +186,13 @@ export default {
         // for every other request, including plain "Toronto"). See
         // toronto-districts.js for the mapping.
         const torontoDistricts = districtsForRegion(requestedCity);
+        // Community cards narrow to their own neighbourhoods inside a
+        // municipality that holds more than one card (null for every other
+        // request). The alias above resolves "Acton" to the municipality
+        // rows are stored under, "Halton Hills"; without this the Acton card
+        // would then show all 263 Halton Hills listings, 140 of them in
+        // Georgetown. See communities.js.
+        const communities = communitiesForCity(requestedCity);
 
         const rawType = url.searchParams.get("type");
         const propertyType = VALID_PROPERTY_TYPES.has(rawType) ? rawType : null;
@@ -215,7 +223,7 @@ export default {
         // definition at the top of this file. While false, buyers get the
         // normal empty state for every city.
         const listings = PROPTX_DISPLAY_ENABLED && cappedLimit > 0
-          ? await getListingsByCity(env.DB, city, cappedLimit, propertyType, offset, searchBudget, torontoDistricts)
+          ? await getListingsByCity(env.DB, city, cappedLimit, propertyType, offset, searchBudget, torontoDistricts, communities)
           : [];
         return new Response(
           JSON.stringify({ city: requestedCity, propertyType: propertyType || "all", offset, searchBudget, count: listings.length, listings }, null, 2),

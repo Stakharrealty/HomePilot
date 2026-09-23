@@ -1,0 +1,42 @@
+-- Migration 0006: community (PropTx CityRegion) --
+--
+-- Adds the one field that tells apart the HomePilot cards that are
+-- communities inside a larger municipality rather than municipalities of
+-- their own: Acton and Georgetown (both City = "Halton Hills"), King City
+-- (City = "King") and Bradford (City = "Bradford West Gwillimbury").
+--
+-- Nullable TEXT, added via ADD COLUMN -- purely additive, does not touch
+-- existing rows or any existing column. Existing rows keep NULL, which is
+-- correct: no card in the four cities ingested before this migration
+-- (Mississauga, Hamilton, Guelph, Toronto) is community-scoped, so nothing
+-- reads the column for them. Applied the same way migrations 0001-0005
+-- were (direct `wrangler d1 execute --file=`, not the tracked migrations
+-- system -- this D1 database has never used that tracking table).
+--
+-- community (RESO CityRegion, Edm.String): confirmed live 2026-09-22
+-- against query.ampre.ca, over every Active / For Sale / Residential
+-- listing in the three municipalities -- 689 listings, CityRegion
+-- populated on 100% of them, zero nulls:
+--
+--   Halton Hills (263)  Georgetown 140, "1049 - Rural Halton Hills" 69,
+--                       "1045 - AC Acton" 28, "1064 - ES Rural Esquesing" 11,
+--                       Glen Williams 10, "1048 - Limehouse" 3,
+--                       "1050 - Stewarttown" 2
+--   King (243)          King City 98, Rural King 73, Nobleton 37,
+--                       Schomberg 24, Pottageville 11
+--   Bradford W.G. (183) Bradford 137,
+--                       "Rural Bradford West Gwillimbury" 36, Bond Head 10
+--
+-- The feed mixes two shapes in the same municipality -- bare names and
+-- TRREB-coded ones ("1045 - AC Acton"). What is STORED here is the
+-- normalized bare name ("Acton"), produced by normalizeCommunity() in
+-- src/communities.js, so the read path can match on the name a person
+-- would recognize. The raw value is not kept: it carries no information
+-- the normalized name lacks, and keeping both invites the two drifting
+-- apart the way property_subtype / property_sub_type already did.
+ALTER TABLE listings ADD COLUMN community TEXT;
+
+-- Read path: getListingsByCity() filters `city = ? AND community IN (...)`
+-- for a community card. The existing city index already narrows to a few
+-- hundred rows per municipality, so no separate index on community is
+-- added here -- add one only if a real query shows it is needed.
