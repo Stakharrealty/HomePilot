@@ -57,6 +57,11 @@ export function subtypesForButton(button) {
   return SHOWN_SUBTYPES.filter((s) => HOME_TYPE_BY_SUBTYPE[s] === button);
 }
 
+// Every condo-owned label. A condo with no bedroom is a studio, which is a
+// real home; any other home type with no bedroom is not (see
+// NOT_LAND_OR_UNIT_CLAUSE in db.js).
+export const CONDO_SUBTYPES = Object.freeze(subtypesForButton("condo"));
+
 // { shown: boolean, type: button | null }
 export function classifySubtype(raw) {
   const key = typeof raw === "string" ? raw.trim() : "";

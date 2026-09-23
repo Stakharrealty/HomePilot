@@ -23,6 +23,31 @@
 // Same 10% stretch tolerance the listings API and results page use.
 const LD_STRETCH_MULTIPLIER = 1.10;
 
+// The listings API's price floor and land rule, applied again here (added
+// 2026-09-23, IMPROVEMENT_PLAN.md 1.1: "on the server and again in the
+// browser"). The server is the real gate -- MIN_LISTING_PRICE and
+// NOT_LAND_OR_UNIT_CLAUSE in workers/homepilot-listings/src/db.js, where the
+// evidence behind both is written up. This copy exists so a stale or
+// misbehaving API can never get a $1 price, a fractional resort share or a
+// building lot costed and badged as a home. Keep the number equal to the
+// server's.
+const LD_MIN_LISTING_PRICE = 75000;
+
+// True when this listing is something the app should cost as a home: priced at
+// or above the floor, and not a zero-bedroom lot (any non-condo) or a
+// zero-bedroom, zero-bathroom "condo" (parking or a commercial unit). A studio
+// condo -- no bedroom, one bathroom -- is a home. A missing count is not
+// evidence either way, so it passes, exactly as it does on the server.
+function ldIsListableHome(listing) {
+  if (!listing) return false;
+  const price = Number(listing.listPrice);
+  if (!(price >= LD_MIN_LISTING_PRICE)) return false;
+  const count = (v) => (v === null || v === undefined || v === "" ? null : Number(v));
+  const beds = count(listing.bedrooms), baths = count(listing.bathrooms);
+  if (beds === 0 && (baths === 0 || listing.propertyType !== "condo")) return false;
+  return true;
+}
+
 // PropTx AssociationFee -> a monthly amount. A missing frequency is treated
 // as monthly (Ontario condo fees are monthly, and the listing card already
 // shows it that way); an unrecognised frequency returns null so the caller
@@ -134,10 +159,11 @@ function ldNetIncome(profile) {
 }
 
 // What this listing costs this buyer each month. Null when there's no
-// profile or no usable price.
+// profile, no usable price, or the listing is not a home at all (see
+// ldIsListableHome) -- so neither the card nor the detail page can badge it.
 function computeListingCosts(listing, profile) {
   const price = Number(listing.listPrice);
-  if (!profile || !(price > 0)) return null;
+  if (!profile || !(price > 0) || !ldIsListableHome(listing)) return null;
   const { market, known } = ldResolveMarket(listing);
   const overrides = ldOverrides(listing);
   const net = ldNetIncome(profile);

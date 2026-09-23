@@ -67,9 +67,14 @@ const LISTINGS_BY_TYPE = {
   check("(A3) exactly 5 pills, in order: All, Condos, Townhomes, Semi-Detached, Detached",
     pills().map((b) => b.textContent).join(",") === "All,Condos,Townhomes,Semi-Detached,Detached");
   check("(A4) 'All' is the active pill by default", pills()[0].classList.contains("on") && pills().every((b, i) => i === 0 || !b.classList.contains("on")));
-  check("(A5) filter bar sits right after the page header, before the grid",
+  // Order since 2026-09-23: header, property-type pills, then the bedroom/sort
+  // row (.listings-refine, its own wrapper so pills() above still sees only the
+  // five type pills), then the grid.
+  const refine = bar() && bar().nextElementSibling;
+  check("(A5) filter bar sits right after the page header, then the bedroom/sort row, then the grid",
     container.querySelector(".listings-page-header").nextElementSibling === bar() &&
-    bar().nextElementSibling && bar().nextElementSibling.classList.contains("listings-grid"));
+    refine && refine.classList.contains("listings-refine") &&
+    refine.nextElementSibling && refine.nextElementSibling.classList.contains("listings-grid"));
   check("(A6) title reflects the active type ('Available Homes...', not a specific type)", container.querySelector(".listings-page-title").textContent.startsWith("Available Homes"));
 
   // =============== 2. clicking a pill re-fetches for that type ===============

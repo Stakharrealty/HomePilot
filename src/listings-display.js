@@ -78,14 +78,116 @@ function renderCapNote() {
 // not just visually de-emphasized. Optional and validated: an invalid or
 // missing value means no price ceiling is applied (matches prior
 // behavior exactly, so existing/older callers are unaffected).
-async function fetchListings(city, propertyType, offset = 0, limit = PAGE_LIMIT, searchBudget = null) {
+// options.sort / options.minBeds (added 2026-09-23): see "Relevance" below.
+async function fetchListings(city, propertyType, offset = 0, limit = PAGE_LIMIT, searchBudget = null, options = {}) {
   const params = new URLSearchParams({ city, limit: String(limit), offset: String(offset) });
   if (propertyType && propertyType !== "all") params.set("type", propertyType);
   if (Number.isFinite(searchBudget) && searchBudget > 0) params.set("budget", String(searchBudget));
+  if (options && LISTING_SORT_VALUES.includes(options.sort)) params.set("sort", options.sort);
+  if (options && validListingMinBeds(options.minBeds) !== null) params.set("beds", String(options.minBeds));
   const resp = await fetch(`${LISTINGS_API_BASE}/listings?${params.toString()}`);
   if (!resp.ok) throw new Error(`Listings fetch failed: ${resp.status}`);
   const data = await resp.json();
   return data.listings || [];
+}
+
+// --- Relevance: order and minimum bedrooms (added 2026-09-23,
+// IMPROVEMENT_PLAN.md 1.1 / REVIEW_BACKLOG.md P1-14) ---
+//
+// The page used to open on the cheapest listings first, whatever the buyer's
+// family: a family of three with a $440K condo budget in Hamilton saw
+// bachelor units first. Now it opens on the homes closest to the budget
+// (without going over first) with a bedroom minimum set from family size, and
+// the buyer can change both. The server does the sorting and filtering (see
+// LISTING_SORTS / validMinBeds in the Worker's db.js) so the 100-per-search
+// IDX cap and "Load more" paging apply to the list the buyer actually asked
+// for, not to a cheapest-first list trimmed afterwards.
+const LISTING_SORT_OPTIONS = [["best", "Best match"], ["price", "Lowest price"], ["newest", "Newest"]];
+const LISTING_SORT_VALUES = LISTING_SORT_OPTIONS.map((o) => o[0]);
+const LISTING_BED_OPTIONS = [[null, "Any"], [1, "1+"], [2, "2+"], [3, "3+"], [4, "4+"]];
+
+function validListingMinBeds(value) {
+  const n = Number(value);
+  return value !== null && value !== undefined && value !== "" && Number.isInteger(n) && n >= 1 && n <= 5 ? n : null;
+}
+
+// Default minimum bedrooms from the buyer's family size (the plan's rule):
+// 1-2 people 1+, 3 people 2+, 4 or more 3+. Unknown family size: no minimum.
+function defaultMinBedsForFamily(familySize) {
+  const n = parseInt(familySize, 10);
+  if (!Number.isFinite(n) || n < 1) return null;
+  if (n <= 2) return 1;
+  if (n === 3) return 2;
+  return 3;
+}
+
+// Works out the order and bedroom minimum for a listings page from its URL
+// query and the buyer's saved profile. The URL wins, so a choice the buyer
+// made survives a reload or the back button from a listing's detail page;
+// "beds=any" records an explicit "Any" so the family default isn't re-applied
+// on top of it. Best match needs a budget to be close to, so without one the
+// default is newest.
+function resolveListingOptions(params, profile, searchBudget) {
+  const hasBudget = Number.isFinite(searchBudget) && searchBudget > 0;
+  const rawSort = params && params.get("sort");
+  let sort = LISTING_SORT_VALUES.includes(rawSort) ? rawSort : (hasBudget ? "best" : "newest");
+  if (sort === "best" && !hasBudget) sort = "newest";
+  const rawBeds = params && params.get("beds");
+  let minBeds;
+  if (rawBeds === "any") minBeds = null;
+  else if (validListingMinBeds(rawBeds) !== null) minBeds = Number(rawBeds);
+  else minBeds = defaultMinBedsForFamily(profile && profile.familySize);
+  return { sort, minBeds };
+}
+
+// A one-line description of the order in use, shown above the grid, so the
+// buyer can tell why the first home is first.
+function listingSortNote(sort, searchBudget, minBeds) {
+  const beds = minBeds ? `${minBeds}+ bedrooms. ` : "";
+  if (sort === "best" && Number.isFinite(searchBudget) && searchBudget > 0) {
+    return `${beds}Homes at or under ${fmtPrice(searchBudget)} first, closest to it first. Homes up to 10% above it come after.`;
+  }
+  if (sort === "price") return `${beds}Lowest price first.`;
+  return `${beds}Most recently listed first.`;
+}
+
+// Built as real DOM with bound callbacks, like buildTypeFilterBar(). Uses its
+// own .refine-group wrapper (not .filter-group) so it never mixes with the
+// property-type pills.
+function buildRefineBar(options, onChange) {
+  const wrap = document.createElement("div");
+  wrap.className = "listings-refine";
+  const group = (labelText, choices, active, pick) => {
+    const g = document.createElement("div");
+    g.className = "refine-group";
+    const label = document.createElement("div");
+    label.className = "filter-label";
+    label.textContent = labelText;
+    const row = document.createElement("div");
+    row.className = "filters";
+    for (const [value, text] of choices) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "fb" + (value === active ? " on" : "");
+      btn.textContent = text;
+      btn.addEventListener("click", () => pick(value));
+      row.appendChild(btn);
+    }
+    g.appendChild(label);
+    g.appendChild(row);
+    return g;
+  };
+  wrap.appendChild(group("Bedrooms", LISTING_BED_OPTIONS, options.minBeds, (v) => onChange({ ...options, minBeds: v })));
+  const sorts = LISTING_SORT_OPTIONS.filter(([v]) => v !== "best" || options.hasBudget);
+  wrap.appendChild(group("Sort by", sorts, options.sort, (v) => onChange({ ...options, sort: v })));
+  return wrap;
+}
+
+// The server already refuses these (price floor, land rule); this drops any
+// that reach the browser anyway -- the plan's "and again in the browser".
+// ldIsListableHome() lives in listing-fit.js, which every listings page loads.
+function listableOnly(listings) {
+  return typeof ldIsListableHome === "function" ? listings.filter(ldIsListableHome) : listings;
 }
 
 // --- Rendering ---
@@ -403,8 +505,10 @@ async function loadMoreListings(buttonEl) {
       buttonEl.replaceWith(renderCapNote());
       return;
     }
-    const listings = await fetchListings(state.city, state.propertyType, nextOffset, requested, state.searchBudget);
-    for (const listing of listings) {
+    const listings = await fetchListings(state.city, state.propertyType, nextOffset, requested, state.searchBudget, state.options);
+    // Paging decisions below use the raw page length; listableOnly() only
+    // decides which of the returned homes get a card.
+    for (const listing of listableOnly(listings)) {
       state.grid.appendChild(renderListingCard(listing, state.searchBudget));
     }
     state.offset = nextOffset;
@@ -440,8 +544,16 @@ window.loadMoreListings = loadMoreListings;
 // it's chosen (card's own displayed price vs. overall buyPower). Threaded
 // through to fetchListings (server-side price ceiling) and every rendered
 // card (client-side fit-tier badge from getFit(); see listing-fit.js).
-async function renderLiveListings(city, containerEl, propertyType, searchBudget) {
-  containerEl._hpListingsState = { city, propertyType, searchBudget };
+// options (added 2026-09-23): { sort, minBeds } -- see resolveListingOptions().
+// Omitted means best match (or newest, with no budget) and no bedroom minimum.
+async function renderLiveListings(city, containerEl, propertyType, searchBudget, options) {
+  const hasBudget = Number.isFinite(searchBudget) && searchBudget > 0;
+  const opts = {
+    sort: options && LISTING_SORT_VALUES.includes(options.sort) && (options.sort !== "best" || hasBudget)
+      ? options.sort : (hasBudget ? "best" : "newest"),
+    minBeds: validListingMinBeds(options && options.minBeds),
+  };
+  containerEl._hpListingsState = { city, propertyType, searchBudget, options: opts };
   const cityEsc = escapeHtml(city);
   const typeLabelPlural = TYPE_LABELS_PLURAL[propertyType] || "Homes";
   // typePhraseLower is only used as an adjective before "listings" -- when
@@ -457,9 +569,10 @@ async function renderLiveListings(city, containerEl, propertyType, searchBudget)
       <div class="listings-page-title">Available ${escapeHtml(typeLabelPlural)} Matching This Recommendation</div>
       <div class="listings-page-subtitle">${cityEsc} · HomePilot Affordability Pick</div>
     </div>`;
-  // Re-fetches for the clicked type, keeping the same city and search
-  // budget, and reflects the choice in the URL (replaceState, not
-  // pushState -- a filter pick isn't a new page to go "back" through).
+  // Re-fetches for the clicked type, keeping the same city, search budget,
+  // order and bedroom minimum, and reflects the choice in the URL
+  // (replaceState, not pushState -- a filter pick isn't a new page to go
+  // "back" through).
   const onSelectType = (type) => {
     if (typeof window !== "undefined" && window.history && window.location) {
       const url = new URL(window.location.href);
@@ -467,32 +580,57 @@ async function renderLiveListings(city, containerEl, propertyType, searchBudget)
       else url.searchParams.set("type", type);
       window.history.replaceState(null, "", url);
     }
-    renderLiveListings(city, containerEl, type, searchBudget);
+    renderLiveListings(city, containerEl, type, searchBudget, opts);
+  };
+  // Same for a bedroom or sort pick. "beds=any" is written explicitly so a
+  // reload keeps the buyer's "Any" instead of re-applying the family default.
+  const onRefine = (next) => {
+    if (typeof window !== "undefined" && window.history && window.location) {
+      const url = new URL(window.location.href);
+      url.searchParams.set("sort", next.sort);
+      url.searchParams.set("beds", next.minBeds === null ? "any" : String(next.minBeds));
+      window.history.replaceState(null, "", url);
+    }
+    renderLiveListings(city, containerEl, propertyType, searchBudget, { sort: next.sort, minBeds: next.minBeds });
+  };
+  // The property-type pills, then the bedroom/sort pills and the one-line note
+  // saying what the order is, all between the header and the listings.
+  const insertBars = () => {
+    insertTypeFilterBar(containerEl, propertyType, onSelectType);
+    const refine = buildRefineBar({ ...opts, hasBudget }, onRefine);
+    const note = document.createElement("div");
+    note.className = "listings-sort-note";
+    note.textContent = listingSortNote(opts.sort, searchBudget, opts.minBeds);
+    refine.appendChild(note);
+    containerEl.querySelector(".filter-group").insertAdjacentElement("afterend", refine);
   };
   containerEl.innerHTML = `${headerHtml}<div class="listings-loading">Loading live ${escapeHtml(loadingPhrase)} for ${cityEsc}…</div>`;
-  insertTypeFilterBar(containerEl, propertyType, onSelectType);
+  insertBars();
 
   try {
-    const listings = await fetchListings(city, propertyType, 0, PAGE_LIMIT, searchBudget);
+    const listings = await fetchListings(city, propertyType, 0, PAGE_LIMIT, searchBudget, opts);
+    const shown = listableOnly(listings);
 
-    if (listings.length === 0) {
-      containerEl.innerHTML = `${headerHtml}<div class="listings-empty">No active ${escapeHtml(loadingPhrase)} found in ${cityEsc} right now. Check back soon.</div>`;
-      insertTypeFilterBar(containerEl, propertyType, onSelectType);
+    if (shown.length === 0) {
+      const bedsPhrase = opts.minBeds ? ` with ${opts.minBeds}+ bedrooms` : "";
+      const hint = opts.minBeds ? " Try fewer bedrooms." : " Check back soon.";
+      containerEl.innerHTML = `${headerHtml}<div class="listings-empty">No active ${escapeHtml(loadingPhrase)}${bedsPhrase} found in ${cityEsc} right now.${hint}</div>`;
+      insertBars();
       return;
     }
 
     containerEl.innerHTML = headerHtml;
-    insertTypeFilterBar(containerEl, propertyType, onSelectType);
+    insertBars();
     const grid = document.createElement("div");
     grid.className = "listings-grid";
-    for (const listing of listings) {
+    for (const listing of shown) {
       grid.appendChild(renderListingCard(listing, searchBudget));
     }
     containerEl.appendChild(grid);
 
     // Track pagination state on the container itself so loadMoreListings()
     // can pick up where this left off.
-    containerEl._hpListingsState = { city, propertyType, offset: 0, grid, searchBudget };
+    containerEl._hpListingsState = { city, propertyType, offset: 0, grid, searchBudget, options: opts };
 
     if (listings.length === PAGE_LIMIT && PAGE_LIMIT < IDX_MAX_LISTINGS_PER_SEARCH) {
       // A full page came back -- there may be more. Rather than firing an
@@ -512,7 +650,7 @@ async function renderLiveListings(city, containerEl, propertyType, searchBudget)
     containerEl.appendChild(renderIdxNotice());
   } catch (err) {
     containerEl.innerHTML = `${headerHtml}<div class="listings-error">Couldn't load live listings right now. Please try again shortly.</div>`;
-    insertTypeFilterBar(containerEl, propertyType, onSelectType);
+    insertBars();
   }
 }
 

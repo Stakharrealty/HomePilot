@@ -1,4 +1,4 @@
-import { BUTTON_TYPES, SHOWN_SUBTYPES, subtypesForButton, sqlInList } from "./home-types.js";
+import { BUTTON_TYPES, SHOWN_SUBTYPES, CONDO_SUBTYPES, subtypesForButton, sqlInList } from "./home-types.js";
 import { isDistrictCode, regionForCity } from "./toronto-districts.js";
 import { cardForCommunity } from "./communities.js";
 
@@ -159,13 +159,23 @@ export function freshnessCutoffIso(nowMs = Date.now()) {
 // of take-home, within your comfort affordability range" and "$6,401 cash to
 // purchase". The single most prominent home in a city, costed as fiction.
 //
-// WHY $10,000 AND NOT $2. A literal ">= $2" would remove today's 36 and reopen
-// the same exploit tomorrow at $2. The live price distribution says where the
-// real boundary is: 36 listings at $1, then NOTHING AT ALL until $21,000. The
-// floor sits in the middle of an empty band roughly four orders of magnitude
-// wide, so it removes exactly the gamed listings, is far below any genuine
-// Ontario home (the cheapest real ones here are $100k-$200k rural properties,
-// which stay visible), and leaves no cheap rung for the next agent to game.
+// WHY $75,000 (raised from $10,000 on 2026-09-23, IMPROVEMENT_PLAN.md 1.1).
+// A literal ">= $2" would remove today's 36 and reopen the same exploit
+// tomorrow at $2. The live price distribution says where the real boundary is,
+// measured against production the day this changed:
+//   - 36 listings at $1 (the gamed ones above);
+//   - then six listings from $21,000 to $48,500, every one a FRACTIONAL share
+//     of a Collingwood resort condo ("1/17th share, three annual vacation
+//     weeks"). PropTx files them as "Condo Apartment", but they are the same
+//     thing home-types.js already blocks as "Timeshare" and "Co-Ownership
+//     Apartment": a share no lender writes an ordinary mortgage on, so every
+//     monthly cost this app would print for one is fiction;
+//   - then NOTHING AT ALL until $110,000.
+// The first floor ($10,000) stopped the $1 listings but left the fractional
+// shares visible and badged. $75,000 sits in the middle of the empty
+// $48,500-$110,000 band: it removes both groups and no ordinary home (the
+// cheapest real ones are a $134,900 Hamilton condo and $110K-$150K seasonal
+// cottages), and leaves no cheap rung for the next agent to game.
 //
 // A NULL price is excluded by the same comparison, deliberately: every number
 // this app shows a buyer is derived from the price, so a listing without one
@@ -174,8 +184,9 @@ export function freshnessCutoffIso(nowMs = Date.now()) {
 // Filtered on READ, not at ingest, matching how staleness and home types are
 // already handled. The row stays in D1, so if the agent corrects the price to
 // a real number the listing simply reappears on the next refresh -- no backfill
-// and no re-ingest needed.
-export const MIN_LISTING_PRICE = 10000;
+// and no re-ingest needed. The browser applies the same floor again
+// (LD_MIN_LISTING_PRICE in src/listing-fit.js); keep the two equal.
+export const MIN_LISTING_PRICE = 75000;
 
 // The visibility rules every listing query shares, so the list endpoint and
 // the single-listing endpoint can never disagree about what is servable.
@@ -191,10 +202,39 @@ export const PROPERTY_TYPE_FILTERS = Object.freeze(Object.fromEntries(
   BUTTON_TYPES.map((b) => [b, `${SUBTYPE_EXPR} IN ${sqlInList(subtypesForButton(b))}`])
 ));
 
+// NOT_LAND_OR_UNIT_CLAUSE (added 2026-09-23, IMPROVEMENT_PLAN.md 1.1): the
+// subtype allow-list below blocks "Vacant Land", but agents also file building
+// lots and development sites as "Detached", "Triplex" and so on. Measured
+// against production that day: 57 non-condo listings with ZERO bedrooms were
+// visible. About 50 were land, development sites or commercial property --
+// "LAND VALUE ONLY", "Walk the lot only. No access to house", "prime 2-acre
+// redevelopment site", a site "conditionally approved for a 16-storey,
+// 130-unit" tower in downtown Hamilton, a commercially zoned lot. The rest were
+// real buildings with the bedroom count left blank (a Vaughan townhouse, a
+// Peterborough duplex, a nine-unit rental block); they go too, because a home
+// with no bedroom count cannot be matched to a family, and that is a far
+// smaller cost than costing fifty lots as family homes.
+//
+// The rule is structural, not a keyword search. Remarks were tried first and
+// rejected: "land value" and "building lot" appear on more than a hundred
+// ordinary homes ("strong land value fundamentals", "taxes based on land value
+// only" on new builds), so a phrase rule hides real homes.
+//   - A house, semi, townhouse or plex with no bedroom is land or a site.
+//   - A condo with no bedroom is a studio -- a real home, 149 of them --
+//     UNLESS it has no bathroom either. The two such rows in production were
+//     "2 Tandem Parking in P4" and a commercial retail unit, both filed as
+//     "Condo Apartment".
+// COALESCE keeps a row whose bedroom count is simply missing (none are today):
+// unknown is not evidence of land. Hidden on read like everything else here, so
+// a corrected bedroom count brings the listing straight back.
+export const NOT_LAND_OR_UNIT_CLAUSE =
+  `NOT (COALESCE(bedrooms, -1) = 0 AND (COALESCE(bathrooms, -1) = 0 OR ` +
+  `${SUBTYPE_EXPR} NOT IN ${sqlInList(CONDO_SUBTYPES)}))`;
+
 // Only real homes on the allow-list are ever returned -- a parking space,
 // locker, vacant land, commercial unit, or any label PropTx adds later is
 // blocked here even if it's already sitting in D1.
-export const SHOWN_HOMES_CLAUSE = `${SUBTYPE_EXPR} IN ${sqlInList(SHOWN_SUBTYPES)}`;
+export const SHOWN_HOMES_CLAUSE = `${SUBTYPE_EXPR} IN ${sqlInList(SHOWN_SUBTYPES)} AND ${NOT_LAND_OR_UNIT_CLAUSE}`;
 
 // STRETCH_MULTIPLIER (added 2026-07-29, affordability-consistency fix):
 // MUST stay in sync with the identical 1.10 stretch tolerance already used
@@ -219,8 +259,8 @@ export function idxCappedLimit(limit, offset) {
 }
 
 // Read path for the public /listings endpoint (added 2026-07-22, listing
-// display UI). Returns listings for a given city, most recently updated
-// first, capped at `limit` starting at `offset`. Parses the photos JSON
+// display UI). Returns listings for a given city in the requested order (see
+// LISTING_SORTS below), capped at `limit` starting at `offset`. Parses the photos JSON
 // column back into a real array for the caller -- callers should never see
 // the raw JSON string.
 // propertyType is optional -- 'all'/undefined/unrecognized all mean no
@@ -283,6 +323,53 @@ const LISTING_COLUMNS = `listing_key, list_price, city, community, postal_code, 
               mls_number, listed_date,
               lot_width, lot_depth, living_area_range, approximate_age`;
 
+// LISTING SORTS (added 2026-09-23, IMPROVEMENT_PLAN.md 1.1 / P1-14).
+//
+// The only order used to be `list_price ASC`, cheapest first. That is what put
+// $1 listings at position 1, and even with them gone it opens every city on the
+// cheapest, smallest units -- a family of three with a $440K condo budget in
+// Hamilton was shown bachelor units first.
+//
+//   best   -- homes at or under the buyer's budget first, closest to it first;
+//             homes in the 10% stretch band above it after that, closest
+//             first. In one sentence: the most home the budget buys, without
+//             going over, comes first. Needs a budget; without one it falls
+//             back to newest.
+//   price  -- cheapest first (the old order, kept as an option).
+//   newest -- most recently listed first (listed_date is PropTx's
+//             OriginalEntryTimestamp, populated on every row).
+//
+// Every order ends in listing_key. "Load more" pages with OFFSET, and an order
+// with ties is not stable between two queries, so without a unique last key a
+// buyer could be shown the same home twice or never see another one.
+export const LISTING_SORTS = Object.freeze(["best", "price", "newest"]);
+
+// "best" is the default, and anything unrecognised is treated as the default.
+export function effectiveSort(sort, hasBudget) {
+  if (sort === "price" || sort === "newest") return sort;
+  return hasBudget ? "best" : "newest";
+}
+
+// Returns the ORDER BY text plus the binds it needs (best-match reads the
+// budget twice), so the caller can keep positional binds in placeholder order.
+function orderByFor(sort, searchBudget) {
+  if (sort === "best") {
+    return {
+      sql: "CASE WHEN list_price <= ? THEN 0 ELSE 1 END, ABS(list_price - ?), listed_date DESC, listing_key",
+      binds: [searchBudget, searchBudget],
+    };
+  }
+  if (sort === "price") return { sql: "list_price ASC, listed_date DESC, listing_key", binds: [] };
+  return { sql: "listed_date DESC, list_price ASC, listing_key", binds: [] };
+}
+
+// Minimum bedrooms: a whole number from 1 to 5, or null for "any". Anything
+// else is treated as "any" rather than guessed at.
+export function validMinBeds(value) {
+  const n = Number(value);
+  return Number.isInteger(n) && n >= 1 && n <= 5 ? n : null;
+}
+
 function buildDerivedTypeCase() {
   return `CASE
       WHEN ${PROPERTY_TYPE_FILTERS.condo} THEN 'condo'
@@ -293,7 +380,10 @@ function buildDerivedTypeCase() {
     END AS derived_property_type`;
 }
 
-export async function getListingsByCity(db, city, limit = 20, propertyType = null, offset = 0, searchBudget = null, districts = null, communities = null) {
+// options.minBeds / options.sort (added 2026-09-23): see validMinBeds() and
+// LISTING_SORTS above. Both optional; omitted means any bedroom count and the
+// default order (best match when there is a budget, otherwise newest).
+export async function getListingsByCity(db, city, limit = 20, propertyType = null, offset = 0, searchBudget = null, districts = null, communities = null, options = {}) {
   const cityMatch = cityMatchClause(city, districts, communities);
   const typeClause = propertyType && PROPERTY_TYPE_FILTERS[propertyType]
     ? ` AND ${PROPERTY_TYPE_FILTERS[propertyType]}`
@@ -301,6 +391,9 @@ export async function getListingsByCity(db, city, limit = 20, propertyType = nul
 
   const hasBudget = Number.isFinite(searchBudget) && searchBudget > 0;
   const budgetClause = hasBudget ? ` AND list_price <= ?` : "";
+  const minBeds = validMinBeds(options && options.minBeds);
+  const bedsClause = minBeds !== null ? ` AND bedrooms >= ?` : "";
+  const orderBy = orderByFor(effectiveSort(options && options.sort, hasBudget), searchBudget);
 
   // derivedTypeCase (added 2026-07-29, classification fix): built from the
   // EXACT SAME clause strings as PROPERTY_TYPE_FILTERS above, not a
@@ -311,18 +404,17 @@ export async function getListingsByCity(db, city, limit = 20, propertyType = nul
   // button (Duplex/Triplex/Fourplex/Multiplex -- see home-types.js).
   const derivedTypeCase = buildDerivedTypeCase();
 
-  // Bind params must be positional, in the EXACT order their `?`
-  // placeholders appear in the SQL string above: city first, then the
-  // optional budget ceiling (only present when budgetClause was added),
-  // then limit/offset last -- get this order wrong and D1 silently binds
-  // the wrong value to the wrong placeholder, no error, just wrong results.
   // Bind params must be positional, in the EXACT order their `?` placeholders
   // appear in the SQL: city first, then the freshness cutoff (inside
-  // VISIBLE_LISTING_CLAUSE), then the optional budget ceiling, then
-  // limit/offset last. Get this order wrong and D1 silently binds the wrong
-  // value to the wrong placeholder -- no error, just wrong results.
+  // VISIBLE_LISTING_CLAUSE), then the optional budget ceiling, then the
+  // optional minimum bedrooms, then the ORDER BY's own binds (best match reads
+  // the budget twice), then limit/offset last. Get this order wrong and D1
+  // silently binds the wrong value to the wrong placeholder -- no error, just
+  // wrong results.
   const bindParams = [...cityMatch.binds, freshnessCutoffIso()];
   if (hasBudget) bindParams.push(searchBudget * STRETCH_MULTIPLIER);
+  if (minBeds !== null) bindParams.push(minBeds);
+  bindParams.push(...orderBy.binds);
   bindParams.push(limit, offset);
 
   const result = await db
@@ -330,8 +422,8 @@ export async function getListingsByCity(db, city, limit = 20, propertyType = nul
       `SELECT ${LISTING_COLUMNS},
               ${derivedTypeCase}
        FROM listings
-       WHERE ${cityMatch.sql} AND ${VISIBLE_LISTING_CLAUSE} AND ${SHOWN_HOMES_CLAUSE}${typeClause}${budgetClause}
-       ORDER BY list_price ASC, last_updated DESC
+       WHERE ${cityMatch.sql} AND ${VISIBLE_LISTING_CLAUSE} AND ${SHOWN_HOMES_CLAUSE}${typeClause}${budgetClause}${bedsClause}
+       ORDER BY ${orderBy.sql}
        LIMIT ? OFFSET ?`
     )
     .bind(...bindParams)

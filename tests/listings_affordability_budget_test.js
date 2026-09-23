@@ -87,13 +87,15 @@ async function main() {
   const args1 = calls1[0].args;
   check("with searchBudget: SQL includes 'AND list_price <= ?'", /AND list_price <= \?/.test(sql1), sql1);
   // Bind order gained a freshness cutoff between the city and the budget on
-  // 2026-09-22 (VISIBLE_LISTING_CLAUSE in db.js). Order still matters
-  // absolutely: D1 binds positionally and silently returns the wrong rows if
-  // it is wrong.
+  // 2026-09-22 (VISIBLE_LISTING_CLAUSE in db.js), and the best-match ORDER BY's
+  // two budget binds on 2026-09-23 (a budget makes best match the default
+  // order). Order still matters absolutely: D1 binds positionally and silently
+  // returns the wrong rows if it is wrong.
   check(
-    "with searchBudget: bind args are in correct positional order (city, cutoff, budget*1.10, limit, offset)",
-    args1.length === 5 && args1[0] === "Mississauga" && typeof args1[1] === "string"
-      && Math.abs(args1[2] - 990000) < 0.001 && args1[3] === 24 && args1[4] === 0,
+    "with searchBudget: bind args are in correct positional order (city, cutoff, budget*1.10, budget, budget, limit, offset)",
+    args1.length === 7 && args1[0] === "Mississauga" && typeof args1[1] === "string"
+      && Math.abs(args1[2] - 990000) < 0.001 && args1[3] === 900000 && args1[4] === 900000
+      && args1[5] === 24 && args1[6] === 0,
     JSON.stringify(args1)
   );
   check(
@@ -188,7 +190,7 @@ async function main() {
   );
   // Updated 2026-09-18: the route now passes cappedLimit (PropTx Article
   // 6.3(b), 100 per search) instead of the raw limit.
-  check("index.js passes searchBudget into getListingsByCity", /getListingsByCity\(env\.DB, city, cappedLimit, propertyType, offset, searchBudget, torontoDistricts, communities\)/.test(indexSrc));
+  check("index.js passes searchBudget into getListingsByCity", /getListingsByCity\(env\.DB, city, cappedLimit, propertyType, offset, searchBudget, torontoDistricts, communities, \{ minBeds, sort \}\)/.test(indexSrc));
 
   // --- 8. listings-display.js: fetchListings/openListingsWindow wiring ---
   const displaySrc = fs.readFileSync(path.join(__dirname, "..", "src", "listings-display.js"), "utf8");
@@ -211,7 +213,7 @@ async function main() {
   check("listings.html parses 'budget' from URL query params", /params\.get\("budget"\)/.test(listingsHtmlSrc));
   check(
     "listings.html passes searchBudget into renderLiveListings",
-    /renderLiveListings\(city, root, propertyType, searchBudget\)/.test(listingsHtmlSrc)
+    /renderLiveListings\(city, root, propertyType, searchBudget, options\)/.test(listingsHtmlSrc)
   );
 
   // --- 10. CSS: badge classes exist in all 3 pages that load listings-display.js ---
