@@ -29,9 +29,15 @@ function check(name, ok, detail) {
   // Gwillimbury" carries Bradford). Anything else is a typo that would ingest
   // nothing and go unnoticed.
   const aliasTargets = new Set(Object.values(cities.CITY_ALIASES));
-  check("every ingested city is a HomePilot city or a municipality one aliases to",
-    list.every((c) => cities.HOMEPILOT_CITIES.includes(c) || aliasTargets.has(c)),
-    list.filter((c) => !cities.HOMEPILOT_CITIES.includes(c) && !aliasTargets.has(c)).join());
+  // A third legitimate route, added with the full-coverage rollout: an ingest
+  // target whose rows are STORED under a different card name, because PropTx
+  // uses a municipality's legal name the app does not ("East Luther Grand
+  // Valley" -> the Grand Valley card). See CITY_CARD_NAME in proptx-ingest.js.
+  const renamed = await load("proptx-ingest.js");
+  const earnsItsPlace = (c) =>
+    cities.HOMEPILOT_CITIES.includes(c) || aliasTargets.has(c) || !!renamed.CITY_CARD_NAME[c];
+  check("every ingested city is a HomePilot city, an alias target, or a rename source",
+    list.every(earnsItsPlace), list.filter((c) => !earnsItsPlace(c)).join());
   // The regression this rollout exists to prevent: a card aliased to a
   // municipality nobody ingests is not "empty right now", it is empty forever.
   const comms = await load("communities.js");

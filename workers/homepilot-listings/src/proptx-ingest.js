@@ -95,6 +95,25 @@ export const PAGE_SIZE = 100;
 // variant into the database.
 export const MEDIA_EXPAND = "$expand=Media($filter=ImageSizeDescription eq 'Large')";
 
+// CITY_CARD_NAME: ingest target -> the HomePilot card name to store in the
+// city column, for municipalities PropTx names differently from the app.
+//
+// A row's city column must ALWAYS hold a name the app knows, because two
+// things downstream read it directly and neither can resolve anything else:
+// listing-fit.js picks the market record by (cityRegion || city), and
+// listing-detail.js builds the back link as listings.html?city=<that name>.
+// Store a name the app does not have and the buyer silently gets the
+// unknown-city cost defaults and a dead back link -- see the long note in
+// cities.js for the full failure, which is exactly what an alias produced.
+//
+// Ottawa is here for a second reason on top of the rename: it is ingested by
+// county and its rows arrive under 51 different district names, so p.City is
+// never usable as the card name. The district is preserved in community.
+export const CITY_CARD_NAME = Object.freeze({
+  "East Luther Grand Valley": "Grand Valley",
+  "Ottawa": "Ottawa",
+});
+
 // The exact set of fields pulled from PropTx per Property record. Chosen
 // deliberately (not "everything available") per the explicit product
 // decision not to store fields just because PropTx exposes them -- see
@@ -238,6 +257,8 @@ export function mapPropertyToRow(p, ingestCity = null) {
   // is an ordinary exact match, and a listing's own page reports "Ottawa",
   // which is the name the app has a market record for.
   const isOttawa = ingestCity === "Ottawa";
+  // The card name this row belongs to, when PropTx's own City is not it.
+  const cardName = CITY_CARD_NAME[ingestCity] || null;
   return {
     listing_key: p.ListingKey,
     // listing_url: the old DDF-era schema requires this to be NOT NULL
@@ -252,7 +273,7 @@ export function mapPropertyToRow(p, ingestCity = null) {
     last_seen_at: new Date().toISOString(),
     created_at: new Date().toISOString(), // excluded from the ON CONFLICT update below, so it keeps the first-seen time
     list_price: p.ListPrice ?? null,
-    city: isOttawa ? "Ottawa" : (p.City ?? null),
+    city: cardName || p.City || null,
     // Bare TRREB district code for Toronto rows ("C07"); NULL elsewhere.
     city_district: parseTorontoDistrict(p.City),
     // Community within the municipality, normalized ("1045 - AC Acton" ->

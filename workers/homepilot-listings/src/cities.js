@@ -55,16 +55,34 @@ export const CITY_ALIASES = {
   "King City": "King",
   "Bradford": "Bradford West Gwillimbury",
 
-  // Grand Valley (added 2026-09-22, full-coverage rollout). Recorded in this
-  // Worker's own comments since 2026-09-18 as one of two "genuine zero-
-  // coverage cities (not a naming issue)". That was wrong: PropTx files it
-  // under the township's full legal name, "East Luther Grand Valley", and
-  // carries 46 active homes there. Confirmed live by querying
-  // contains(City,'Grand'), which returns East Luther Grand Valley and
-  // nothing else, and by the Dufferin county breakdown (531 listings across
-  // 8 municipalities, East Luther Grand Valley among them).
-  "Grand Valley": "East Luther Grand Valley",
 };
+
+// Grand Valley is deliberately NOT here, and the reason is worth keeping.
+//
+// PropTx files it under the township's full legal name, "East Luther Grand
+// Valley" (46 active homes; confirmed live 2026-09-22 -- the 2026-09-18 note
+// calling it a "genuine zero-coverage city (not a naming issue)" was wrong).
+// The obvious fix is an alias here, and that was the first attempt. It is the
+// wrong tool, because an alias resolves a card name TO a stored value and
+// nothing maps the stored value back:
+//
+//   - rows land with city = "East Luther Grand Valley"
+//   - cardForCommunity() cannot recover "Grand Valley" from it, so the
+//     cityRegion the API returns is null
+//   - the frontend then falls back to listing.city (listing-fit.js:63), which
+//     matches no market record, so cost math silently uses the unknown-city
+//     defaults (tax 0.0105 instead of Grand Valley's 0.00874) and shows the
+//     buyer a property-tax figure roughly $930/yr too high as if it were fact
+//   - listing-detail.js builds a back link to
+//     listings.html?city=East Luther Grand Valley, which is an alias VALUE,
+//     not a public city name, so /listings answers 400 and the link is dead
+//
+// A 1:1 municipality rename is therefore fixed at INGEST, by storing the card
+// name in the city column -- exactly what Ottawa already does. See CITY_CARD_NAME in
+// proptx-ingest.js. An alias is only correct when several cards share one
+// municipality and the read path must narrow between them (Acton, Georgetown,
+// King City, Bradford, Bolton), because there the community column carries
+// the card name back.
 
 // The full set of city names /listings should accept from the front end --
 // every real DDF city plus every display-only alias above.

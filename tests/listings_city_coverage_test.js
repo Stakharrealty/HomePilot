@@ -28,6 +28,7 @@
 // Run: node --no-warnings tests/listings_city_coverage_test.js
 
 const path = require("path");
+const fs = require("fs");
 const { pathToFileURL } = require("url");
 
 const SRC = path.join(__dirname, "..", "workers", "homepilot-listings", "src");
@@ -55,31 +56,102 @@ const CRON_INTERVAL_MS = 2 * 60 * 1000; // wrangler.jsonc: "*/2 * * * *"
   // How index.js turns a requested card name into the city rows are stored
   // under. Kept identical to the route on purpose.
   const resolve = (name) => cities.CITY_ALIASES[name] || name;
+  // A card is reachable two ways, and both are legitimate:
+  //   1. its resolved name is an ingest target (most cards, and the aliased
+  //      community cards, which then narrow by community)
+  //   2. an ingest target stores rows UNDER the card name, because PropTx
+  //      names that municipality differently (CITY_CARD_NAME: Grand Valley,
+  //      Ottawa)
+  const RENAMED_TO = new Set(Object.values(ing.CITY_CARD_NAME));
+  const reachable = (card) => INGESTED.has(resolve(card)) || RENAMED_TO.has(card);
 
   // --- 1. the invariant that would have caught the original bug
-  const unreachable = cities.PUBLIC_CITY_NAMES.filter((c) => !INGESTED.has(resolve(c)));
+  const unreachable = cities.PUBLIC_CITY_NAMES.filter((c) => !reachable(c));
   check("every public city name resolves to a city the ingest fetches",
     unreachable.length === 0, unreachable.join(", "));
   check("all 49 HomePilot cities are covered",
-    cities.HOMEPILOT_CITIES.length === 49 &&
-    cities.HOMEPILOT_CITIES.every((c) => INGESTED.has(resolve(c))),
-    cities.HOMEPILOT_CITIES.filter((c) => !INGESTED.has(resolve(c))).join(", "));
+    cities.HOMEPILOT_CITIES.length === 49 && cities.HOMEPILOT_CITIES.every(reachable),
+    cities.HOMEPILOT_CITIES.filter((c) => !reachable(c)).join(", "));
   check("the six Toronto sub-region cards all resolve to Toronto",
     cities.PUBLIC_CITY_NAMES.filter((c) => c.startsWith("Toronto - "))
       .every((c) => resolve(c) === "Toronto"));
 
   // --- 2. nothing is fetched that no card can ever show
   const orphans = auto.AUTO_INGEST_CITIES
-    .filter((t) => !cities.PUBLIC_CITY_NAMES.some((c) => resolve(c) === t));
+    .filter((t) => !cities.PUBLIC_CITY_NAMES.some((c) => resolve(c) === t) && !ing.CITY_CARD_NAME[t]);
   check("no ingest target is fetched for a card that does not exist",
     orphans.length === 0, orphans.join(", "));
 
-  // --- 3. Grand Valley: an alias, not zero coverage
-  check("Grand Valley resolves to East Luther Grand Valley",
-    resolve("Grand Valley") === "East Luther Grand Valley");
+  // --- 3. Grand Valley: a rename handled at ingest, not an alias
   check("East Luther Grand Valley is ingested", INGESTED.has("East Luther Grand Valley"));
+  check("its rows are stored under the card name the app knows",
+    ing.CITY_CARD_NAME["East Luther Grand Valley"] === "Grand Valley");
+  // The bug this replaced: as an ALIAS, rows landed under the legal name, which
+  // is not a public city name and has no market record -- so cost math fell
+  // through to the unknown-city defaults and the back link 400'd.
+  check("Grand Valley is NOT an alias, so nothing stores the legal name",
+    !cities.CITY_ALIASES["Grand Valley"] &&
+    !cities.PUBLIC_CITY_NAMES.includes("East Luther Grand Valley"));
   check("Grand Valley is matched as a plain city, needing no special case",
-    db.cityMatchClause(resolve("Grand Valley")).sql === "city = ?");
+    db.cityMatchClause(resolve("Grand Valley")).sql === "city = ?" &&
+    db.cityMatchClause(resolve("Grand Valley")).binds[0] === "Grand Valley");
+
+  // --- 3b. THE INVARIANT THAT WOULD HAVE CAUGHT THE GRAND VALLEY BUG
+  //
+  // Coverage is not enough. A card can be ingested and still be broken, if the
+  // name that ends up in the city column is not a name the APP knows. Two
+  // frontend modules read it directly and neither can resolve anything else:
+  //   src/listing-fit.js:63   picks the market record by (cityRegion || city);
+  //                           a miss silently uses the unknown-city defaults
+  //                           (tax 0.0105, insurance 100) and renders them to
+  //                           the buyer as this listing's real cost
+  //   src/listing-detail.js   builds the back link as listings.html?city=<name>;
+  //                           a name outside PUBLIC_CITY_NAMES makes /listings
+  //                           answer 400 and the link is dead
+  //
+  // Grand Valley failed both for exactly one release: as an alias, rows landed
+  // under "East Luther Grand Valley", which is neither.
+  const appCitiesSrc = fs.readFileSync(path.join(__dirname, "..", "src", "cities.js"), "utf8");
+  const marketNames = new Set(
+    appCitiesSrc.split('n:"').slice(1).map((s) => s.slice(0, s.indexOf('"')))
+  );
+  check("parsed the app's market records", marketNames.size > 40, String(marketNames.size));
+
+  // The name the frontend ends up using for a row returned under this card.
+  const frontendName = (card) => {
+    if (comm.CITY_COMMUNITIES[card]) return card;      // cityRegion = the card
+    if (card.startsWith("Toronto - ")) return card;    // cityRegion = the card
+    const target = resolve(card);
+    return ing.CITY_CARD_NAME[target] || target;       // whatever ingest stored
+  };
+  // Plain "Toronto" is excluded: its rows are district-coded and regionForCity
+  // maps every TRREB district onto one of the six sub-region cards, which
+  // listings_toronto_hamilton_guelph_test.js asserts exhaustively.
+  const cardsToCheck = cities.PUBLIC_CITY_NAMES.filter((c) => c !== "Toronto");
+
+  const noMarketRecord = cardsToCheck.filter((c) => !marketNames.has(frontendName(c)));
+  check("every card resolves to a market record the app actually has",
+    noMarketRecord.length === 0,
+    noMarketRecord.map((c) => c + " -> " + frontendName(c)).join(", "));
+
+  const notRequestable = cardsToCheck.filter((c) => !cities.PUBLIC_CITY_NAMES.includes(frontendName(c)));
+  check("every card's resolved name is one /listings would accept back (live back link)",
+    notRequestable.length === 0,
+    notRequestable.map((c) => c + " -> " + frontendName(c)).join(", "));
+
+  // The two halves must agree. cityMatchClause binds resolve(card); the ingest
+  // writes CITY_CARD_NAME[target] || target. An alias and a rename applied to
+  // the SAME city would look correct in both checks above and still return
+  // nothing at all, because the query would bind "East Luther Grand Valley"
+  // while every row said "Grand Valley". That is a silent empty card, which is
+  // the failure mode this whole file exists to make impossible.
+  const storedNames = new Set(auto.AUTO_INGEST_CITIES.map((t) => ing.CITY_CARD_NAME[t] || t));
+  const mismatched = cardsToCheck
+    .filter((c) => resolve(c) !== "Toronto")
+    .filter((c) => !storedNames.has(resolve(c)));
+  check("what each card QUERIES is a name the ingest actually WRITES",
+    mismatched.length === 0,
+    mismatched.map((c) => c + " queries " + resolve(c)).join(", "));
 
   // --- 4. Ottawa: reached by county, filed under the Ottawa card
   const ottawaFilter = ing.buildCityFilter("Ottawa");
@@ -125,17 +197,39 @@ const CRON_INTERVAL_MS = 2 * 60 * 1000; // wrangler.jsonc: "*/2 * * * *"
   check("page size is PropTx's maximum of 100", ing.PAGE_SIZE === 100);
 
   // --- 6. capacity: the city list and the tuning are one decision
+  //
+  // This block models the PESSIMISTIC case on purpose. An earlier version
+  // computed runs as ceil(pages / MAX_PAGES_PER_RUN), which proved the claim
+  // using the limiter the code itself says is NOT binding -- proptx-auto-ingest
+  // states plainly that the budget, not the page cap, is what stops a firing.
+  // Modelling the non-binding limiter flattered the result by roughly 5x.
+  //
+  // Per-page cost, from the only real production measurement: 580 pages in ~5h
+  // at $top=25 is ~5.3s per page, of which ~2.0s was the fetch. That leaves
+  // ~3.3s of non-fetch work (JSON parse, photo extraction, the batched D1
+  // write) for 25 listings, or ~132ms per listing.
+  //
+  // At $top=100 the fetch measured 1.3s. If the non-fetch cost per listing did
+  // not improve at all, a page costs 1.3 + 100*0.132 = ~14.5s. That is the
+  // assumption used below, and it is deliberately unfair to the change: most of
+  // that 132ms is parsing and walking Media, and MEDIA_EXPAND cuts the parsed
+  // payload 4.7x and the media entries 5x, so the real figure should be well
+  // under it. Better to assert the guarantee on the floor than on the hope.
+  const PESSIMISTIC_PAGE_MS = 14500;
   const pages = Math.ceil(TOTAL_LISTINGS / ing.PAGE_SIZE);
-  const runs = Math.ceil(pages / auto.MAX_PAGES_PER_RUN);
+  const pagesPerRun = Math.min(auto.MAX_PAGES_PER_RUN, Math.floor(auto.TIME_BUDGET_MS / PESSIMISTIC_PAGE_MS));
+  check("a firing completes at least one page even at the pessimistic cost", pagesPerRun >= 1, String(pagesPerRun));
+  const runs = Math.ceil(pages / pagesPerRun);
   const passHours = (runs * CRON_INTERVAL_MS) / 3600000;
-  check("a full pass over every city fits well inside the refresh window",
+  const detail = pages + " pages, " + pagesPerRun + "/run, " + runs + " runs, " + passHours.toFixed(1) + "h";
+  check("a full pass over every city fits inside the refresh window",
     passHours < auto.REFRESH_AFTER_HOURS / 2,
-    pages + " pages, " + runs + " runs, " + passHours.toFixed(1) + "h vs refresh " + auto.REFRESH_AFTER_HOURS + "h");
+    detail + " vs refresh " + auto.REFRESH_AFTER_HOURS + "h");
   // The bound that actually hides listings from buyers. A pass slower than
   // this does not just lag -- cities that were working go empty.
   check("a full pass finishes far inside the staleness cutoff",
     passHours * 2 < db.MAX_LISTING_AGE_HOURS,
-    passHours.toFixed(1) + "h vs cutoff " + db.MAX_LISTING_AGE_HOURS + "h");
+    detail + " vs cutoff " + db.MAX_LISTING_AGE_HOURS + "h");
   // The budget is only checked BETWEEN pages, so a firing always overshoots
   // by however long its last page takes. It must still finish before the
   // next firing, or two runs end up sharing one city's cursor.
@@ -147,6 +241,20 @@ const CRON_INTERVAL_MS = 2 * 60 * 1000; // wrangler.jsonc: "*/2 * * * *"
   check("a firing plus a worst-case final page still ends before the next firing",
     auto.TIME_BUDGET_MS + WORST_CASE_PAGE_MS < CRON_INTERVAL_MS,
     auto.TIME_BUDGET_MS + "ms + " + WORST_CASE_PAGE_MS + "ms vs " + CRON_INTERVAL_MS + "ms interval");
+
+  // The CPU ceiling must sit ABOVE the wall-clock budget, so TIME_BUDGET_MS is
+  // the only thing that ever stops a firing. If cpu_ms is the lower of the two,
+  // a run gets killed by Error 1102 instead of finishing its budget -- and a
+  // CPU kill is not a catchable exception, so it never reaches the error
+  // accounting in runAutoIngest and never shows up in last_error. It would just
+  // quietly throttle the ingest with nothing on the dashboard to say why.
+  const wrangler = fs.readFileSync(
+    path.join(__dirname, "..", "workers", "homepilot-listings", "wrangler.jsonc"), "utf8");
+  const cpuMatch = wrangler.split('"cpu_ms"')[1];
+  const cpuMs = cpuMatch ? parseInt(cpuMatch.replace(":", "").trim(), 10) : 0;
+  check("the CPU ceiling is above the time budget, so the budget is the limiter",
+    cpuMs > auto.TIME_BUDGET_MS,
+    "cpu_ms " + cpuMs + " vs TIME_BUDGET_MS " + auto.TIME_BUDGET_MS);
 
   console.log("=== RESULT: " + passed + " passed, " + failed + " failed ===");
   process.exit(failed === 0 ? 0 : 1);
