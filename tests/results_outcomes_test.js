@@ -107,6 +107,14 @@ function search(win, b) {
   win.eval("go()");
 }
 
+// A home-type row's price and monthly cost, whatever its layout: today's
+// "$595,000 · $3,921/mo", or the answer cards' (2026-09-24) price beside the
+// type and monthly cost under the %. [text, price, monthly] or null, like exec().
+function rowMoney(t) {
+  const mo = /\$([\d,]+)\/mo/.exec(t), pr = /\$([\d,]+)(?![\d,]|\/mo)/.exec(t);
+  return mo && pr ? [t, pr[1], mo[1]] : null;
+}
+
 // A card as the buyer reads it.
 function readCard(el) {
   const headline = el.querySelector(".card-headline");
@@ -490,7 +498,7 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
   const rowsOf = (el) => [...el.querySelectorAll("[id^='pt-row-']:not([id$='-chevron'])")].map((r) => {
     // Answer cards put the price and the monthly cost on their own line, with
     // no " · " between them (2026-09-24).
-    const m = /\$([\d,]+)(?: · )?\$([\d,]+)\/mo/.exec(r.textContent);
+    const m = rowMoney(r.textContent);
     return {
       type: r.firstElementChild && r.firstElementChild.firstElementChild ? r.firstElementChild.firstElementChild.textContent.trim() : null,
       price: m ? Number(m[1].replace(/,/g, "")) : null,
@@ -952,8 +960,8 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
   const pctOf = (c) => { const m = /(\d+)% of take-home/.exec(c.text); return m ? Number(m[1]) : null; };
   // Every property row on every card: its %, its label and its monthly cost.
   const allRows = () => cardEls(win).flatMap((el) => [...el.querySelectorAll("[id^='pt-row-']:not([id$='-chevron'])")].map((r) => {
-    const m = /\$[\d,]+(?: · )?\$([\d,]+)\/mo/.exec(r.textContent), p = /(\d+)%/.exec(r.textContent.replace(/\$[\d,]+/g, ""));
-    return { monthly: m ? Number(m[1].replace(/,/g, "")) : null, pct: p ? Number(p[1]) : null, label: (LBL.find((l) => r.textContent.includes(l)) || null) };
+    const m = rowMoney(r.textContent), p = /(\d+)%/.exec(r.textContent.replace(/\$[\d,]+/g, ""));
+    return { monthly: m ? Number(m[2].replace(/,/g, "")) : null, pct: p ? Number(p[1]) : null, label: (LBL.find((l) => r.textContent.includes(l)) || null) };
   }));
   const cardsBefore = [...mainCards(win), ...moreCards(win)], rowsBefore = allRows();
   const fixedBefore = { bank: win.eval("buyPower"), comfort: win.eval("comfortBuyPower"), bpv: textOf(byId("bpV")), line: textOf(byId("bpBankLine")) };
@@ -1089,7 +1097,7 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
     // price and monthly cost, 2026-09-24): each row must say the same thing --
     // its id, type, %, label, price and monthly cost.
     c.querySelectorAll("[id^='pt-row-']:not([id$='-chevron'])").forEach((r) => {
-      const t = r.textContent, m = /\$([\d,]+)(?: · )?\$([\d,]+)\/mo/.exec(t);
+      const t = r.textContent, m = rowMoney(t);
       const type = (r.firstElementChild && r.firstElementChild.firstElementChild || r.firstElementChild).textContent.trim();
       const pct = (/(\d+)%/.exec(t.replace(/\$[\d,]+/g, "")) || [])[1];
       const label = LBL.find((l) => t.includes(l)) || "";
@@ -1300,7 +1308,7 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
   const rowFor = (n, typeKey) => {
     const el = cardEls(win).find((e) => e.querySelector(".cn").textContent.trim() === n);
     const row = el && [...el.querySelectorAll("[id^='pt-row-']:not([id$='-chevron'])")].find((r) => r.id.endsWith("-" + typeKey));
-    const m = row && /\$([\d,]+)(?: · )?\$([\d,]+)\/mo/.exec(row.textContent);
+    const m = row && rowMoney(row.textContent);
     return m ? { price: Number(m[1].replace(/,/g, "")), monthly: Number(m[2].replace(/,/g, "")), pct: Number((/(\d+)%/.exec(row.textContent.replace(/\$[\d,]+/g, "")) || [])[1]) } : null;
   };
   // A save or earn tip: search again with it, and the card it names shows what it said.

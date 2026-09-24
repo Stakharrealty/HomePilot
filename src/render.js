@@ -397,16 +397,16 @@ function cityCardHtml(e, section, cardId, answer){
         const s=FIT_STYLE[r.fit.cls]||FIT_STYLE.fo;
         const pill='<div style="font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px;background:'+s.bg+';color:'+s.color+'">'+r.fit.lbl+'</div>';
         const tap='onclick="event.stopPropagation();selectPropType(\''+id+'\',\''+r.type+'\',\''+x.n+'\')"';
-        // Answer cards (the user, 2026-09-24): the home type; then the % on
-        // the left and the fit label on the right; then the price under the %
-        // and the monthly cost under the label. Same figures, same ids.
+        // Answer cards (the user, 2026-09-24): the home type with its price on
+        // the right; the fit label under the type, with the % on the right;
+        // the monthly cost under the %. Same figures, same ids.
         if(answer){
           h+='<div style="'+(i>0?'border-top:1px solid #f0f0f0;':'')+'">'+
             '<div id="'+rowId+'" class="ac-row" '+tap+'>'+
             '<div class="ac-row-top"><span>'+(PROP_LABELS[r.type]||r.type)+'</span>'+
-            '<span id="'+rowId+'-chevron" class="ac-row-chev">›</span></div>'+
-            '<div class="ac-row-line"><span class="ac-row-pct">'+pct+'%</span>'+pill+'</div>'+
-            '<div class="ac-row-line ac-row-sub"><span>'+fc(r.price)+'</span><span>'+fc(r.costs.total)+'/mo</span></div>'+
+            '<span class="ac-row-price">'+fc(r.price)+'<span id="'+rowId+'-chevron" class="ac-row-chev">›</span></span></div>'+
+            '<div class="ac-row-line">'+pill+'<span class="ac-row-pct">'+pct+'%</span></div>'+
+            '<div class="ac-row-line ac-row-sub"><span>'+fc(r.costs.total)+'/mo</span></div>'+
             '</div>'+
             '<div id="'+panelId+'" style="display:none;border-top:1px solid #f0f0f0"></div>'+
           '</div>';
