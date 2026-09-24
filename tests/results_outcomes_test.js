@@ -1252,10 +1252,16 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
     && byId("seeAllBtn").className === "see-all-btn");
   // Side by side, the labels share one row (a subgrid), so a two-question label
   // that wraps no longer pushes its card down, and it wraps at the dot, each
-  // question on one line. tests/phone_length_test.js measures it in Chrome.
+  // question on one line. Since 2026-09-24 the card itself also shares rows
+  // (body, then "View Available Homes"), so the buttons line up whatever the
+  // number of home types. tests/phone_length_test.js measures both in Chrome.
   check("(15ac) side by side the labels share one row, and each question in a label stays on one line",
-    css.includes(".answer-grid-3 > .answer-slot{display:grid;grid-row:span 2;grid-template-rows:subgrid}") && css.includes(".answer-grid-2 > .answer-slot{display:grid;grid-row:span 2;grid-template-rows:subgrid}")
-      && css.includes(".answer-q{white-space:nowrap}") &&[...d.querySelectorAll("#answers .answer-slot")].every((s) => s.querySelectorAll(".answer-label .answer-q").length === s.dataset.answers.split(" ").length && [...s.querySelectorAll(".answer-label .answer-q")].map(textOf).join(" · ") === textOf(s.querySelector(".answer-label"))));
+    css.includes(".answer-grid-3 > .answer-slot{display:grid;grid-row:span 3;grid-template-rows:subgrid}") && css.includes(".answer-grid-2 > .answer-slot{display:grid;grid-row:span 3;grid-template-rows:subgrid}")
+      && css.includes(".answer-q{white-space:nowrap}") &&[...d.querySelectorAll("#answers .answer-slot")]
+        .every((s) => { const c = s.querySelector(":scope > .city"); return c && c.children.length === 2 && c.children[0].classList.contains("city-body") && c.children[1].classList.contains("view-btn"); })
+      && css.includes(".answer-grid-3 > .answer-slot > .city{grid-row:span 2;display:grid;grid-template-rows:subgrid")
+      && css.includes(".answer-grid-2 > .answer-slot > .city{grid-row:span 2;display:grid;grid-template-rows:subgrid")
+      && [...d.querySelectorAll("#answers .answer-slot")].every((s) => s.querySelectorAll(".answer-label .answer-q").length === s.dataset.answers.split(" ").length && [...s.querySelectorAll(".answer-label .answer-q")].map(textOf).join(" · ") === textOf(s.querySelector(".answer-label"))));
 
   // =============== 16. HomePilot Worth Knowing and the "you're close" page (IMPROVEMENT_PLAN.md 2.2, 2.0) ===============
   // Every tip on the page is checked against the page itself: search again

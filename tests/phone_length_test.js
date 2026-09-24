@@ -267,12 +267,23 @@ async function measureDesktopInPage(b) {
   const cards = [...d.querySelectorAll("#answers .city")];
   const lists = cards.flatMap((c) => [...c.querySelectorAll("div[style*='overflow:hidden']")]);
   const rows = cards.flatMap((c) => [...c.querySelectorAll("[id^='pt-row-']:not([id$='-chevron'])")]);
+  // "View Available Homes" on each answer card: how far apart the tops and
+  // bottoms are (0 = lined up), worst case over the closed cards and every
+  // breakdown opened below.
+  const btnSpread = () => {
+    const bs = cards.map((c) => c.querySelector(":scope > .view-btn")).filter(Boolean).map((b) => b.getBoundingClientRect());
+    if (bs.length !== cards.length) return Infinity;
+    const sp = (k) => Math.max(...bs.map((r) => r[k])) - Math.min(...bs.map((r) => r[k]));
+    return Math.max(sp("top"), sp("bottom"));
+  };
+  let buttonSpread = btnSpread();
   // Every breakdown, opened one at a time: the smallest gap between a label
   // and its figure on the same line.
   let minGap = Infinity, pairs = 0;
   for (const r of rows) {
     r.click();
     await frame();
+    buttonSpread = Math.max(buttonSpread, btnSpread());
     const panel = d.getElementById(r.id.replace("pt-row-", "pt-panel-"));
     if (panel && panel.style.display !== "none") {
       panel.querySelectorAll("div[style*='justify-content:space-between']").forEach((row) => {
@@ -296,6 +307,7 @@ async function measureDesktopInPage(b) {
     overflow: Math.max(0, ...lists.map((l) => l.scrollWidth - l.clientWidth)),
     chevronsCut: rows.filter((r) => { const c = d.getElementById(r.id + "-chevron"), list = r.parentElement.parentElement; return c && c.getBoundingClientRect().right > list.getBoundingClientRect().right - 1; }).length,
     minGap: minGap === Infinity ? null : Math.round(minGap * 10) / 10, pairs,
+    buttonSpread: buttonSpread === Infinity ? null : Math.round(buttonSpread * 10) / 10,
     pageWidth: d.documentElement.scrollWidth,
   };
 }
@@ -363,6 +375,7 @@ async function measureDesktopInPage(b) {
         check(`${width}px, ${b.name}: the three cards start level, a wrapped label included`, Math.max(...m.tops) - Math.min(...m.tops) <= 1, m.tops.join("/"));
         check(`${width}px, ${b.name}: no home-type row is cut off (nothing wider than its list, every chevron inside it)`, m.overflow === 0 && m.chevronsCut === 0, m.overflow + "px over, " + m.chevronsCut + " chevrons cut");
         check(`${width}px, ${b.name}: in every cost breakdown each figure stays at least ${MIN_LABEL_GAP_PX}px from its label`, m.pairs > 0 && m.minGap >= MIN_LABEL_GAP_PX, m.minGap + "px");
+        check(`${width}px, ${b.name}: "View Available Homes" lines up across the three cards, however many home types each lists, breakdowns open or closed`, m.buttonSpread !== null && m.buttonSpread <= 1, m.buttonSpread + "px apart");
         check(`${width}px, ${b.name}: nothing makes the page scroll sideways`, m.pageWidth <= width, m.pageWidth + "px wide");
       }
     }

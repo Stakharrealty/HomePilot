@@ -556,14 +556,23 @@ select{
 .answer-grid [id^="pt-row-"]:not([id$="-chevron"]) > div:last-child{flex:0 0 auto;margin-left:auto}
 @media(min-width:1024px){
   .answer-grid{align-items:start;row-gap:14px}
-  .answer-grid-2{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:auto auto;row-gap:0}
-  .answer-grid-2 > .answer-slot{display:grid;grid-row:span 2;grid-template-rows:subgrid}
+  .answer-grid-2{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:auto auto auto;row-gap:0}
+  .answer-grid-2 > .answer-slot{display:grid;grid-row:span 3;grid-template-rows:subgrid}
   .answer-grid-2 > .answer-slot > .answer-label{align-self:end}
+  .answer-grid-2 > .answer-slot > .city{grid-row:span 2;display:grid;grid-template-rows:subgrid;grid-template-columns:minmax(0,1fr)}
+  .answer-grid-2 > .answer-slot > .city > .view-btn{display:flex;align-items:center;justify-content:center}
 }
+/* "View Available Homes" lines up across the cards side by side (the user,
+   2026-09-24), however many home types each card lists: the label, the card
+   body and the button are three rows every slot shares (subgrid), so the
+   buttons share a top and a height. Open a breakdown in one card and the
+   others' buttons move down with it. */
 @media(min-width:1240px){
-  .answer-grid-3{grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:auto auto;row-gap:0}
-  .answer-grid-3 > .answer-slot{display:grid;grid-row:span 2;grid-template-rows:subgrid}
+  .answer-grid-3{grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:auto auto auto;row-gap:0}
+  .answer-grid-3 > .answer-slot{display:grid;grid-row:span 3;grid-template-rows:subgrid}
   .answer-grid-3 > .answer-slot > .answer-label{align-self:end}
+  .answer-grid-3 > .answer-slot > .city{grid-row:span 2;display:grid;grid-template-rows:subgrid;grid-template-columns:minmax(0,1fr)}
+  .answer-grid-3 > .answer-slot > .city > .view-btn{display:flex;align-items:center;justify-content:center}
 }
 #seeAllBody{margin-top:18px}
 /* HomePilot Worth Knowing (2026-09-24, IMPROVEMENT_PLAN.md 2.2 and 2.0), under

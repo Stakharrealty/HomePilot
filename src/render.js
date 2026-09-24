@@ -348,7 +348,11 @@ function cityCardHtml(e, section, cardId){
   // monthly range and the property list below.
   const options=(activeProp==='all'?['condo','town','semi','detached']:[activeProp])
     .map(tp=>qualifyingOption(x,tp)).filter(Boolean);
+  // .city-body holds everything above "View Available Homes". It changes
+  // nothing on its own; side by side it lets the answer cards line their
+  // buttons up (the .answer-grid rules in calculator.html).
   return '<div class="city" id="'+id+'" onclick="toggle(\''+id+'\')">'+
+    '<div class="city-body">'+
     '<div class="ct"><div><div class="cn">'+x.n+'</div>'+
       '<div class="card-headline">'+(PROP_LABELS[e.type]||e.type)+' · '+fc(displayPrice)+' '+fitPill(fit)+'</div>'+
       commuteBadge+'</div>'+
@@ -405,6 +409,7 @@ function cityCardHtml(e, section, cardId){
     '<span class="cmp-cb-lbl">Compare this city (select up to 3 cities)</span></label>'+
     '<div class="bk">'+
     (fit.cls==='fs'?'<div style="font-size:12px;color:#633806;background:#FAEEDA;border-radius:8px;padding:8px 10px;margin-top:10px;line-height:1.6;">'+t.stretch_warn+'</div>':'')+
+    '</div>'+
     '</div>'+
     '<a class="view-btn"'+listingsLinkAttrs(x.n,activeProp,displayPrice)+'>View Available '+(activeProp==='all'?'Homes':PLBL[activeProp])+' in '+x.n+'</a>'+
     '</div>';
