@@ -30,9 +30,9 @@ function getFit(monthlyCost,_grossMonthlyIncome){
   else{score=Math.max(40,Math.round(59-((ratio-0.45)/0.20)*19));}
   score=Math.min(100,Math.max(40,score));
   const t=T.en;
-  if(ratio<0.35)return{lbl:t.fit_great_lbl,cls:"fg",score,msg:t.fit_great_msg,ratio};
-  if(ratio<0.45)return{lbl:t.fit_good_lbl,cls:"fo",score,msg:t.fit_good_msg,ratio};
-  return{lbl:t.fit_stretch_lbl,cls:"fs",score,msg:t.fit_stretch_msg,ratio};
+  if(ratio<0.35)return{lbl:t.fit_great_lbl,cls:"fg",score,ratio};
+  if(ratio<0.45)return{lbl:t.fit_good_lbl,cls:"fo",score,ratio};
+  return{lbl:t.fit_stretch_lbl,cls:"fs",score,ratio};
 }
 
 // Returns [{ key, tone, text }]: tone is 'good', 'neutral' or 'bad', and

@@ -21,9 +21,6 @@ const T={
     bt:"Show Me What I Can Afford",
     err:"Please fill in your income to continue.",
     fit_great_lbl:"Great fit",fit_good_lbl:"Good Fit",fit_stretch_lbl:"Stretch",
-    fit_great_msg:"This area offers the strongest balance of affordability, lifestyle flexibility, and long-term financial comfort.",
-    fit_good_msg:"This area is affordable based on your profile, though housing will represent a larger portion of your monthly budget.",
-    fit_stretch_msg:"You may qualify for homes in this area, but ownership could significantly impact your monthly budget and lifestyle flexibility.",
     true_cost:"True monthly cost",mortgage:"Mortgage",
     stretch_warn:"⚠️ This property type slightly exceeds your current buying power. A larger down payment, co-borrower, or reduced debt could make it achievable.",
     no_results3:"Try adjusting your filters or increasing your down payment."
