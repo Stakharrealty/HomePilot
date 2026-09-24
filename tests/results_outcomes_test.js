@@ -1207,6 +1207,7 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
   // own unit tests (tests/worth_knowing_test.js) check the rules in depth.
   const wkNow = () => JSON.parse(win.eval("JSON.stringify(worthKnowing(answerPicks(results,{maxCommute:maxCommuteMin,onlyType:activeProp!=='all'?activeProp:null}),activeProp!=='all'?activeProp:null))"));
   const wkTips = () => [...byId("worthKnowing").querySelectorAll(".wk-tip")].map((e) => ({ kind: e.dataset.kind, text: textOf(e) }));
+  const WK_WORD = JSON.parse(win.eval("JSON.stringify(WK_TYPE)"));
   // An earn tip raises one income, the higher earner's (the buyer's when equal),
   // and says so; a buyer searching again types it into that box.
   const withChange = (b, kind, x) => kind === "save" ? { ...b, down: b.down + x }
@@ -1272,12 +1273,32 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
   const closest60 = closestCards(win);
   check("(16f) empty page: the heading is the count line: \"Nothing within 60 minutes fits your HomePilot comfort range yet, but you're close.\"",
     textOf(byId("cnt")) === "Nothing within 60 minutes fits your HomePilot comfort range yet, but you're close." && wk60.empty && wk60.close, textOf(byId("cnt")));
+  // The label says what the card's own pill says: "Stretch" over a Stretch
+  // pill, "Above your HomePilot comfort range" over a Good or Great one (a home
+  // under 45% of take-home that is not comfortable only because of its price).
+  const closestLabelOk = () => [...d.querySelectorAll("#answers .answer-slot")].every((s) => {
+    const pill = textOf(s.querySelector(".fit-pill"));
+    return s.dataset.answers === "closest" && textOf(s.querySelector(".answer-label")) === (pill === LBL[2] ? "Closest to fitting · Stretch" : "Closest to fitting · Above your HomePilot comfort range");
+  });
   check("(16g) ...then the three closest options: the lowest % of take-home within the limit (rankCities()'s stretch-only list), each labelled 'Closest to fitting · Stretch', three across like the answers",
     closest60.length === 3 && closest60.every((c, i) => c.city === stretch60[i].n && TYPE_KEY[c.type] === stretch60[i].type && c.price === stretch60[i].price && c.monthly === stretch60[i].monthly && pctOf(c) === stretch60[i].pct)
       && closest60.every((c, i) => i === 0 || pctOf(closest60[i - 1]) <= pctOf(c)) && closest60.every((c) => c.drive <= 60)
-      && [...d.querySelectorAll("#answers .answer-slot")].every((s) => textOf(s.querySelector(".answer-label")) === "Closest to fitting · Stretch" && s.dataset.answers === "closest")
+      && closest60.every((c) => c.fit === LBL[2]) && closestLabelOk()
       && !!byId("answers").querySelector(".answer-grid.answer-grid-3") && answerCards(win).length === 0,
     closest60.map((c) => c.city + " " + pctOf(c) + "%").join(", "));
+  check("(16g1) ...and 'Cities you can afford' is not above that heading (it is above a normal page's count)",
+    !visible(byId("resTitle")) && (() => { search(win, RICH); const shown = visible(byId("resTitle")) && textOf(byId("resTitle")) === "Cities you can afford"; search(win, WORKED); return shown; })());
+  // The buyer's own take-home above the estimate: the same three homes are
+  // under 45% now, their pills say Good Fit, and the labels follow (they said
+  // "Stretch" over every one, whatever the pill said).
+  byId("takeHomeChange").click();
+  byId("takeHomeInput").value = "9000";
+  byId("takeHomeEdit").querySelector(".bp-apply-btn").click();
+  const closestOwn = closestCards(win);
+  check("(16g2) own take-home $9,000/mo: the closest cards' pills say Good Fit, and so do their labels: 'Closest to fitting · Above your HomePilot comfort range'",
+    closestOwn.length > 0 && closestOwn.every((c) => c.fit !== LBL[2]) && closestLabelOk(),
+    [...d.querySelectorAll("#answers .answer-slot")].map((s) => textOf(s.querySelector(".answer-label")) + " / " + textOf(s.querySelector(".fit-pill"))).join(" | "));
+  byId("takeHomeReset").click();
   const stretchHtml = win.eval(`(function(){ var els = document.querySelectorAll('#answers .city'); return rankCities(results,{sort:'home',maxCommute:maxCommuteMin}).stretchOnly.slice(0,3).map(function(e,i){ return cityCardHtml(e,'stretch',els[i].id); }); })()`);
   const asEl = (h) => { const box = d.createElement("div"); box.innerHTML = h; return box.firstElementChild.outerHTML; };
   check("(16h) ...each is today's stretch card, unchanged: the same HTML cityCardHtml() draws under 'Only as a stretch' (the 'beyond comfortable' note, Stretch label, breakdowns, AI Insights, compare, View available homes)",
@@ -1287,6 +1308,15 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
     byId("answers").nextElementSibling === byId("worthKnowing") && !!byId("worthKnowing").querySelector(".wk-box") && tips60.length >= 1
       && tips60.map((x) => x.kind).join(",") === ["save", "drive", "earn"].filter((k) => tips60.some((x) => x.kind === k)).join(","),
     tips60.map((x) => x.kind + ": " + x.text).join(" | "));
+  // One tip for each lever (plan 2.0), the drive one included at the 60-minute
+  // default: the nearest place past the limit that fits, however far (it was
+  // left out when that was more than 30 minutes past).
+  const past60 = JSON.parse(win.eval("JSON.stringify(rankCities(results,{sort:'home',maxCommute:maxCommuteMin}).overCommute.filter(function(e){ return e.comfortable; }).map(function(e){ return {n:e.n,type:e.type,price:e.price,commuteMin:e.commuteMin}; }))"));
+  const drive60 = wk60.tips.find((x) => x.kind === "drive");
+  check("(16i2) ...a save, a drive and an earn tip at the 60-minute default; the drive tip is the nearest place past the limit that fits, with its minutes past the limit",
+    tips60.map((x) => x.kind).join(",") === "save,drive,earn" && !!drive60 && past60.length > 0 && drive60.claim.n === past60[0].n && drive60.claim.price === past60[0].price
+      && tips60.find((x) => x.kind === "drive").text.includes(`Drive ${past60[0].commuteMin - 60} minutes past your 60-minute limit and a ${WK_WORD[past60[0].type]} in ${past60[0].n}`),
+    tips60.map((x) => x.text).join(" | "));
   for (const tip of wk60.tips.filter((x) => x.kind === "save" || x.kind === "earn")) {
     const [ok, detail] = checkLeverOnPage(WORKED, tip);
     const firstAfter = (() => { search(win, withChange(WORKED, tip.kind, tip.claim.extra)); const a = answerCards(win)[0]; search(win, WORKED); return a; })();

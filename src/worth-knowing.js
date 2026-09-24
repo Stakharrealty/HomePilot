@@ -34,7 +34,8 @@
 // drive or earn tip gets there within the caps below; otherwise the heading
 // stops at "yet." and HomePilot Worth Knowing says plainly what would change
 // the answer. Then the three closest options (lowest % of take-home within the
-// limit), labelled Stretch, in today's cards; then HomePilot Worth Knowing.
+// limit), labelled Stretch (or above the HomePilot comfort range), in today's
+// cards; then HomePilot Worth Knowing.
 // render() draws the cards and the heading (render.js); this file decides
 // what they say.
 //
@@ -51,7 +52,8 @@ const WK_STEP = 5000;               // save more and earn more go up in $5,000 s
 const WK_SAVE_CAP = 50000;          // a save tip asks for at most $50,000 more down payment
 const WK_EARN_CAP = 25000;          // an earn tip asks for at most $25,000 more household income a year
 const WK_DRIVE_CAP_MIN = 30;        // a drive tip asks for at most 30 more minutes each way
-                                    // (on the empty page: at most 30 past the buyer's limit)
+                                    // (on the empty page: "you're close" needs a place at most 30 past
+                                    // the buyer's limit; the drive tip itself shows at any distance)
 const WK_DRIVE_MIN_SAVING = 50000;  // ...and, on the normal page, saves at least $50,000 on the price
 const WK_DRIVE_MIN_MONTHLY = 300;   // ...or at least $300 a month
 const WK_STRETCH_LINE_PCT = 45;     // getFit(): 45% of take-home or more is Stretch
@@ -138,10 +140,16 @@ function wkHome(e) { return 'a ' + WK_TYPE[e.type] + ' in ' + e.n; }
 // "Just fits" when the % of take-home lands within WK_JUST_FITS_PTS of the
 // Stretch line. It is the % the cards show (rankCities()'s pct).
 function wkJustFits(pct) { return Number.isFinite(pct) && pct >= WK_STRETCH_LINE_PCT - WK_JUST_FITS_PTS; }
+// A home that fits can round to 45% (44.9%), the figure a Stretch card next to
+// it shows for 45.2%. The tip then says "just under 45%" (2026-09-24), so the
+// home it says fits does not read as the Stretch card's figure.
+function wkPctWords(e) {
+  return (e.pct >= WK_STRETCH_LINE_PCT && e.fit.cls !== 'fs' ? 'just under ' + WK_STRETCH_LINE_PCT : e.pct) + '% of take-home';
+}
 function wkFits(e) {
   return wkJustFits(e.pct)
-    ? 'just fits your HomePilot comfort range: ' + fc(e.price) + ' at ' + e.pct + '% of take-home, close to the Stretch line'
-    : 'fits your HomePilot comfort range: ' + fc(e.price) + ', a ' + e.fit.lbl + ' at ' + e.pct + '% of take-home';
+    ? 'just fits your HomePilot comfort range: ' + fc(e.price) + ' at ' + wkPctWords(e) + ', close to the Stretch line'
+    : 'fits your HomePilot comfort range: ' + fc(e.price) + ', a ' + e.fit.lbl + ' at ' + wkPctWords(e);
 }
 // A rankCities() entry as a tip's claim: what the tip says, for the tests to
 // check against a fresh run of the engine.
@@ -338,13 +346,19 @@ function _wkCompute(base, answers) {
     return out;
   }
 
+  // One tip per lever (plan 2.0). "You're close" rests on the caps: a save or
+  // earn step within them, or a place that fits at most WK_DRIVE_CAP_MIN past
+  // the limit. The drive tip itself shows at any distance once the page is
+  // close (2026-09-24): the plan's own example names Oshawa "about 100 min" and
+  // Hamilton "110 min", and at the 60-minute default the worked example lost
+  // its drive tip because Oshawa is 40 minutes past the limit, while the notes
+  // said 17 places further out fit. The 30-minute cap is the normal page's rule
+  // ("a short extra drive").
   const drive = wkPastLimitTip(byHome);
-  const within = [
-    wkFirstFitTip(base, 'save', WK_STEP, WK_SAVE_CAP),
-    drive && drive.extra <= WK_DRIVE_CAP_MIN ? drive : null,
-    earnOk ? wkFirstFitTip(base, 'earn', WK_STEP, WK_EARN_CAP) : null,
-  ].filter(Boolean);
-  out.close = within.length > 0;
+  const save = wkFirstFitTip(base, 'save', WK_STEP, WK_SAVE_CAP);
+  const earn = earnOk ? wkFirstFitTip(base, 'earn', WK_STEP, WK_EARN_CAP) : null;
+  out.close = !!(save || earn || (drive && drive.extra <= WK_DRIVE_CAP_MIN));
+  const within = out.close ? [save, drive, earn].filter(Boolean) : [];
   out.levers = within;
   out.tips = [savingsTip].concat(within).filter(Boolean);
   if (!out.close) {

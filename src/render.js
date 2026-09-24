@@ -70,7 +70,8 @@ function fitPill(fit) {
 // close." (wkEmptyHeading()); #answers holds the three closest options -- the
 // lowest % of take-home within the limit, rankCities()'s stretch-only list --
 // in the same three-across layout, today's stretch cards, each labelled
-// "Closest to fitting · Stretch"; then HomePilot Worth Knowing, one tip per
+// "Closest to fitting · Stretch" (or "· Above your HomePilot comfort range"
+// when the card's own pill is not Stretch); then HomePilot Worth Knowing, one tip per
 // lever; then "See all places" with the other stretch-only places and, when
 // asked for, those past the limit.
 
@@ -132,6 +133,11 @@ function render(){
   // would get the buyer there, are HomePilot Worth Knowing's tips.
   const overComfortable=overCommute.filter(e=>e.comfortable).length;
   const typeWord=activeProp==='all'?'a home':'a '+(PROP_LABELS[activeProp]||'home').toLowerCase();
+  // "Cities you can afford" heads the list; on the empty page the count line is
+  // the heading ("Nothing within 60 minutes fits ... yet"), and the title
+  // above it said the opposite, so it steps aside there (2026-09-24).
+  const titleEl=document.getElementById('resTitle');
+  if(titleEl) titleEl.style.display=noAnswers?'none':'';
   const cntEl=document.getElementById('cnt');
   if(cntEl){
     const n=ranked.length;
@@ -163,16 +169,22 @@ function render(){
   // The answer cards: cityCardHtml() exactly as every other card, under the
   // label of the question (or questions) it answers. On the empty page, the
   // closest options instead: today's stretch card (the one "Only as a
-  // stretch" shows), labelled Stretch.
+  // stretch" shows), labelled Stretch or above the HomePilot comfort range.
   const nextId=cardIdMaker();
   const shown=[];
   const slot=(answersAttr,label,e,section,id)=>'<div class="answer-slot" data-answers="'+answersAttr+'">'+
     '<div class="answer-label">'+label+'</div>'+cityCardHtml(e,section,id)+'</div>';
+  // A closest option is not comfortable, but not always Stretch: a home under
+  // 45% of take-home is one only because its price is above the HomePilot
+  // comfort range, and its own pill says Good Fit. The label says which
+  // (2026-09-24); it said "Stretch" on every one, over a "Good Fit" pill,
+  // and it did not change when the buyer typed their own take-home.
+  const closestLabel=(e)=>'Closest to fitting · '+(e.fit.cls==='fs'?'Stretch':'Above your HomePilot comfort range');
   const slots=noAnswers
     ?closest.map(e=>{
       const id=nextId(e.n);
       shown.push(shownCardOf(e,'answer-closest',id,{answers:['closest']}));
-      return slot('closest','Closest to fitting · Stretch',e,'stretch',id);
+      return slot('closest',closestLabel(e),e,'stretch',id);
     })
     :answers.picks.map(p=>{
       const id=nextId(p.entry.n);

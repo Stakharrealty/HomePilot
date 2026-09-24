@@ -1476,7 +1476,7 @@ body.cmp-bar-open #waWrap{bottom:80px!important}
   </div>
 
   <div class="results-section" id="res">
-    <div class="sec-title">Cities you can afford</div>
+    <div class="sec-title" id="resTitle">Cities you can afford</div>
     <div class="count" id="cnt"></div>
     <div class="rank-notes" id="rankNotes"></div>
     </div>
@@ -1563,7 +1563,8 @@ body.cmp-bar-open #waWrap{bottom:80px!important}
     <!-- Three answers, then "See all places" (2026-09-24, IMPROVEMENT_PLAN.md 2.2; drawn by
          render() and renderSeeAll() in src/render.js). #answers: today's cards, one per question
          (Most home, Shortest commute, Lowest monthly cost), each under its label; when nothing
-         within the commute limit fits, the three closest options, labelled Stretch (IMPROVEMENT_PLAN.md
+         within the commute limit fits, the three closest options, labelled Stretch or above the
+         HomePilot comfort range (IMPROVEMENT_PLAN.md
          2.0). #worthKnowing: HomePilot Worth Knowing (src/worth-knowing.js), between the answers and
          "See all places"; empty when no tip is worth showing. #seeAllBody: the rest of the places
          (#list) in the order picked in its "Sort by", then "Only as a stretch" and "Past your commute

@@ -94,6 +94,10 @@ const sameHome = (a, b) => !!a && !!b && a.n === b.n && a.type === b.type && a.p
 const text = (h) => String(h || '').replace(/<[^>]+>/g, '');
 const fc = (n) => run(`fc(${n})`);
 const justFits = (pct) => pct >= C.LINE - C.JUST;
+// The % as a tip words it: a home that fits but rounds to the Stretch line
+// (44.9% shows as 45%) is "just under 45%", so it does not read as a Stretch
+// card's 45%.
+const pctWords = (c) => (c.pct >= C.LINE && c.fit !== 'Stretch' ? 'just under ' + C.LINE : c.pct) + '% of take-home';
 // The buyer with one answer changed, as they would type it: more down
 // payment, or more income typed into ONE box, the one the tip names: the
 // higher earner's ("Your income" when the two are equal). Until 2026-09-24
@@ -165,7 +169,7 @@ const driveMatches = (wk) => {
   return spec === null ? !tip : !!tip && tip.claim.n === spec.n && tip.claim.type === spec.type && tip.claim.from.n === spec.from && tip.claim.from.type === spec.fromType;
 };
 
-const seen = { normalTips: 0, emptyClose: 0, emptyFar: 0, emptyNothing: 0, kinds: new Set(), justFits: 0, notJust: 0, savings: 0, earnSplit: 0 };
+const seen = { normalTips: 0, emptyClose: 0, emptyFar: 0, emptyNothing: 0, kinds: new Set(), justFits: 0, notJust: 0, savings: 0, earnSplit: 0, justUnder: 0 };
 const worked = {};
 
 // 0. The thresholds are the app's own lines.
@@ -264,7 +268,7 @@ for (const b of BUYERS) {
         t(`(${tag}) ${tip.kind}: and it is the smallest step: ${fc(c.extra - C.STEP)} upgrades no answer place`,
           places.every((p) => { const e = lower.find((x) => x.n === p.n); return !e || HOME_RANK[e.type] <= HOME_RANK[p.type]; }));
         t(`(${tag}) ${tip.kind}: "just fits" exactly when the % lands within ${C.JUST} points of the Stretch line`,
-          c.justFits === justFits(c.pct) && /just fits/.test(tip.html) === justFits(c.pct) && text(tip.html).includes(`${c.pct}% of take-home`));
+          c.justFits === justFits(c.pct) && /just fits/.test(tip.html) === justFits(c.pct) && text(tip.html).includes(pctWords(c)));
         if (justFits(c.pct)) seen.justFits++; else seen.notJust++;
         search(b);
       } else if (tip.kind === 'drive') {
@@ -288,7 +292,12 @@ for (const b of BUYERS) {
     const levers = wk.tips.filter((x) => x.kind !== 'savings-limit');
     const drivePast = base.commuteKnown && base.limit !== null ? base.overCommute.filter((e) => e.comfortable) : [];
     const nearest = drivePast.length ? drivePast.reduce((a, e) => (e.commuteMin < a.commuteMin ? e : a)) : null;
-    t(`(${tag}) empty page: "you're close" exactly when a save, drive or earn tip is within the caps`, wk.close === levers.length > 0);
+    // Close rests on the caps; once close, the drive tip shows at any distance
+    // (2026-09-24: the plan's example names places 100 and 110 minutes out).
+    t(`(${tag}) empty page: "you're close" exactly when a save, drive or earn tip is within the caps`,
+      wk.close === levers.some((x) => x.kind !== 'drive' || x.extra <= C.DRIVE) && (wk.close || !levers.length));
+    t(`(${tag}) empty page: when close, a drive tip whenever a place past the limit fits (the nearest), at any distance`,
+      !wk.close || (!!nearest === levers.some((x) => x.kind === 'drive')));
     t(`(${tag}) empty page: one tip per lever at most, in the order save, drive, earn`,
       levers.map((x) => x.kind).join(',') === ['save', 'drive', 'earn'].filter((k) => levers.some((x) => x.kind === k)).join(','));
     const heading = run(`wkEmptyHeading(worthKnowing(answerPicks(results,{maxCommute:maxCommuteMin,onlyType:${onlyTypeJs}}),${onlyTypeJs}))`);
@@ -306,7 +315,8 @@ for (const b of BUYERS) {
         search(changed(b, lever, c.extra - C.STEP));
         t(`(${tag}) ${lever}: the smallest step: at ${fc(c.extra - C.STEP)} nothing within the limit fits`, pageRanking().ranked.length === 0);
       }
-      t(`(${tag}) ${lever}: "just fits" exactly when the % lands within ${C.JUST} points of the Stretch line`, c.justFits === justFits(c.pct) && /just fits/.test(tip.html) === justFits(c.pct));
+      t(`(${tag}) ${lever}: "just fits" exactly when the % lands within ${C.JUST} points of the Stretch line, and the % reads "${pctWords(c)}"`, c.justFits === justFits(c.pct) && /just fits/.test(tip.html) === justFits(c.pct) && text(tip.html).includes(pctWords(c)));
+      if (c.pct >= C.LINE) seen.justUnder++;
       if (justFits(c.pct)) seen.justFits++; else seen.notJust++;
       search(b);
     };
@@ -320,7 +330,7 @@ for (const b of BUYERS) {
         search({ ...b, limit: 'none' });
         const open = pageRanking();
         t(`(${tag}) drive: with no commute limit, ${c.n} fits as the tip says, ${c.extra} minutes past the ${base.limit}-minute limit`,
-          sameHome(open.ranked.find((e) => e.n === c.n), c) && c.commuteMin - base.limit === c.extra && c.extra > 0 && c.extra <= C.DRIVE, JSON.stringify(c));
+          sameHome(open.ranked.find((e) => e.n === c.n), c) && c.commuteMin - base.limit === c.extra && c.extra > 0, JSON.stringify(c));
         t(`(${tag}) drive: it is the nearest place past the limit that fits`, !!nearest && nearest.commuteMin === c.commuteMin);
         search(b);
       }
@@ -346,7 +356,7 @@ for (const b of BUYERS) {
       if (wk.far.length) seen.emptyFar++; else seen.emptyNothing++;
     } else seen.emptyClose++;
   }
-  if (b.tag.startsWith('worked example, ') && !b.onlyType) worked[b.limit] = { cnt: text(byId('cnt').innerHTML), tips: all.map((x) => text(x.html)) };
+  if (b.tag.startsWith('worked example, ') && !b.onlyType) worked[b.limit] = { cnt: text(byId('cnt').innerHTML), tips: all.map((x) => text(x.html)), kinds: all.map((x) => x.kind).join(',') };
 }
 
 // The drive rule on many more buyers: commuters to five work cities at a
@@ -360,10 +370,12 @@ for (const b of BUYERS) {
         search(b);
         const wk = wkNow();
         if (wk.empty) {
-          const base = pageRanking(), d = wk.levers.find((x) => x.kind === 'drive');
+          const base = pageRanking(), d = wk.levers.concat(wk.far).find((x) => x.kind === 'drive');
           const fits = base.overCommute.filter((e) => e.comfortable);
           const nearest = fits.length ? Math.min(...fits.map((e) => e.commuteMin)) : null;
-          if (d ? !(d.claim.commuteMin === nearest && d.extra <= C.DRIVE) : nearest !== null && nearest - base.limit <= C.DRIVE) bad.push(workCity + ' ' + income + '/' + down + ' (empty)');
+          // Empty page: the nearest place past the limit that fits, whenever there is
+          // one (in the tips when close, in "what would change the answer" when not).
+          if (d ? d.claim.commuteMin !== nearest : nearest !== null) bad.push(workCity + ' ' + income + '/' + down + ' (empty)');
           continue;
         }
         normal++;
@@ -461,10 +473,16 @@ t('the normal page with no tip worth showing draws nothing', run("worthKnowingHt
 t('covered: tips on the normal page, the empty page close, far off, and with no answer at all',
   seen.normalTips > 0 && seen.emptyClose > 0 && seen.emptyFar > 0 && seen.emptyNothing > 0, JSON.stringify({ ...seen, kinds: [...seen.kinds] }));
 t('covered: a buyer whose savings cap the HomePilot comfort range', seen.savings > 0, seen.savings);
+t('covered: a tip whose home fits at a % that rounds to the Stretch line ("just under 45%")', seen.justUnder > 0, seen.justUnder);
 t('covered: an earn tip for a couple with unequal incomes, checked by searching again with the raise in the box it names', seen.earnSplit > 0, seen.earnSplit);
 t('covered: save, drive and earn tips, "just fits" and not', ['save', 'drive', 'earn'].every((k) => seen.kinds.has(k)) && seen.justFits > 0 && seen.notJust > 0,
   JSON.stringify([...seen.kinds]) + ' just ' + seen.justFits + ' not ' + seen.notJust);
 
+// The plan's worked example (2.0): one tip for each lever, save, drive and
+// earn, at the 60-minute default as at 90. At 60 the drive tip is Oshawa, 40
+// minutes past the limit; it was left out until 2026-09-24.
+t('worked example: save, drive and earn tips at 60 minutes and at 90', !!worked[60] && !!worked[90]
+  && worked[60].kinds === 'save,drive,earn' && worked[90].kinds === 'save,drive,earn', JSON.stringify([worked[60] && worked[60].kinds, worked[90] && worked[90].kinds]));
 console.log('=== HomePilot Worth Knowing: the worked example (IMPROVEMENT_PLAN.md 2.0) ===');
 for (const lim of [60, 90]) {
   if (!worked[lim]) continue;
