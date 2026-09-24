@@ -14,6 +14,11 @@
 // 2.4b), so the markup is the only copy a visitor can see;
 // tests/english_only_test.js keeps the translations and the menu gone.
 //
+// Since 2026-09-24 (IMPROVEMENT_PLAN.md 2.4c) the example's sample buyer is a
+// couple on two incomes, $90K + $60K. Section 3 checks the line above the
+// panel against the buyer, that take-home is taxed person by person, and that
+// the rows are exactly what the calculator page shows the same couple.
+//
 // Requires: a local static server on :8843 (npx http-server -p 8843 -s).
 // Run: node --no-warnings tests/homepage_claims_test.js
 
@@ -104,7 +109,78 @@ const visible = indexHtml.replace(/<script[\s\S]*?<\/script>/g, " ").replace(/<s
   check("computing the example leaves the page's own globals untouched",
     win.eval("grossMonthlyIncome === 0 && buyPower === 0 && workZone === null && workArrangement === 'remote' && firstTimeBuyer === false"));
   check("the example label says it is one sample buyer, and who", /SAMPLE BUYER/.test(win.document.getElementById("heroExampleLbl").textContent)
-    && /\$150K household income/.test(win.document.getElementById("heroExampleBuyer").textContent));
+    && /\$150K household income \(\$90K \+ \$60K\) · \$100K down · first-time buyers · work in Toronto 2–4 days a week/.test(win.document.getElementById("heroExampleBuyer").textContent),
+    win.document.getElementById("heroExampleBuyer").textContent);
+
+  // =============== 3b. two incomes (IMPROVEMENT_PLAN.md 2.4c) ===============
+  // The sample buyer is a couple, $90K + $60K. Take-home is taxed person by
+  // person, as the calculator does (plan 3.3), so every "% of take-home" and
+  // fit label is worked out on the two-earner figure.
+  const buyer = win.eval("HOMEPAGE_EXAMPLE_BUYER");
+  check("the sample buyer is two earners, $90,000 + $60,000", buyer.income === 90000 && buyer.partnerIncome === 60000, JSON.stringify(buyer));
+  const said = /\$(\d+)K household income \(\$(\d+)K \+ \$(\d+)K\) · \$(\d+)K down/.exec(win.document.getElementById("heroExampleBuyer").textContent);
+  check("the line above the example states the buyer's own figures: total, both incomes, down payment",
+    !!said && Number(said[1]) * 1000 === buyer.income + buyer.partnerIncome && Number(said[2]) * 1000 === buyer.income
+      && Number(said[3]) * 1000 === buyer.partnerIncome && Number(said[4]) * 1000 === buyer.down, said && said[0]);
+  const pairNet = win.eval("estimateHouseholdNetAnnual(90000, 60000) / 12");
+  const soloNet = win.eval("estimateOntarioNetAnnual(150000) / 12");
+  const pctOf = (e, net) => Math.round(e.monthly / net * 100);
+  check("each row's % of take-home is on the two-earner take-home (each income taxed separately)",
+    engine.length > 0 && engine.every((e, i) => e.pct === pctOf(e, pairNet) && rows[i].meta.includes(" · " + e.pct + "% of take-home")),
+    engine.map((e) => e.city + " " + e.pct + "% vs " + pctOf(e, pairNet) + "%").join("; "));
+  check("...and not on one earner's take-home on $150K (that would read higher)",
+    engine.some((e) => pctOf(e, soloNet) > e.pct), engine.map((e) => e.city + " " + e.pct + "% vs one earner " + pctOf(e, soloNet) + "%").join("; "));
+
+  // The same couple on the calculator page: fill its real form (both income
+  // boxes) and run go(). The homepage must show its first four cards exactly.
+  const calcErrors = [];
+  const calcConsole = new VirtualConsole();
+  calcConsole.on("jsdomError", (e) => calcErrors.push(e.message));
+  const cdom = await JSDOM.fromURL("http://localhost:8843/calculator.html", { runScripts: "dangerously", resources: "usable", virtualConsole: calcConsole, pretendToBeVisual: true });
+  await new Promise((r) => setTimeout(r, 1000));
+  const cwin = cdom.window, cd = cwin.document;
+  cwin.Element.prototype.scrollIntoView = function () {}; // jsdom has no layout; go() calls it
+  cd.getElementById("inc").value = String(buyer.income);
+  cd.getElementById("inc2").value = String(buyer.partnerIncome);
+  cd.getElementById("dwn").value = String(buyer.down);
+  cd.getElementById("dbt").value = String(buyer.debt);
+  cd.getElementById("fam").value = String(buyer.family);
+  cd.getElementById("area").value = "all";
+  cwin.eval(`setFTB(${buyer.firstTimeBuyer === true})`);
+  cwin.eval("setResident(true)");
+  cwin.eval(`setWorkArrangement(${JSON.stringify(buyer.work)})`);
+  cd.getElementById("workCity").value = "Toronto";
+  cd.getElementById("workPostal").value = "";
+  cwin.eval("go()");
+  check("the calculator places a Toronto worker where the example does, with the same default limit",
+    cwin.eval("workZone") === buyer.workZone && cwin.eval("maxCommuteMin") === 60 && cwin.eval("resultsSort") === "home");
+  check("the calculator's take-home for this couple is the example's two-earner figure",
+    Math.abs(cwin.eval("netMonthlyIncome") - pairNet) < 0.01, cwin.eval("netMonthlyIncome") + " vs " + pairNet);
+  const calcCards = [...cd.querySelectorAll("#list .city")].slice(0, 4).map((el) => {
+    const head = /^(.*?) · \$([\d,]+)/.exec(el.querySelector(".card-headline").textContent.trim());
+    const pct = /(\d+)% of take-home/.exec(el.textContent);
+    const drive = /About (\d+) min drive/.exec((el.querySelector(".commute-badge") || {}).textContent || "");
+    return {
+      city: el.querySelector(".cn").textContent.trim(),
+      type: head ? head[1].trim() : null,
+      price: head ? Number(head[2].replace(/,/g, "")) : null,
+      monthly: Number(el.querySelector("[id$='-mtotal']").textContent.replace(/[^0-9]/g, "")),
+      fit: el.querySelector(".fit-pill").textContent.trim(),
+      pct: pct ? Number(pct[1]) : null,
+      drive: drive ? Number(drive[1]) : null,
+    };
+  });
+  const K = (n) => "$" + Math.round(n / 1000) + "K";
+  const money = (n) => "$" + Math.round(n).toLocaleString("en-US");
+  check("the example's 4 rows are the calculator's first 4 cards for the same couple: place, home, price, monthly cost, label, % and drive",
+    calcCards.length === 4 && rows.length === 4 && calcCards.every((c, i) => {
+      const r = rows[i], e = engine[i];
+      return r.city === c.city && r.fit === c.fit && e.price === c.price
+        && r.meta === c.type + " · " + K(c.price) + " · " + money(c.monthly) + "/mo · " + c.pct + "% of take-home · about " + c.drive + " min drive";
+    }),
+    JSON.stringify({ homepage: rows.map((r) => r.city + ": " + r.meta), calculator: calcCards }));
+  check("no script errors on the calculator page", calcErrors.length === 0, calcErrors.join(" | "));
+  cwin.close();
 
   // #cities opens the coverage answer.
   win.location.hash = "#cities";

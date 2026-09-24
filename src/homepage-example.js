@@ -12,9 +12,18 @@
 // Loaded last on index.html, which already loads every engine script. It sets
 // the calculator's globals for the sample buyer, ranks, and puts every one of
 // them back.
+//
+// Two earners since 2026-09-24 (IMPROVEMENT_PLAN.md 2.4c): $90K + $60K, as a
+// couple would fill in the calculator's "Your income" and "Partner's income"
+// boxes. Buying power uses the two added together, as a lender does. Take-home
+// is taxed person by person by estimateHouseholdNetAnnual() in utils.js, the
+// function the calculator's go() uses (plan 3.3). The line above the panel
+// (heroExampleBuyer in index.html) states both incomes, and
+// tests/homepage_claims_test.js checks that line against this object and the
+// rows against the calculator page itself.
 
 const HOMEPAGE_EXAMPLE_BUYER = {
-  income: 150000, down: 100000, debt: 0, family: "3", firstTimeBuyer: true,
+  income: 90000, partnerIncome: 60000, down: 100000, debt: 0, family: "3", firstTimeBuyer: true,
   work: "hybrid", workZone: "toronto_downtown", // works in Toronto, 2-4 days a week
 };
 
@@ -23,11 +32,12 @@ function homepageExampleRows(buyer, count) {
   const saved = { fam_selected, dn_selected, grossMonthlyIncome, netMonthlyIncome, existingDebt, firstTimeBuyer,
     customMortgageRate, workArrangement, workZone, buyPower, comfortBuyPower };
   try {
+    const partner = buyer.partnerIncome || 0, total = buyer.income + partner;
     fam_selected = buyer.family; dn_selected = buyer.down; existingDebt = buyer.debt;
-    grossMonthlyIncome = buyer.income / 12; netMonthlyIncome = estimateOntarioNetAnnual(buyer.income) / 12;
+    grossMonthlyIncome = total / 12; netMonthlyIncome = estimateHouseholdNetAnnual(buyer.income, partner) / 12;
     firstTimeBuyer = buyer.firstTimeBuyer === true; customMortgageRate = DEFAULT_MORTGAGE_RATE_PCT / 100;
     workArrangement = buyer.work; workZone = buyer.workZone;
-    const b = calcBP(buyer.income, buyer.down, buyer.debt);
+    const b = calcBP(total, buyer.down, buyer.debt);
     buyPower = b.bp; comfortBuyPower = b.comfortBP;
     return rankCities(candidateCities("all", b.bp), { sort: "home", maxCommute: DEFAULT_MAX_COMMUTE[buyer.work] || null })
       .ranked.slice(0, count);
