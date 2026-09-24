@@ -285,15 +285,17 @@ async function openPage(file, width) {
   check("calculator: no script errors in the page", cp.errors.length === 0, cp.errors.slice(0, 3).join(" | "));
   w.close();
 
-  // On a computer the note sat over the third answer card, three across from
-  // 1240px (its label and true monthly cost), so it steps aside once there are
-  // results; the green button stays.
+  // On a computer the note sat over the third answer card, three across (its
+  // label and true monthly cost), so it steps aside once there are results;
+  // the green button stays. A buyer whose three answers are three homes
+  // (2026-09-24: at the new rate and prices, $90K + $60K with $100K down gets
+  // two cards, one of them answering two questions).
   const cd = await openPage("calculator.html", DESKTOP);
   const dw = cd.win, dd = dw.document;
   check("calculator at 1280px: the WhatsApp note shows before a search", dd.getElementById("waTooltip").style.display !== "none");
-  dd.getElementById("inc").value = "90000";
+  dd.getElementById("inc").value = "120000";
   dd.getElementById("inc2").value = "60000";
-  dd.getElementById("dwn").value = "100000";
+  dd.getElementById("dwn").value = "200000";
   dd.getElementById("dbt").value = "0";
   dw.eval("setFTB(true)");
   dw.eval("setWorkArrangement('hybrid')");

@@ -37,11 +37,14 @@
 //   - nothing makes the page scroll sideways.
 // It prints each block's height, so a longer page shows where it grew.
 //
-// Then, since 2026-09-24, the answer cards on a computer, at 1240 and 1280px
-// wide, where they sit three across at about 228-241px each (see
-// measureDesktopInPage() below): three side by side, starting level; no
-// home-type row cut off; every figure in every cost breakdown at least 8px
-// from its label; no sideways scroll.
+// Then, since 2026-09-24, the answer cards on a computer, at 1024, 1100,
+// 1200, 1240 and 1280px wide, where they sit three across at about 222-241px
+// each (see measureDesktopInPage() below): three side by side, starting
+// level; no home-type row cut off; every figure in every cost breakdown at
+// least 8px from its label; no sideways scroll; and from 1024 to 1239px the
+// form beside them still at least 250px wide (IMPROVEMENT_PLAN.md 2.2b,
+// option b: the form narrows so the three cards fit; below that the user
+// wants to be asked).
 //
 // When no Chrome or Edge is found, or it will not start, the test says SKIP
 // and exits 0 (a GitHub Actions warning in CI) rather than blocking a deploy
@@ -235,19 +238,26 @@ async function measureInPage(b) {
 }
 
 // ---------- the answer cards on a computer (2026-09-24) ----------
-// Three across from 1240px, each card about 223-241px wide up to 1280px:
+// Three across from 1024px since 2026-09-24 (from 1240px before; from 1024 to
+// 1239px the form column narrows so each card keeps about 222px), each card
+// about 222-241px wide up to 1280px:
 // narrower than any phone's card. Measured there, before the fixes: a
 // home-type row wider than its bordered list lost its chevron under the
 // list's overflow:hidden (11-15px at 1240); a two-question label
 // ("MOST HOME · SHORTEST COMMUTE") wrapped and pushed its card 16-17px below
 // the other two; and in the cost breakdowns a label ran into its figure
 // ("Estimated Cash Required to Close" 0.1px from "~$123,950").
-const DESKTOP_WIDTHS = [1240, 1280];
+const DESKTOP_WIDTHS = [1024, 1100, 1200, 1240, 1280];
+// Buyers with three cards (2026-09-24, at the 4.39% rate and the listing
+// prices): three different answers; and a merged two-question card ("Shortest
+// commute · Most home", a label that wraps) next to "Also worth a look", whose
+// trade makes its At a glance the longest.
 const DESKTOP_BUYERS = [
-  { name: "$90K + $60K, $100K down, hybrid Toronto", income: 90000, partnerIncome: 60000, down: 100000, debt: 0, work: "hybrid", workCity: "Toronto", firstTime: true },
-  { name: "$250K, $300K down, remote, condos only", income: 250000, down: 300000, debt: 0, work: "remote", firstTime: false, onlyType: "condo" },
+  { name: "$120K + $60K, $200K down, hybrid Toronto", income: 120000, partnerIncome: 60000, down: 200000, debt: 0, work: "hybrid", workCity: "Toronto", firstTime: true },
+  { name: "$120K + $60K, $150K down, $500/mo debt, hybrid Toronto (a merged card and 'Also worth a look')", income: 120000, partnerIncome: 60000, down: 150000, debt: 500, work: "hybrid", workCity: "Toronto", firstTime: true, expectAlso: true },
   { name: "$300K + $200K, $500K down, daily Toronto", income: 300000, partnerIncome: 200000, down: 500000, debt: 0, work: "daily", workCity: "Toronto", firstTime: false },
 ];
+const MIN_FORM_PX = 250;
 const MIN_LABEL_GAP_PX = 8;
 async function measureDesktopInPage(b) {
   const d = document;
@@ -313,6 +323,8 @@ async function measureDesktopInPage(b) {
     widths: cards.map((c) => Math.round(c.getBoundingClientRect().width)),
     tops: cards.map((c) => Math.round(c.getBoundingClientRect().top)),
     labels: [...d.querySelectorAll("#answers .answer-label")].map((l) => l.textContent),
+    also: d.querySelectorAll("#answers .answer-slot[data-answers='also']").length,
+    formWidth: Math.round(d.getElementById("calculatorSection").getBoundingClientRect().width),
     overflow: Math.max(0, ...lists.map((l) => l.scrollWidth - l.clientWidth)),
     chevronsCut: rows.filter((r) => { const c = d.getElementById(r.id + "-chevron"), list = r.parentElement.parentElement; return c && c.getBoundingClientRect().right > list.getBoundingClientRect().right - 1; }).length,
     minGap: minGap === Infinity ? null : Math.round(minGap * 10) / 10, pairs,
@@ -390,6 +402,9 @@ async function measureDesktopInPage(b) {
         check(`${width}px, ${b.name}: every part (top, At a glance, home types, AI Insights, Compare) and "View Available Homes" lines up across the three cards, however many home types each lists, breakdowns open or closed`, m.buttonSpread !== null && m.buttonSpread <= 1, m.buttonSpread + "px apart");
         check(`${width}px, ${b.name}: every line at the top of the answer cards fits inside its card`, m.headOverflow === 0, m.headOverflow + "px over");
         check(`${width}px, ${b.name}: nothing makes the page scroll sideways`, m.pageWidth <= width, m.pageWidth + "px wide");
+        if (b.expectAlso) check(`${width}px, ${b.name}: the third card is "Also worth a look"`, m.also === 1 && /Also worth a look/i.test(m.labels[2] || ""), m.labels.join(" | "));
+        check(`${width}px, ${b.name}: the form beside the cards is ${width < 1240 ? "at least " + MIN_FORM_PX + "px wide" : "its usual 420px"}`,
+          width < 1240 ? m.formWidth >= MIN_FORM_PX && m.formWidth <= 420 : m.formWidth === 420, m.formWidth + "px");
       }
     }
   } catch (e) {

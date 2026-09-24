@@ -16,10 +16,14 @@
 //      trademark paragraph (name/brokerage/phone/RECO#; no address or
 //      email there either, by design).
 //
-// Verifies the footer on index.html and calculator.html includes:
-//   1. A "Contact" column heading with NO detail lines under it (and no
-//      mailto link anywhere in the footer, since email only ever lived
-//      in that column).
+//   7. 2026-09-24 (IMPROVEMENT_PLAN.md 6.3): the empty "Contact" heading went
+//      too, with its column: a heading over nothing read as a broken footer.
+//      The contact details stay in .ft-tm-info.
+//
+// Verifies the footer on index.html and calculator.html:
+//   1. Has no "Contact" column (and no mailto link anywhere in the footer,
+//      since email only ever lived in that column); its top row is the
+//      brand plus three columns.
 //   2. The RE/MAX, CREA, and REALTOR® logos (.ft-trademark-logos) sitting
 //      directly above the trademark paragraph, full width.
 //   3. The exact trademark paragraph text, unchanged.
@@ -55,26 +59,24 @@ function check(label, cond, detail) {
 for (const { name, content } of HTML_FILES) {
   console.log(`\n${name}`);
 
-  // ── Footer Contact column: heading only, detail lines removed ───────
+  // ── Footer Contact column: gone (2026-09-24, IMPROVEMENT_PLAN.md 6.3) ──
   check(
-    `${name}: footer has a "Contact" column title`,
-    /<p class="ft-col-title"(?:\s+id="[^"]*")?>Contact<\/p>/.test(content)
+    `${name}: footer has no "Contact" column title (the empty column was removed)`,
+    !/<p class="ft-col-title"[^>]*>\s*Contact\s*<\/p>/.test(content)
   );
-  const contactColMatch = content.match(
-    /<p class="ft-col-title"(?:\s+id="[^"]*")?>Contact<\/p>([\s\S]*?)<\/div>/
+  check(
+    `${name}: no .ft-contact-line / .ft-contact-reco rows or rules left anywhere`,
+    !/ft-contact-line|ft-contact-reco/.test(content)
   );
-  check(`${name}: Contact column block found`, !!contactColMatch);
-  if (contactColMatch) {
-    const contactCol = contactColMatch[1];
-    check(
-      `${name}: Contact column has no .ft-contact-line detail rows (heading only)`,
-      !/ft-contact-line/.test(contactCol)
-    );
-    check(
-      `${name}: Contact column has no .ft-contact-reco line (heading only)`,
-      !/ft-contact-reco/.test(contactCol)
-    );
-  }
+  const topRow = content.match(/<div class="ft-top">([\s\S]*?)<div class="ft-trademark">/);
+  check(
+    `${name}: the footer's top row is the brand plus three columns (platform, cities, legal)`,
+    !!topRow && (topRow[1].match(/<div class="ft-col">/g) || []).length === 3 && /class="ft-brand"/.test(topRow[1])
+  );
+  check(
+    `${name}: its grid is four columns wide from 600px`,
+    /\.ft-top\{grid-template-columns:1fr 1fr 1fr 1fr\}/.test(content) && !/\.ft-top\{grid-template-columns:1fr 1fr 1fr 1fr 1fr\}/.test(content)
+  );
   check(
     `${name}: no mailto link anywhere in the footer (email only ever lived in the removed Contact column)`,
     !/mailto:stakharrealty@gmail\.com/.test(content)

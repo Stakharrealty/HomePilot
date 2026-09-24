@@ -177,8 +177,100 @@ const driveHolds = (wk) => {
   return { ok: !better, why: better ? 'beaten outright by ' + JSON.stringify(better) : '', n: list.length };
 };
 
-const seen = { normalTips: 0, emptyClose: 0, emptyFar: 0, emptyNothing: 0, kinds: new Set(), justFits: 0, notJust: 0, savings: 0, earnSplit: 0, justUnder: 0 };
+const seen = { normalTips: 0, emptyClose: 0, emptyFar: 0, emptyNothing: 0, kinds: new Set(), justFits: 0, notJust: 0, savings: 0, earnSplit: 0, justUnder: 0,
+  also: { save: 0, drive: 0, none: 0, full: 0 } };
 const worked = {};
+
+// ── "Also worth a look" (IMPROVEMENT_PLAN.md 2.2b, 2026-09-24) ───────────
+// When the answers leave a card free, one card on what it takes to get more
+// home than the Most home answer; the first match wins:
+//   1. save more: the smallest extra down payment, in $5,000 steps up to
+//      WK_SAVE_CAP, at which a bigger home fits within the limit -- the home
+//      the search would then put first for most home among those the buyer
+//      could buy today (the card shows it as it stands today);
+//   2. drive a bit further: a bigger home that fits today, at most
+//      WK_DRIVE_CAP_MIN past the limit, the nearest;
+//   3. otherwise no card.
+// Checked here the same way as the tips: by searching again with the change,
+// and by trying every step below it, never by trusting the module's run.
+// Returns a short reason when something is wrong, '' when it all holds.
+const HOURS_DAYS = { daily: [5, 5], hybrid: [2, 4] };
+const hoursWords = (work, extraMin) => {
+  const d = HOURS_DAYS[work];
+  if (!d || !(extraMin > 0)) return '';
+  const h = (days) => Math.round(extraMin * 2 * days * 4.33 / 60);
+  return 'about ' + (h(d[0]) === h(d[1]) ? h(d[0]) : h(d[0]) + '–' + h(d[1])) + ' more hours a month';
+};
+// The buyer could buy this home today (full qualification at today's answers).
+const buyableToday = (n, type) => data(`(function(){ var c = results.find(function(x){ return x.n === ${JSON.stringify(n)}; }); return !!(c && qualifyingOption(c, ${JSON.stringify(type)})); })()`);
+const todayHome = (n, type) => data(`(function(){ var c = results.find(function(x){ return x.n === ${JSON.stringify(n)}; }); var o = c && qualifyingOption(c, ${JSON.stringify(type)});
+  return o ? { n: c.n, type: o.type, price: o.price, monthly: Math.round(o.costs.total), pct: takeHomePct(o.costs.total), fit: o.fit.lbl, comfortable: isComfortable(o) } : null; })()`);
+function checkAlso(b, tag, base, picks, wk) {
+  const free = picks.length < 3;
+  const also = wk.also;
+  if (wk.empty) return also ? 'an "Also worth a look" card on the empty page' : '';
+  if (!free) { seen.also.full++; return also ? 'an "Also worth a look" card with no card free' : ''; }
+  const top = base.ranked[0];
+  const bigger = (t) => HOME_RANK[t] > HOME_RANK[top.type] && (!b.onlyType || t === b.onlyType);
+  // Every step up to the cap: the first home bigger than the Most home answer
+  // that fits and that the buyer could buy today.
+  const saveAt = (x) => {
+    search(changed(b, 'save', x));
+    const after = pageRanking().ranked.filter((e) => bigger(e.type));
+    search(b);
+    return after.find((e) => buyableToday(e.n, e.type)) || null;
+  };
+  let firstSave = null, firstX = 0;
+  for (let x = C.STEP; x <= C.SAVE && !firstSave; x += C.STEP) { const e = saveAt(x); if (e) { firstSave = e; firstX = x; } }
+  const drives = base.commuteKnown && base.limit !== null
+    ? base.overCommute.filter((e) => e.comfortable && bigger(e.type) && e.commuteMin - base.limit <= C.DRIVE) : [];
+  if (!also) {
+    seen.also.none++;
+    return firstSave ? 'no card, but ' + fc(firstX) + ' more saved gets ' + firstSave.n + ' ' + firstSave.type
+      : drives.length ? 'no card, but ' + drives[0].n + ' ' + drives[0].type + ' fits ' + (drives[0].commuteMin - base.limit) + ' min past the limit' : '';
+  }
+  seen.also[also.kind] = (seen.also[also.kind] || 0) + 1;
+  const c = also.claim;
+  if (picks.length + 1 > 3) return 'more than three cards';
+  if (also.kind === 'save') {
+    if (!firstSave) return 'a save card, but no step up to the cap gets a bigger home';
+    if (c.extra !== firstX) return 'save ' + fc(c.extra) + ', but ' + fc(firstX) + ' already does it';
+    if (!sameHome(firstSave, c) || !firstSave.comfortable) return 'the saved-for home is not what the search shows: ' + JSON.stringify([firstSave, c]);
+    const now = todayHome(c.n, c.type);
+    if (!now || now.comfortable) return 'the home must be one the buyer could buy today and that does not fit yet: ' + JSON.stringify(now);
+    if (!(now.price === c.today.price && now.monthly === c.today.monthly && now.pct === c.today.pct && now.fit === c.today.fit)) return 'the card is not today\'s home: ' + JSON.stringify([now, c.today]);
+    const words = `Save ${fc(c.extra)} more and a ${data('WK_TYPE')[c.type]} in ${c.n} `;
+    if (!text(also.html).startsWith(words) || !text(also.html).includes('fits your HomePilot comfort range') || !text(also.html).includes(pctWords(c))
+      || (c.commuteMin !== null && !text(also.html).endsWith(`, about ${c.commuteMin} min.`))) return 'wording: ' + text(also.html);
+    return '';
+  }
+  if (also.kind === 'drive') {
+    if (firstSave) return 'a drive card, but ' + fc(firstX) + ' more saved gets a bigger home first';
+    const d0 = drives[0];
+    if (!d0 || d0.n !== c.n || d0.type !== c.type || d0.commuteMin !== c.commuteMin) return 'not the nearest bigger home past the limit: ' + JSON.stringify([d0, c]);
+    if (c.extra !== c.commuteMin - base.limit || c.extra <= 0 || c.extra > C.DRIVE) return 'minutes past the limit: ' + c.extra;
+    const hrs = hoursWords(b.work, c.commuteMin - top.commuteMin);
+    const words = `A ${data('WK_TYPE')[c.type]} fits in ${c.n}: ${c.extra} min past your ${base.limit}-minute limit` + (hrs ? ', ' + hrs : '') + '.';
+    if (text(also.html) !== words) return 'wording: ' + text(also.html) + ' vs ' + words;
+    return '';
+  }
+  return 'unknown kind ' + also.kind;
+}
+// The page draws it: one "Also worth a look" slot after the answers, its
+// trade the first line of the card's At a glance; and the tips below it do
+// not make the same trade for the same home.
+function checkAlsoDrawn(wk) {
+  const h = byId('answers').innerHTML;
+  const slots = (h.match(/class="answer-slot"/g) || []).length;
+  const alsoSlots = (h.match(/data-answers="also"/g) || []).length;
+  if (!wk.also) return alsoSlots === 0 ? '' : 'an Also slot with no card worked out';
+  if (alsoSlots !== 1 || h.indexOf('class="answer-slot"', h.indexOf('data-answers="also"')) !== -1) return 'the Also slot is missing or not last';
+  const tail = h.slice(h.indexOf('data-answers="also"'));
+  if (!tail.includes('Also worth a look') || !tail.includes('data-key="lead"') || !tail.includes(wk.also.html)) return 'its label or trade line is missing';
+  if (slots > 3) return 'more than three cards';
+  const again = wk.tips.find((x) => x.kind === wk.also.kind && x.claim.n === wk.also.claim.n && x.claim.type === wk.also.claim.type);
+  return again ? 'HomePilot Worth Knowing repeats the trade: ' + text(again.html) : '';
+}
 
 // 0. The thresholds are the app's own lines.
 {
@@ -365,7 +457,34 @@ for (const b of BUYERS) {
       if (wk.far.length) seen.emptyFar++; else seen.emptyNothing++;
     } else seen.emptyClose++;
   }
+  // "Also worth a look" (2.2b).
+  const alsoWhy = checkAlso(b, tag, base, picks, wk);
+  t(`(${tag}) "Also worth a look": ${wk.also ? wk.also.kind + ' card' : 'no card'}${picks.length < 3 && !wk.empty ? ' in a free slot' : ''}, exactly as the rule and a search again say`, !alsoWhy, alsoWhy);
+  const drawnWhy = checkAlsoDrawn(wk);
+  t(`(${tag}) "Also worth a look" is drawn as worked out, last, with its trade first in At a glance, and not repeated below`, !drawnWhy, drawnWhy);
   if (b.tag.startsWith('worked example, ') && !b.onlyType) worked[b.limit] = { cnt: text(byId('cnt').innerHTML), tips: all.map((x) => text(x.html)), kinds: all.map((x) => x.kind).join(',') };
+}
+
+// "Also worth a look" on many more buyers: commuters to five work cities and
+// remote buyers, across incomes and savings.
+{
+  let pages = 0, bad = [];
+  for (const workCity of ['Toronto', 'Brampton', 'Mississauga', 'Oakville', 'Orangeville']) {
+    for (const income of [90000, 120000, 150000, 200000]) {
+      for (const down of [50000, 100000, 150000, 300000]) {
+        for (const work of workCity === 'Toronto' ? ['hybrid', 'daily', 'remote'] : ['hybrid']) {
+          const b = { income, partner: income === 120000 ? 60000 : 0, down, firstTime: true, work, workCity, limit: 60 };
+          search(b);
+          run('_wkCache = null;');
+          const base = pageRanking(), picks = picksNow(), wk = wkNow();
+          pages++;
+          const why = checkAlso(b, '', base, picks, wk) || checkAlsoDrawn(wk);
+          if (why) bad.push(`${workCity} ${work} ${income}${b.partner ? '+' + b.partner : ''}/${down}: ${why}`);
+        }
+      }
+    }
+  }
+  t(`"Also worth a look" holds for ${pages} more buyers (${JSON.stringify(seen.also)})`, !bad.length, bad.slice(0, 4).join('; '));
 }
 
 // The drive rule on many more buyers: commuters to five work cities at a
@@ -488,12 +607,28 @@ t('covered: a tip whose home fits at a % that rounds to the Stretch line ("just 
 t('covered: an earn tip for a couple with unequal incomes, checked by searching again with the raise in the box it names', seen.earnSplit > 0, seen.earnSplit);
 t('covered: save, drive and earn tips, "just fits" and not', ['save', 'drive', 'earn'].every((k) => seen.kinds.has(k)) && seen.justFits > 0 && seen.notJust > 0,
   JSON.stringify([...seen.kinds]) + ' just ' + seen.justFits + ' not ' + seen.notJust);
+t('covered: "Also worth a look" as a save card, as a drive card, as no card in a free slot, and no card when the three answers differ',
+  seen.also.save > 0 && seen.also.drive > 0 && seen.also.none > 0 && seen.also.full > 0, JSON.stringify(seen.also));
 
-// The plan's worked example (2.0): one tip for each lever, save, drive and
-// earn, at the 60-minute default as at 90. At 60 the drive tip is Oshawa, 40
-// minutes past the limit; it was left out until 2026-09-24.
-t('worked example: save, drive and earn tips at 60 minutes and at 90', !!worked[60] && !!worked[90]
-  && worked[60].kinds === 'save,drive,earn' && worked[90].kinds === 'save,drive,earn', JSON.stringify([worked[60] && worked[60].kinds, worked[90] && worked[90].kinds]));
+// The plan's worked example (2.0): one tip for each lever that has one, at the
+// 60-minute default as at 90. Written on 2026-09-23 with save, drive and earn
+// tips (a Whitby condo for $5,000 more saved). Since 2026-09-24, at the 4.39%
+// rate, with the $450 debt counted and the listing-based prices, no $5,000
+// step up to $50,000 more saved gets a place within either limit to fit, so
+// there is no save tip, and the page is "close" on the drive and earn tips.
+// That is checked step by step here, not assumed.
+{
+  const noSaveWithin = (limit) => {
+    const b = BUYERS.find((x) => x.tag === 'worked example, ' + limit + ' min');
+    for (let x = C.STEP; x <= C.SAVE; x += C.STEP) { search(changed(b, 'save', x)); if (pageRanking().ranked.length) { search(b); return fc(x) + ' fits'; } }
+    search(b);
+    return '';
+  };
+  const why60 = noSaveWithin(60), why90 = noSaveWithin(90);
+  t('worked example: "close" at 60 minutes and at 90, with a drive and an earn tip; no save tip, and rightly: no step up to ' + fc(C.SAVE) + ' more saved fits',
+    !!worked[60] && !!worked[90] && worked[60].kinds === 'drive,earn' && worked[90].kinds === 'drive,earn' && /but you're close\.$/.test(worked[60].cnt) && /but you're close\.$/.test(worked[90].cnt) && !why60 && !why90,
+    JSON.stringify([worked[60] && worked[60].kinds, worked[90] && worked[90].kinds, why60, why90]));
+}
 console.log('=== HomePilot Worth Knowing: the worked example (IMPROVEMENT_PLAN.md 2.0) ===');
 for (const lim of [60, 90]) {
   if (!worked[lim]) continue;

@@ -35,11 +35,14 @@ function loadEngine() {
 
 // Values recorded from the engine BEFORE the override parameter was added.
 // Existing callers (calculator, results page) must keep getting exactly these.
-const GOLDEN_CALC = [[["Mississauga",750000,3,150000,"detached"],{"mort":2931,"tax":646,"ins":145,"util":405,"maint":625,"condoFee":0,"total":4752}],[["Mississauga",520000,2,60000,"condo"],{"mort":2553,"tax":448,"ins":48,"util":175,"maint":130,"condoFee":586,"total":3940}],[["Hamilton",640000,4,90000,"semi"],{"mort":3053,"tax":708,"ins":121,"util":395,"maint":480,"condoFee":0,"total":4757}],[["Guelph",560000,1,40000,"town"],{"mort":2912,"tax":574,"ins":90,"util":225,"maint":373,"condoFee":0,"total":4174}],[["Toronto - Downtown",800000,2,200000,"condo"],{"mort":2931,"tax":444,"ins":59,"util":175,"maint":200,"condoFee":904,"total":4713}],[["Toronto - Scarborough",900000,5,180000,"detached"],{"mort":3517,"tax":500,"ins":171,"util":525,"maint":750,"condoFee":0,"total":5463}]];
+// Re-recorded 2026-09-24 at the 4.39% rate (IMPROVEMENT_PLAN.md 3.5a) and the
+// listing-based prices and condo fees (3.1a, 3.2): the same calls, the
+// engine's new figures; the override must still change none of them.
+const GOLDEN_CALC = [[["Mississauga",750000,3,150000,"detached"],{"mort":3001,"tax":646,"ins":145,"util":405,"maint":625,"condoFee":0,"total":4822}],[["Mississauga",520000,2,60000,"condo"],{"mort":2607,"tax":448,"ins":48,"util":175,"maint":130,"condoFee":652,"total":4060}],[["Hamilton",640000,4,90000,"semi"],{"mort":3117,"tax":708,"ins":121,"util":395,"maint":480,"condoFee":0,"total":4821}],[["Guelph",560000,1,40000,"town"],{"mort":2972,"tax":574,"ins":90,"util":225,"maint":373,"condoFee":0,"total":4234}],[["Toronto - Downtown",800000,2,200000,"condo"],{"mort":3001,"tax":444,"ins":59,"util":175,"maint":200,"condoFee":792,"total":4671}],[["Toronto - Scarborough",900000,5,180000,"detached"],{"mort":3601,"tax":500,"ins":171,"util":525,"maint":750,"condoFee":0,"total":5547}]];
 const GOLDEN_QUAL = [[[90000,150000,500,750000,"detached","Mississauga"],false],[[140000,150000,500,750000,"detached","Mississauga"],true],[[220000,150000,500,750000,"detached","Mississauga"],true],[[90000,60000,500,520000,"condo","Mississauga"],false],[[140000,60000,500,520000,"condo","Mississauga"],true],[[220000,60000,500,520000,"condo","Mississauga"],true],[[90000,90000,500,640000,"semi","Hamilton"],false],[[140000,90000,500,640000,"semi","Hamilton"],false],[[220000,90000,500,640000,"semi","Hamilton"],true],[[90000,40000,500,560000,"town","Guelph"],false],[[140000,40000,500,560000,"town","Guelph"],true],[[220000,40000,500,560000,"town","Guelph"],true],[[90000,200000,500,800000,"condo","Toronto - Downtown"],false],[[140000,200000,500,800000,"condo","Toronto - Downtown"],false],[[220000,200000,500,800000,"condo","Toronto - Downtown"],true],[[90000,180000,500,900000,"detached","Toronto - Scarborough"],false],[[140000,180000,500,900000,"detached","Toronto - Scarborough"],false],[[220000,180000,500,900000,"detached","Toronto - Scarborough"],true]];
 
 const API = "https://homepilot-listings.stakharrealty.workers.dev";
-const PROFILE = { grossMonthlyIncome: 15000, netMonthlyIncome: 9800, downPayment: 170000, familySize: "3", existingDebt: 0, firstTimeBuyer: false, mortgageRate: 0.0419, savedAt: 1 };
+const PROFILE = { grossMonthlyIncome: 15000, netMonthlyIncome: 9800, downPayment: 170000, familySize: "3", existingDebt: 0, firstTimeBuyer: false, mortgageRate: 0.0439, savedAt: 1 }; // the default rate since 2026-09-24 (it was 0.0419)
 
 const BASE = {
   listingKey: "K1", listPrice: 850000, city: "Mississauga", cityRegion: null, brokerageName: "Test Realty Inc.", photos: [],
@@ -94,7 +97,10 @@ async function openPage({ listing, status = 200, profile, budget, search, fetchT
   check("real tax changes only the tax and the total", realTax.mort === base.mort && realTax.ins === base.ins && realTax.util === base.util && realTax.maint === base.maint && realTax.total === base.total + (realTax.tax - base.tax));
   const condoBase = eng.calcCosts(m, 520000, 2, 60000, "condo");
   const condoReal = eng.calcCosts(m, 520000, 2, 60000, "condo", { condoFeeMonthly: 712.4 });
-  check("real condo fee replaces the formula fee for condos (rounded)", condoReal.condoFee === 712 && condoBase.condoFee === 586);
+  // The formula fee: the place's typical fee (since 2026-09-24 the median of its
+  // condo listings' real fees, plan 3.2), scaled 0.5x around its typical condo price.
+  const formulaFee = Math.round(eng.CONDO_FEES["Mississauga"] * (1 + 0.5 * (520000 / eng.PT["Mississauga"].condo - 1)));
+  check("real condo fee replaces the formula fee for condos (rounded)", condoReal.condoFee === 712 && condoBase.condoFee === formulaFee && formulaFee !== 712, `${condoReal.condoFee} / ${condoBase.condoFee} vs ${formulaFee}`);
   const detachedFee = eng.calcCosts(m, 750000, 3, 150000, "detached", { condoFeeMonthly: 999 });
   check("a condo-fee override is ignored for non-condos", detachedFee.condoFee === 0 && detachedFee.total === base.total);
   const bad = [0, -5, NaN, Infinity, "4200", null, undefined].every((v) => JSON.stringify(eng.calcCosts(m, 750000, 3, 150000, "detached", { taxAnnual: v })) === JSON.stringify(base));
@@ -374,7 +380,7 @@ async function openPage({ listing, status = 200, profile, budget, search, fetchT
 
   // ---- computing a card's badge must not disturb the main app's live state
   w.eval("netMonthlyIncome = 1234; customMortgageRate = 0.0777; firstTimeBuyer = true;");
-  w.sessionStorage.setItem("hp_buyer_profile_v1", JSON.stringify(PROFILE)); // profile rate 4.19% / not first-time: differs from the live values
+  w.sessionStorage.setItem("hp_buyer_profile_v1", JSON.stringify(PROFILE)); // profile rate 4.39% / not first-time: differs from the live values
   const idxBadge = w.renderListingCard(BASE, 900000).querySelector(".listing-affordability-badge");
   check("(L1) index.html cards get the fit-tier badge too", !!idxBadge && /listing-fit-f[gos]/.test(idxBadge.className), idxBadge && idxBadge.className);
   check("(L2) computing it leaves the live app's rate / net income / first-time-buyer values exactly as they were",
@@ -431,7 +437,7 @@ async function openPage({ listing, status = 200, profile, budget, search, fetchT
   // 170000/850000 = 0.20 exactly -> the existing dpRatio>=0.20 rule (mortgage.js) already gives this
   // scenario 30-year amortization (also reflected in calcCosts' own "exp.mort" used elsewhere above).
   check("(N8) mortgage assumptions line shows the profile's rate, its correct amortization, and its down payment",
-    has(hp2, "Mortgage assumptions: 4.19% rate · 30-year amortization · " + fmt(170000) + " down"));
+    has(hp2, "Mortgage assumptions: 4.39% rate · 30-year amortization · " + fmt(170000) + " down"));
   const FTB_LOWDOWN = { ...PROFILE, firstTimeBuyer: true, downPayment: 20000 };
   const LD = await openPage({ listing: { ...BASE, listPrice: 300000 }, profile: FTB_LOWDOWN, budget: 400000 });
   check("(N9) first-time buyer with <20% down still gets 30-year amortization (matches mortgage.js's own eligibility rule)",
@@ -447,9 +453,44 @@ async function openPage({ listing, status = 200, profile, budget, search, fetchT
   const NBpct = await openPage({ listing: BASE, profile: PROFILE }); // no budget param at all
   check("(N12) % of take-home income still shows with no budget URL param (doesn't depend on the fit badge)",
     has(NBpct.doc.getElementById("ldHomePilot").textContent, "Housing cost as % of take-home income" + pct + "%"));
+  // Debt counts, as on the results (2026-09-24, IMPROVEMENT_PLAN.md 2.2b (a)):
+  // the % is housing plus the monthly debt payments, over take-home; what is
+  // left is after both; and the fit badge (getFit()) counts the debt too.
+  const DEBT = 900;
+  const withDebt = await openPage({ listing: BASE, profile: { ...PROFILE, existingDebt: DEBT }, budget: 900000 });
+  const dText = withDebt.doc.getElementById("ldHomePilot").textContent;
+  const dPct = Math.round((exp.total + DEBT) / 9800 * 100);
+  const fitFor = (ratio) => (ratio < 0.35 ? LBL.fg : ratio < 0.45 ? LBL.fo : LBL.fs);
+  check("(N12b) with $900/mo debt: 'Housing and debt payments as % of take-home income' is housing plus debt over take-home, and what remains is after both",
+    has(dText, "Housing and debt payments as % of take-home income" + dPct + "%") && !has(dText, "Housing cost as % of take-home income")
+      && has(dText, "Remaining after this home and your debt payments" + fmt(9800 - exp.total - DEBT) + "/mo"), dText.slice(0, 700));
+  // A home that is a Good Fit on housing alone and a Stretch once the $900 is
+  // counted: the badge must say Stretch.
+  const MID = { ...BASE, listPrice: 640000 };
+  const expMid = eng.calcCosts(m, 640000, "3", 170000, "detached", { taxAnnual: 4200 });
+  const midNo = await openPage({ listing: MID, profile: PROFILE, budget: 900000 });
+  const midDebt = await openPage({ listing: MID, profile: { ...PROFILE, existingDebt: DEBT }, budget: 900000 });
+  const verdictOf = (pg) => { const b = pg.doc.querySelector("#ldHomePilot .listing-affordability-badge"); return b ? b.textContent.trim() : ""; };
+  check("(N12c) ...and the fit label counts it too: a Good Fit on housing alone is a Stretch with the $900 (the label the results would give)",
+    expMid.total / 9800 < 0.45 && (expMid.total + DEBT) / 9800 >= 0.45
+      && verdictOf(midNo) === fitFor(expMid.total / 9800) && verdictOf(midDebt) === fitFor((expMid.total + DEBT) / 9800)
+      && withDebt.errors.length === 0 && midDebt.errors.length === 0,
+    JSON.stringify({ total: expMid.total, no: verdictOf(midNo), debt: verdictOf(midDebt) }));
+  // Cash to close under 20% down: Ontario's 8% sales tax on the mortgage-
+  // insurance premium is its own line, and in the total (2.2b (b)).
+  const LOWDN = { ...PROFILE, downPayment: 60000 };
+  const low = await openPage({ listing: { ...BASE, listPrice: 500000 }, profile: LOWDN, budget: 600000 });
+  const lowText = low.doc.getElementById("ldHomePilot").textContent;
+  const lowIns = eng.mortgageInsuranceFor(500000, 60000, false);
+  const lowCc = eng.calcClosingCosts("Mississauga", 500000, false, { downPayment: 60000, firstTimeBuyer: false });
+  check("(N12d) under 20% down: 'Sales tax on mortgage insurance (8%)' is its own line, 8% of the premium, and in the cash required",
+    lowIns.premium > 0 && lowIns.salesTax === Math.round(lowIns.premium * 0.08) && lowCc.premiumSalesTax === lowIns.salesTax
+      && has(lowText, "Sales tax on mortgage insurance (8%)" + fmt(lowIns.salesTax)) && has(lowText, "Estimated cash required to purchase" + fmt(60000 + lowCc.total)),
+    lowText.slice(-900));
+  check("(N12e) at 20% down or more there is no such line", !has(t1, "Sales tax on mortgage insurance"));
 
   // Comfort position -- all three states, derived from calcBP() itself (never hand-picked numbers)
-  const bpVals = eng.calcBP(180000, 170000, 0); // matches PROFILE: grossMonthlyIncome 15000 x 12, downPayment 170000, existingDebt 0, rate/FTB = loadEngine's defaults (4.19%, non-FTB) = PROFILE's own values
+  const bpVals = eng.calcBP(180000, 170000, 0); // matches PROFILE: grossMonthlyIncome 15000 x 12, downPayment 170000, existingDebt 0, rate/FTB = loadEngine's defaults (4.39%, non-FTB) = PROFILE's own values
   check("(N13) sanity: comfortBP is below bp (precondition for the mid-point scenario below)", bpVals.comfortBP < bpVals.bp);
   const withinPrice = Math.round(bpVals.comfortBP * 0.7);
   const aboveComfortPrice = Math.round((bpVals.comfortBP + bpVals.bp) / 2);

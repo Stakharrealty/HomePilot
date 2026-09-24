@@ -57,7 +57,7 @@ function check(name, cond, detail) {
       try {
         customMortgageRate = DEFAULT_MORTGAGE_RATE_PCT / 100;
         firstTimeBuyer = false;
-        return JSON.stringify(calcBP(108000, 60000, 0));
+        return JSON.stringify(calcBP(150000, 100000, 0));
       } catch (e) { return JSON.stringify({ error: e.message }); }
     })()
   `));
@@ -65,14 +65,18 @@ function check(name, cond, detail) {
   check("calcBP returns a numeric buying power", Number.isFinite(bp.bp) && bp.bp > 0, bp.bp);
   check("comfort range sits below the bank ceiling", bp.comfortBP < bp.bp, `${bp.comfortBP} vs ${bp.bp}`);
   check("buying power is purchasable with the stated down payment",
-    dom.window.eval(`meetsMinDownPayment(${bp.bp}, 60000)`), `bp ${bp.bp} on 60000 down`);
+    dom.window.eval(`meetsMinDownPayment(${bp.bp}, 100000)`), `bp ${bp.bp} on 100000 down`);
 
   // 3. Drive the real form the way a buyer would, then read the real DOM.
   const go = JSON.parse(dom.window.eval(`
     (function () {
       try {
-        document.getElementById("inc").value = "108000";
-        document.getElementById("dwn").value = "60000";
+        // $150K, $100K down, remote (2026-09-24): at the 4.39% rate and the
+        // listing-based prices, $108K and $60K down no longer has a place
+        // that fits (it gets the "you're close" page), and this test is about
+        // a page with answers.
+        document.getElementById("inc").value = "150000";
+        document.getElementById("dwn").value = "100000";
         document.getElementById("dbt").value = "0";
         document.getElementById("area").value = document.getElementById("area").options[0].value;
         document.getElementById("fam").value = document.getElementById("fam").options[0].value;

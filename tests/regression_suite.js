@@ -81,7 +81,9 @@ suite('Core');
   t('BP returns bp and comfortBP', typeof bp.bp==='number' && typeof bp.comfortBP==='number');
   t('comfortBP < bp', bp.comfortBP < bp.bp);
   t('BP 250k/150k in plausible range (0.9M–1.4M)', bp.bp>900000 && bp.bp<1400000);
-  t('matches known-good snapshot ($1.18M/$990K, post CMHC-modeling fix)', bp.bp===1180000 && bp.comfortBP===990000);
+  // At the 4.39% rate since 2026-09-24 (IMPROVEMENT_PLAN.md 3.5a); it was
+  // $1.18M/$990K at 4.19%.
+  t('matches known-good snapshot ($1.16M/$970K at 4.39%, post CMHC-modeling fix)', run('DEFAULT_MORTGAGE_RATE_PCT')===4.39 && bp.bp===1160000 && bp.comfortBP===970000);
   const bpLow = run('calcBP(80000,40000,0)');
   t('BP scales with income', bpLow.bp < bp.bp);
   const bpDebt = run('calcBP(250000,150000,1500)');
@@ -115,12 +117,22 @@ suite('Core');
   const qDetachedType = run(`typeof qualifiesForProperty(80000, 30000, 0, ${PT['Welland'].detached}, 'detached', 'Welland')`);
   t('detached (no condo fee weighting) still returns a valid boolean', qDetachedType === 'boolean');
 
+  // King City's detached price is above the $1.5M insured cap, so it needs a
+  // true 20% down. Worked out from the price table (since 2026-09-24 it comes
+  // from the listings, $2.888M, not the typed $1.65M), with an income high
+  // enough that only the down payment decides.
+  // 20% of the price rounded up to $10,000: buying power is a headline figure
+  // rounded to $10,000 that never rounds up past what the down payment can
+  // legally buy, so with a price that is not a round $10,000 (the listing
+  // prices are to the $1,000) exactly 20% floors just under it.
+  const kcPrice = PT['King City'].detached, kc20 = Math.ceil(kcPrice / 10000) * 10000 * 0.20, kcInc = 1500000;
+  t('King City detached is above the $1.5M insured cap (so the 20% rule applies)', kcPrice > 1500000);
   t('getPriceForTypeStrict blocks King City detached (above $1.5M cap) under true 20% down', (()=>{
-    run(`dn_selected=150000; grossMonthlyIncome=250000/12; netMonthlyIncome=estimateOntarioNetAnnual(250000)/12; existingDebt=0; var __b=calcBP(250000,150000,0); buyPower=__b.bp;`);
+    run(`dn_selected=${kc20 - 5000}; grossMonthlyIncome=${kcInc}/12; netMonthlyIncome=estimateOntarioNetAnnual(${kcInc})/12; existingDebt=0; var __b=calcBP(${kcInc},${kc20 - 5000},0); buyPower=__b.bp;`);
     return run(`getPriceForTypeStrict('King City','detached',buyPower)`) === null;
   })());
-  t('getPriceForTypeStrict allows King City detached at true 20% down ($330k)', (()=>{
-    run(`dn_selected=330000; grossMonthlyIncome=400000/12; netMonthlyIncome=estimateOntarioNetAnnual(400000)/12; var __b=calcBP(400000,330000,0); buyPower=__b.bp;`);
+  t('getPriceForTypeStrict allows King City detached at true 20% down ($' + kc20.toLocaleString('en-CA') + ')', (()=>{
+    run(`dn_selected=${kc20}; grossMonthlyIncome=${kcInc}/12; netMonthlyIncome=estimateOntarioNetAnnual(${kcInc})/12; var __b=calcBP(${kcInc},${kc20},0); buyPower=__b.bp;`);
     return run(`getPriceForTypeStrict('King City','detached',buyPower)`) === PT['King City'].detached;
   })());
   t('existingDebt is visible outside go() (module-scope wiring works)', run('typeof existingDebt') === 'number');
@@ -306,10 +318,11 @@ suite('Core');
   t('Brampton semi allowed at 150k DP', semi === PT['Brampton'].semi);
   setup(250000, 150000, 'daily', 'Brampton');
   const kingBlocked = run(`getPriceForTypeStrict('King City','detached',buyPower)`);
-  t('King City detached ($1.65M, above cap) blocked at 150k DP (needs $330k = 20%)', kingBlocked === null);
-  setup(400000, 330000, 'daily', 'Brampton');
+  const kingDet = PT['King City'].detached, king20 = Math.ceil(kingDet / 10000) * 10000 * 0.20; // as kc20 above
+  t('King City detached ($' + kingDet.toLocaleString('en-CA') + ', above cap) blocked at 150k DP (needs 20%)', kingBlocked === null);
+  setup(1500000, king20, 'daily', 'Brampton');
   const kingUnlocked = run(`getPriceForTypeStrict('King City','detached',buyPower)`);
-  t('King City detached unlocks at true 20% down ($330k)', kingUnlocked === PT['King City'].detached);
+  t('King City detached unlocks at true 20% down ($' + king20.toLocaleString('en-CA') + ')', kingUnlocked === PT['King City'].detached);
   setup(60000, 15000, 'daily', 'Brampton');
   const con = run(`getPriceForTypeStrict('Toronto - Downtown','condo',buyPower)`);
   t('low BP blocks expensive condo', con === null);
@@ -443,21 +456,38 @@ suite('Ranking');
 suite('PropertyTable');
 {
   t('PT covers all 55 cities', Object.keys(PT).length >= 55);
+  // Since 2026-09-24 (IMPROVEMENT_PLAN.md 3.1a) a price is the median asking
+  // price of the place's listings x 0.97 where it has 10 or more of that type
+  // (PT_LISTED, written by tools/city-prices.mjs), else the typed 2025 table
+  // (PT_TYPED, kept as it was). The typed table keeps its checks; real
+  // listings need not ascend condo < town < semi < detached (a semi often
+  // asks less than a townhouse), so that order is the typed table's only.
+  const PT_TYPED = run('PT_TYPED'), PT_LISTED = run('PT_LISTED'), PT_SOURCE = run('PT_SOURCE'), RUN = run('CITY_PRICES_RUN');
   let orderOk = true, bad = null;
-  for(const [city,tiers] of Object.entries(PT)){
+  for(const [city,tiers] of Object.entries(PT_TYPED)){
     const seq = ['condo','town','semi','detached'].map(k=>tiers[k]).filter(v=>v);
     for(let i=1;i<seq.length;i++) if(seq[i] <= seq[i-1]) { orderOk=false; bad=city; }
   }
-  t('tier prices strictly ascending in every city'+(bad?' (bad: '+bad+')':''), orderOk);
-  t('Welland condo $299k', PT['Welland'].condo === 299000);
-  t('Fort Erie condo $340k', PT['Fort Erie'].condo === 340000);
-  t('Brampton detached $1,025k', PT['Brampton'].detached === 1025000);
+  t('typed table: tier prices strictly ascending in every city'+(bad?' (bad: '+bad+')':''), orderOk);
+  t('typed table kept as it was: Welland condo $299k', PT_TYPED['Welland'].condo === 299000);
+  t('typed table kept as it was: Fort Erie condo $340k', PT_TYPED['Fort Erie'].condo === 340000);
+  t('typed table kept as it was: Brampton detached $1,025k', PT_TYPED['Brampton'].detached === 1025000);
+  t('the listings run is recorded: date, 0.97 sale-to-list, at least 10 listings', !!RUN && /^\d{4}-\d{2}-\d{2}$/.test(RUN.date) && RUN.saleToList === 0.97 && RUN.minListings === 10);
+  const cellsOk = Object.keys(PT_TYPED).every((p) => ['condo','town','semi','detached'].every((ty) => {
+    const cell = (PT_LISTED[p] || {})[ty], src = PT_SOURCE[p] && PT_SOURCE[p][ty];
+    return cell && cell.price > 0 ? src === 'listings' && PT[p][ty] === cell.price && cell.n >= RUN.minListings && cell.price % 1000 === 0
+      : src === 'typed' && PT[p][ty] === PT_TYPED[p][ty];
+  }));
+  t('every price is the listings figure (10+ listings, to the $1,000) where there is one, else the typed one, and its source says which', cellsOk);
   t('Toronto Downtown has condo', !!PT['Toronto - Downtown'].condo);
   t('all prices sane (>100k, <3M)', Object.values(PT).every(tr=>Object.values(tr).every(v=>!v || (v>100000 && v<3000000))));
   t('every PT city exists in M', Object.keys(PT).every(n=>M.some(c=>c.n===n)));
   t('every M city exists in PT', M.every(c=>PT[c.n]));
+  t('no place is filtered out below its cheapest home: every M entry price is at or under its cheapest PT price',
+    M.every((c) => { const ps = Object.values(PT[c.n]).filter((v) => v > 0); return !ps.length || c.min <= Math.min(...ps); }));
   t('King City exists in PT', !!PT['King City']);
-  t('known gap: King City condo/town missing (backlog)', !PT['King City'].condo && !PT['King City'].town);
+  t('King City condo and townhouse come from the listings now (10+ each; they were a known gap)',
+    PT['King City'].condo > 0 && PT['King City'].town > 0 && PT_SOURCE['King City'].condo === 'listings' && PT_SOURCE['King City'].town === 'listings');
 }
 
 suite('Explainability');
@@ -655,10 +685,13 @@ suite('OneRanking');
     t('"Shortest commute" order is shortest first @'+inc, o.drive);
     t('the three sorts reorder the same cities, never change which ones @'+inc, o.same);
   }
-  // The three answer cards (2026-09-24, IMPROVEMENT_PLAN.md 2.2): each answer
-  // is its sort's #1; identical homes share a card; free slots go to the best
-  // most-home entries not already shown; never more than three, never a
-  // commute answer without a commute.
+  // The answer cards (2026-09-24, IMPROVEMENT_PLAN.md 2.2 and 2.2b): each
+  // answer is its sort's #1, in the order Lowest monthly cost, Shortest
+  // commute, Most home; identical homes share a card, labelled in that order;
+  // never more than three, never a commute answer without a commute. A card
+  // left free is no longer filled with the runner-up for most home (2.2b):
+  // answerPicks() returns the answers only, and "Also worth a look" comes from
+  // HomePilot Worth Knowing (tests/worth_knowing_test.js checks it).
   for(const [inc,dn,wa] of [[100000,60000,'daily'],[150000,100000,'hybrid'],[175000,120000,'daily'],[200000,150000,'remote'],[300000,250000,'remote']]){
     setup(inc, dn, wa, 'Brampton');
     const a = run(`(function(){
@@ -668,18 +701,26 @@ suite('OneRanking');
         var holders = picks.filter(function(p){ return p.answers.indexOf(q) >= 0; });
         return first[q] ? holders.length === 1 && homeKey(holders[0].entry) === homeKey(first[q]) : holders.length === 0;
       });
-      var labelled = picks.filter(function(p){ return p.answers[0] !== 'also'; }).length;
-      var expectAlso = r.byHome.ranked.filter(function(e){ return keys.slice(0, labelled).indexOf(homeKey(e)) < 0; }).slice(0, 3 - labelled).map(homeKey);
+      var order = ['cost','commute','home'];
+      var firstOf = function(p){ return order.indexOf(p.answers[0]); };
+      var distinct = new Set(['cost','commute','home'].filter(function(q){ return first[q]; }).map(function(q){ return homeKey(first[q]); })).size;
       return {
         n: picks.length, unique: new Set(keys).size === keys.length, winnersOk: winnersOk,
-        alsoOk: JSON.stringify(keys.slice(labelled)) === JSON.stringify(expectAlso),
-        fills: picks.length === Math.min(3, labelled + expectAlso.length),
+        // No 'also' among the answers, one card per distinct winning home.
+        answersOnly: picks.every(function(p){ return p.answers.indexOf('also') < 0; }) && picks.length === distinct,
+        // Cards in answer order, and each card's labels in that order too.
+        ordered: picks.every(function(p, i){ return (i === 0 || firstOf(picks[i-1]) < firstOf(p)) && p.answers.every(function(q, j){ return j === 0 || order.indexOf(p.answers[j-1]) < order.indexOf(q); }); }),
+        // A card with two or three labels says why, in the approved wording;
+        // a card with one does not.
+        mergeLines: picks.every(function(p){ var l = answerMergeLine(p.answers, r.byHome, p.entry); return p.answers.length > 1 ? /^Why (two|three) labels: /.test(l) : l === null; }),
         noCommute: r.commuteKnown || picks.every(function(p){ return p.answers.indexOf('commute') < 0; }),
       };
     })()`);
     t('answer cards: at most three, no home twice @'+inc+'/'+wa, a.n <= 3 && a.unique);
     t('answer cards: each question answered once, by its sort\'s #1 @'+inc+'/'+wa, a.winnersOk);
-    t('answer cards: free slots are the best most-home homes not already shown @'+inc+'/'+wa, a.alsoOk && a.fills);
+    t('answer cards: the answers only, one card per winning home (no runner-up padding) @'+inc+'/'+wa, a.answersOnly);
+    t('answer cards: Lowest monthly cost, then Shortest commute, then Most home, labels in the same order @'+inc+'/'+wa, a.ordered);
+    t('answer cards: every card with two or three labels says why, and no other card does @'+inc+'/'+wa, a.mergeLines);
     t('answer cards: no commute answer without a commute @'+inc+'/'+wa, a.noCommute);
   }
   setup(45000, 15000, 'daily', 'Brampton');
@@ -697,7 +738,7 @@ suite('OneRanking');
   const renderSrc2 = src.slice(renderStart2, src.indexOf('function selectPropType', renderStart2));
   t('render() orders cities only through rankCities()', /rankCities\(results,/.test(renderSrc2) && !/\.sort\(\(a,b\)=>b\.compositeScore/.test(renderSrc2));
   t('render() has a separate "Only as a stretch" section', /Only as a stretch/.test(renderSrc2));
-  t('render() records the cards it drew (shownCards) for the PDF report and Compare', /shownCards=\[/.test(renderSrc2));
+  t('render() records the cards it drew (shownCards) for Compare', /shownCards=\[/.test(renderSrc2));
   t('the orange "Limited Commute ... long daily drive" box is gone from the cards', !/long daily drive/.test(renderSrc2));
 }
 
