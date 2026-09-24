@@ -11,14 +11,16 @@
 //
 //   1. A commuter's results stay within their commute limit.
 //   2. The #1 card never carries a warning.
-//   3. The lead lists exactly the first cards on screen.
+//   3. The old lead form is gone (removed 2026-09-23 to be rebuilt later);
+//      WhatsApp and the consent gate stay. The PDF report and Compare show
+//      exactly the cards on screen (shownCards), before and after a re-sort.
 //   4. The comfort label and the comfort budget never contradict each other
 //      on a card.
 //   5. "N cities" counts only cities with a comfortable home; stretch-only
 //      cities are listed separately.
 //   6. The What-If scenario's #1 is the screen's #1 (one ranking).
-//   7. Smaller fixes: the rate note's amortization, the lead form's visible
-//      error, neutral icons, the sort switch, no Ottawa for a Toronto worker.
+//   7. Smaller fixes: the rate note's amortization, neutral icons, the sort
+//      switch, no Ottawa for a Toronto worker.
 //
 // Requires: a local static server on :8843 (npx http-server -p 8843 -s).
 // Run: node --no-warnings tests/results_outcomes_test.js
@@ -40,8 +42,8 @@ async function openCalculator() {
   const dom = await JSDOM.fromURL(URL_CALC, { runScripts: "dangerously", resources: "usable", virtualConsole, pretendToBeVisual: true });
   await new Promise((r) => setTimeout(r, 1000));
   // jsdom does no layout, so it has no scrollIntoView; the page calls it after
-  // a search and after a lead is sent. A no-op keeps those calls from being
-  // reported as script errors that a real browser would never raise.
+  // a search. A no-op keeps those calls from being reported as script errors
+  // that a real browser would never raise.
   dom.window.Element.prototype.scrollIntoView = function () {};
   return { win: dom.window, errors };
 }
@@ -148,30 +150,69 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
     check(`(5b) stretch-only cities sit in their own section, below (${tag})`, stretchCards.every((s) => [...s.querySelectorAll(".city")].every((el) => /beyond comfortable/.test(el.textContent))));
   }
 
-  // =============== 3. the lead is what the buyer saw ===============
+  // =============== 3. the old lead form is gone ===============
+  // Removed 2026-09-23 by the user's decision, to be rebuilt properly later.
+  // Until then nothing on the page collects a lead, and WhatsApp is the way
+  // to reach Sandeep.
   search(win, { ...COUPLE, income: 180000, down: 120000, work: "hybrid" });
-  const onScreen = [...mainCards(win), ...moreCards(win)].slice(0, 5);
+  const d3 = win.document;
+  check("(3a) no lead form on the results page: no name, email or 'Send me homes' button",
+    !d3.getElementById("cap") && !d3.getElementById("nm") && !d3.getElementById("em") && !d3.getElementById("subBtn") && !/Send me homes in my budget/.test(d3.body.textContent));
+  check("(3b) ...no 'In the spirit of transparency' pop-up, and no leftover functions",
+    !d3.getElementById("transparencyModalOverlay") && typeof win.sub === "undefined" && typeof win.showTransparencyModal === "undefined" && typeof win.confirmSendLead === "undefined");
+  check("(3c) the WhatsApp link to Sandeep is still there", !!d3.querySelector('a[href*="wa.me"]'));
+  check("(3d) the 'Before we show your numbers' consent gate is untouched", !!d3.getElementById("consentModalOverlay"));
+
+  // The record the PDF report and Compare are built from (shownCards, kept by
+  // render()). The lead was checked against the screen this way until it was
+  // removed; these two still read the record, so it must follow the screen
+  // (REVIEW_BACKLOG.md P0-3: the report once listed different cities).
+  const cardsOnScreen = () => [...mainCards(win), ...moreCards(win)];
+  const cityOrder = (list) => list.map((c) => c.city).join("|");
+  const matchesScreen = (rec, screen) => rec.length === screen.length && rec.every((m, i) =>
+    m.city === screen[i].city && TYPE_LABEL[m.type] === screen[i].type && m.price === screen[i].price && Math.round(m.monthlyCost) === screen[i].monthly);
+  const cardDetail = (rec, screen) => JSON.stringify(rec.slice(0, 2)) + " vs " + JSON.stringify(screen.slice(0, 2).map(({ text, ...c }) => c));
+  // downloadReport() and buildCompare() write into a new window; jsdom has
+  // none, so capture what they write.
+  const written = [];
+  const realOpen = win.open, realAlert = win.alert;
+  win.open = () => { const w = { html: "", document: { write(h) { w.html += h; }, close() {} }, focus() {}, print() {}, close() {} }; written.push(w); return w; };
+  win.alert = (msg) => written.push({ html: "", alert: String(msg) });
+  const reportCities = () => { written.length = 0; win.eval("downloadReport()"); const w = written[0] || { html: "" }; return { cities: [...w.html.matchAll(/class="pr-city-name">([^<]*)</g)].map((x) => x[1]), alert: w.alert }; };
+
+  const onScreen = cardsOnScreen();
+  const rec = win.eval("shownCards").map((c) => ({ ...c }));
+  check("(3e) shownCards is the cards on screen, same order",
+    onScreen.length > 0 && cityOrder(rec) === cityOrder(onScreen), cityOrder(rec) + "  vs  " + cityOrder(onScreen));
+  check("(3f) ...with each card's own home type, price and monthly cost", matchesScreen(rec, onScreen), cardDetail(rec, onScreen));
+  const report = reportCities();
+  check("(3g) the PDF report lists the first five cards on screen, same order",
+    !report.alert && report.cities.join("|") === cityOrder(onScreen.slice(0, 5)), (report.alert || report.cities.join("|")) + "  vs  " + cityOrder(onScreen.slice(0, 5)));
+
+  win.eval("setResultsSort('cost')");
+  const reordered = cardsOnScreen();
+  const rec2 = win.eval("shownCards").map((c) => ({ ...c }));
+  check("(3h) re-sorting changes shownCards the same way it changes the screen",
+    matchesScreen(rec2, reordered), cityOrder(rec2).slice(0, 120) + "  vs  " + cityOrder(reordered).slice(0, 120));
+  const report2 = reportCities();
+  check("(3i) ...and the PDF report follows the new order",
+    !report2.alert && report2.cities.join("|") === cityOrder(reordered.slice(0, 5)), (report2.alert || report2.cities.join("|")) + "  vs  " + cityOrder(reordered.slice(0, 5)));
+
+  const ticked = reordered.slice(0, 2);
+  written.length = 0;
+  win.eval(`cmpSelected=${JSON.stringify(ticked.map((c) => c.city))}; buildCompare();`);
+  const cmpDoc = written[0] && written[0].html ? new win.DOMParser().parseFromString(written[0].html, "text/html") : null;
+  const cmpHeads = cmpDoc ? [...cmpDoc.querySelectorAll(".cmp-head-cell")].slice(1).map((e) => e.textContent.trim()) : [];
+  const cmpRow = (i) => { const row = cmpDoc ? cmpDoc.querySelectorAll(".cmp-row")[i] : null; return row ? [...row.querySelectorAll(".cmp-cell")].slice(1).map((e) => Number(e.textContent.replace(/[^0-9]/g, ""))) : []; };
+  check("(3j) Compare shows the home each ticked card showed: same places, price and monthly cost",
+    cmpHeads.join("|") === cityOrder(ticked) && cmpRow(0).join("|") === ticked.map((c) => c.price).join("|") && cmpRow(1).join("|") === ticked.map((c) => c.monthly).join("|"),
+    JSON.stringify({ cmpHeads, prices: cmpRow(0), monthly: cmpRow(1) }) + " vs " + JSON.stringify(ticked.map(({ city, price, monthly }) => ({ city, price, monthly }))));
+  win.eval("cmpSelected=[]");
+  win.open = realOpen; win.alert = realAlert;
+
+  // Stands in for the network, so the share test (11h) can read what would be saved.
   let sentBody = null;
   win.fetch = async (u, opts) => { sentBody = JSON.parse(opts.body); return { ok: true, json: async () => ({ ok: true }) }; };
-  win.document.getElementById("nm").value = "Test Buyer";
-  win.document.getElementById("em").value = "test@example.com";
-  await win.eval("sub()");
-  check("(3a) a lead was sent", !!sentBody);
-  const tm = (sentBody && sentBody.topMatches) || [];
-  check("(3b) DONE WHEN: the lead's top matches are the first cards on screen, same order",
-    onScreen.length > 0 && tm.map((m) => m.city).join("|") === onScreen.map((c) => c.city).join("|"),
-    tm.map((m) => m.city).join("|") + "  vs  " + onScreen.map((c) => c.city).join("|"));
-  check("(3c) ...with the card's own home type, price and monthly cost",
-    tm.length === onScreen.length && tm.every((m, i) => TYPE_LABEL[m.type] === onScreen[i].type && m.price === onScreen[i].price && Math.round(m.monthlyCost) === onScreen[i].monthly),
-    JSON.stringify(tm.slice(0, 2)) + " vs " + JSON.stringify(onScreen.slice(0, 2).map(({ text, ...c }) => c)));
-  win.eval("setResultsSort('cost')");
-  const reordered = [...mainCards(win), ...moreCards(win)].slice(0, 5);
-  sentBody = null;
-  win.document.getElementById("done").style.display = "none";
-  win.document.getElementById("subBtn").disabled = false;
-  await win.eval("sub()");
-  check("(3d) re-sorting changes the lead the same way it changes the screen",
-    sentBody && sentBody.topMatches.map((m) => m.city).join("|") === reordered.map((c) => c.city).join("|"));
 
   // =============== 6. one ranking for the screen and the scenarios ===============
   win.eval("setResultsSort('home')");
@@ -189,18 +230,7 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
   search(win, { ...COUPLE, work: "remote", firstTime: false });
   check("(7b) a repeat buyer's rate note says when 30 years applies", /25-year amortization, or 30-year on homes where your down payment is 20% or more/.test(win.document.getElementById("rateNote").textContent));
 
-  const errEl = win.document.getElementById("leadFieldErr");
-  win.document.getElementById("nm").value = "";
-  win.document.getElementById("em").value = "";
-  win.eval("showTransparencyModal()");
-  check("(7c) an empty lead form shows a visible error, not nothing (P1-12)", errEl.style.display === "block" && /name and email/.test(errEl.textContent));
-  check("(7d) ...marks the fields, and does not open the consent modal",
-    win.document.getElementById("nm").getAttribute("aria-invalid") === "true" && win.document.getElementById("transparencyModalOverlay").style.display !== "flex");
-  win.document.getElementById("nm").value = "A";
-  win.document.getElementById("em").value = "not-an-email";
-  win.eval("showTransparencyModal()");
-  check("(7e) a malformed email is caught too", /doesn't look complete/.test(errEl.textContent));
-  check("(7f) name and email are marked required in the markup", win.document.getElementById("nm").required && win.document.getElementById("em").required);
+  // (7c-7f checked the lead form's required fields; the form was removed 2026-09-23.)
 
   search(win, { ...COUPLE, income: 250000, down: 200000, work: "hybrid" });
   const glance = [...win.document.querySelectorAll("#list .city")].flatMap((el) => [...el.querySelectorAll("div")].filter((d) => /At a glance/.test(d.textContent) && d.children.length > 1));
@@ -317,15 +347,7 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
   win.eval("saveBuyerProfile()");
   const pairProfile = JSON.parse(win.sessionStorage.getItem("hp_buyer_profile_v1"));
   check("(11f) the listing pages get the two-earner take-home", Math.abs(pairProfile.netMonthlyIncome - pairNet) < 0.01);
-  sentBody = null;
-  win.document.getElementById("nm").value = "Test Buyer";
-  win.document.getElementById("em").value = "test@example.com";
-  win.document.getElementById("done").style.display = "none";
-  win.document.getElementById("subBtn").disabled = false;
-  await win.eval("sub()");
-  check("(11g) the lead carries the household total and each income",
-    !!sentBody && sentBody.income === 130000 && sentBody.applicantIncome === 65000 && sentBody.partnerIncome === 65000,
-    JSON.stringify(sentBody && { income: sentBody.income, applicantIncome: sentBody.applicantIncome, partnerIncome: sentBody.partnerIncome }));
+  // (11g checked the lead's incomes; the lead form was removed 2026-09-23.)
   sentBody = null;
   await win.eval("shareScenario()");
   check("(11h) a shared link stores the household total, so it keeps the same buying power", !!sentBody && sentBody.inc === 130000, JSON.stringify(sentBody));

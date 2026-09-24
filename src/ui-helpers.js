@@ -10,8 +10,7 @@
 // on outside click — safe to load early since it only touches `document`
 // itself, not specific elements that need to exist first), filtProp(),
 // filtFit(), filt(), updateCardCosts() (property-type/fit filter UI),
-// toggle() (generic card expand/collapse), showTransparencyModal(),
-// closeTransparencyModal().
+// toggle() (generic card expand/collapse).
 
 function setLang(l){
   lang=l;const t=T[l];
@@ -33,26 +32,18 @@ function setLang(l){
     waSelectEl.options[1].text=t.wa_hybrid||'Hybrid (2–4 days/week)';
     waSelectEl.options[2].text=t.wa_daily||'Daily (5+ days/week)';
   }
-  const textIds=[["ht","ht"],["hs","hs"],["l1","l1"],["l1b","l1b"],["l1b_opt","l1b_opt"],["l2","l2"],["l3","l3"],["l4","l4"],["l5","l5"],["bt","bt"],["ctt","ctt"],["ctp","ctp"],["st","st"],["dtt","dtt"],["dtp","dtp"],["bp_lbl","bp_lbl"],["bp_sub_txt","bp_sub"],["cities_title_el","cities_title"]];
+  const textIds=[["ht","ht"],["hs","hs"],["l1","l1"],["l1b","l1b"],["l1b_opt","l1b_opt"],["l2","l2"],["l3","l3"],["l4","l4"],["l5","l5"],["bt","bt"],["bp_lbl","bp_lbl"],["bp_sub_txt","bp_sub"],["cities_title_el","cities_title"]];
   textIds.forEach(([id,k])=>{const el=document.getElementById(id);if(el&&t[k])el.innerHTML=t[k];});
   const l3inc=document.getElementById("l3_inc");if(l3inc)l3inc.textContent=t.l3_inc;
   const l3exc=document.getElementById("l3_exc");if(l3exc)l3exc.textContent=t.l3_exc;
   const l3zero=document.getElementById("l3_zero");if(l3zero)l3zero.textContent=t.l3_zero;
   const inc2=document.getElementById("inc2");if(inc2&&t.inc2_ph)inc2.placeholder=t.inc2_ph; // partner's income (2026-09-23)
-  const nm=document.getElementById("nm");if(nm)nm.placeholder=t.fn_ph;
-  const em=document.getElementById("em");if(em)em.placeholder=t.em_ph;
-  const ph=document.getElementById("ph");if(ph)ph.placeholder=t.ph_ph;
-  ["fn_lbl","em_lbl","ph_lbl","q1_lbl","q2_lbl"].forEach((id,i)=>{const el=document.getElementById(id);if(el)el.textContent=t[["fn","em","ph","q1","q2"][i]];});
   ["pt-all","pt-condo","pt-town","pt-semi","pt-detached"].forEach((id,i)=>{const el=document.getElementById(id);if(el)el.textContent=t[["filter_all","filter_condo","filter_town","filter_semi","filter_det"][i]];});
   ["ft-all","ft-great","ft-good","ft-stretch"].forEach((id,i)=>{const el=document.getElementById(id);if(el)el.textContent=t[["fit_all","fit_great","fit_good","fit_stretch"][i]];});
   const areaEl=document.getElementById("area");
   if(areaEl){const areaMap={all:"area_all",gta:"area_gta",west:"area_west",east:"area_east",north:"area_north",duff:"area_duff",niag:"area_niag",wloo:"area_wloo",east2:"area_east2"};[...areaEl.options].forEach(o=>{if(areaMap[o.value])o.text=t[areaMap[o.value]];});}
   const famEl=document.getElementById("fam");
   if(famEl){const famMap=["","fam1","fam2","fam3","fam4","fam5"];[...famEl.options].forEach((o,i)=>{if(famMap[i])o.text=t[famMap[i]];});}
-  const statusEl=document.getElementById("status");
-  if(statusEl){const opts=statusEl.options;if(opts[0])opts[0].text=t.q1_ph;if(opts[1])opts[1].text=t.q1_a;if(opts[2])opts[2].text=t.q1_b;if(opts[3])opts[3].text=t.q1_c;}
-  const timelineEl=document.getElementById("timeline");
-  if(timelineEl){const opts=timelineEl.options;if(opts[0])opts[0].text=t.q2_ph;if(opts[1])opts[1].text=t.q2_a;if(opts[2])opts[2].text=t.q2_b;if(opts[3])opts[3].text=t.q2_c;if(opts[4])opts[4].text=t.q2_d;}
   document.querySelector('.w').style.direction=l==="ur"?"rtl":"ltr";
   if(results.length)render();
 
@@ -153,38 +144,6 @@ function toggleFaq(btn){
 // in both pages is now unreachable too, and can go with the index/calculator
 // de-duplication.
 
-
-// The lead form's required fields (added 2026-09-23, REVIEW_BACKLOG.md P1-12).
-// "Send me homes in my budget" used to do nothing at all when the name or
-// email was empty -- no message, no highlight -- so a buyer at the moment of
-// intent could reasonably conclude the site was broken. Returns the message
-// shown (empty when the fields are fine) and marks the bad fields.
-function checkLeadFields(){
-  const nmEl=document.getElementById("nm"), emEl=document.getElementById("em");
-  const nm=String((nmEl&&nmEl.value)||"").trim(), em=String((emEl&&emEl.value)||"").trim();
-  const t=(typeof T!=='undefined'&&T[lang])||{};
-  const nameOk=!!nm, emailOk=/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em);
-  let msg="";
-  if(!nm||!em) msg=t.lead_missing||"Please enter your name and email so Sandeep can send you homes.";
-  else if(!emailOk) msg=t.lead_bad_email||"That email address doesn't look complete. Please check it.";
-  if(nmEl&&nmEl.setAttribute) nmEl.setAttribute("aria-invalid",String(!nameOk));
-  if(emEl&&emEl.setAttribute) emEl.setAttribute("aria-invalid",String(!emailOk));
-  const errEl=document.getElementById("leadFieldErr");
-  if(errEl){ errEl.textContent=msg; errEl.style.display=msg?"block":"none"; }
-  return msg;
-}
-
-function showTransparencyModal(){
-  // Same required-field guard sub() applies, checked here first so the modal
-  // doesn't pop up for an incomplete form -- and now says why.
-  if(checkLeadFields()) return;
-  const ov=document.getElementById('transparencyModalOverlay');
-  if(ov){ ov.style.display='flex'; }
-}
-function closeTransparencyModal(){
-  const ov=document.getElementById('transparencyModalOverlay');
-  if(ov){ ov.style.display='none'; }
-}
 
 // Desktop header scroll behavior: transparent-over-hero until the user
 // scrolls past 12px, then white/blurred with a border — matches v0's

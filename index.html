@@ -812,54 +812,6 @@ select{
 .scn-wa-btn:hover{background:#F3EEF9;border-color:#B8A0DC}
 .scn-wa-btn.on{background:#5B3A7E;color:#fff;border-color:#5B3A7E}
 
-/* ── LEAD CAPTURE ────────────────────────────────────────────── */
-.cap{
-  background:var(--card);
-  border:1px solid var(--border);
-  border-radius:var(--radius-lg);
-  padding:24px 20px;
-  display:none;margin-top:24px;
-  box-shadow:var(--shadow-md);
-}
-.cap h3{font-size:20px;font-weight:800;color:var(--ink);margin-bottom:8px;letter-spacing:-0.3px}
-.cap p{font-size:14px;color:var(--ink-soft);margin-bottom:20px;line-height:1.6}
-.fld{margin-bottom:14px}
-.sub-btn{
-  width:100%;padding:14px;
-  font-family:var(--font);
-  font-size:15px;font-weight:700;
-  border-radius:var(--radius-sm);
-  border:none;background:var(--green);color:#fff;
-  cursor:pointer;margin-top:8px;
-  transition:background 0.15s,box-shadow 0.15s,transform 0.1s;
-  box-shadow:var(--shadow-green);
-  letter-spacing:0.01em;
-}
-.sub-btn:hover{background:var(--green-dark);transform:translateY(-1px);box-shadow:0 6px 20px rgba(29,158,117,0.32)}
-.sub-btn:active{transform:translateY(0)}
-
-/* ── DONE STATE ──────────────────────────────────────────────── */
-.done{
-  text-align:center;padding:2.5rem 1.5rem;display:none;
-  background:var(--card);border-radius:var(--radius-lg);
-  margin-top:24px;box-shadow:var(--shadow-md);
-  border:1px solid var(--border);
-}
-.done-icon{
-  width:60px;height:60px;
-  background:var(--green-light);border-radius:50%;
-  display:flex;align-items:center;justify-content:center;
-  margin:0 auto 18px;font-size:28px;
-}
-.done h3{font-size:20px;font-weight:800;color:var(--ink);margin-bottom:8px;letter-spacing:-0.3px}
-.done p{font-size:14px;color:var(--ink-soft);line-height:1.7}
-.done .phone{
-  display:inline-block;margin-top:14px;
-  font-size:17px;font-weight:800;
-  color:var(--green);text-decoration:none;
-  letter-spacing:-0.2px;
-}
-
 /* ── TOOLTIP / INFO BTN ──────────────────────────────────────── */
 .info-btn{
   display:inline-flex;align-items:center;justify-content:center;
@@ -1029,21 +981,6 @@ select{
 
 /* ── BR TICK ─────────────────────────────────────────────────── */
 .br-tick.active{color:var(--green)!important;font-weight:700!important}
-
-/* ── TRANSPARENCY MODAL ──────────────────────────────────────── */
-#transparencyModalOverlay{
-  display:none;position:fixed;inset:0;
-  background:rgba(0,0,0,0.55);
-  z-index:10000;
-  align-items:center;justify-content:center;padding:20px;
-}
-#transparencyModalOverlay > div{
-  background:var(--card);
-  border-radius:var(--radius-lg);
-  max-width:400px;width:100%;
-  padding:28px 24px 24px;
-  box-shadow:0 24px 64px rgba(0,0,0,0.35);
-}
 
 /* ── PRINT STYLES ────────────────────────────────────────────── */
 </style>
@@ -1539,7 +1476,6 @@ select{
 <script src="src/i18n.js"></script>
 <script src="src/i18n-homepage.js"></script>
 <script src="src/scenario-share.js"></script>
-<script src="src/leadform.js"></script>
 <script src="src/ai.js"></script>
 <script src="src/utils.js"></script>
 <script src="src/closingcosts.js"></script>

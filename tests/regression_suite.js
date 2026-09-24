@@ -32,7 +32,7 @@ while ((m = scriptTagRe.exec(html)) !== null) {
 const mkEl = () => ({ style:{display:''}, classList:{add(){},remove(){},toggle(){},contains(){return false}}, addEventListener(){}, setAttribute(){}, appendChild(){}, innerHTML:'', textContent:'', value:'', checked:false, dataset:{}, querySelectorAll(){return[]}, querySelector(){return mkEl()}, focus(){}, blur(){}, click(){}, scrollIntoView(){}, disabled:false });
 // Stateful element store: getElementById returns the SAME object on repeated calls
 // for a given id, so tests can set .value / read back .style.display / .disabled
-// after calling functions like sub() that read/write form state across multiple
+// after calling functions that read/write form state across multiple
 // getElementById calls. Existing tests never depended on fresh-object-per-call
 // behavior (they drive logic via direct global assignment through run()), so this
 // is a safe upgrade, not a behavior change for Suites 1-6.
@@ -40,13 +40,9 @@ const __elStore = {};
 const getElById = (id) => { if(!__elStore[id]) __elStore[id] = mkEl(); return __elStore[id]; };
 const document = { getElementById:getElById, querySelectorAll(){return[]}, querySelector(){return mkEl()}, addEventListener(){}, createElement(){return mkEl()}, body:mkEl(), documentElement:mkEl() };
 const windowObj = { addEventListener(){}, location:{href:'',search:''}, navigator:{}, open(){return null}, matchMedia(){return{matches:false,addEventListener(){}}}, innerWidth:400 };
-let __fetchCalls = [];
-let __fetchBehavior = 'success'; // 'success' | 'httpfail' | 'appfail' | 'networkerror'
-function __mockFetch(url, opts){
-  __fetchCalls.push({url, opts});
-  if(__fetchBehavior === 'networkerror') return Promise.reject(new Error('network down'));
-  if(__fetchBehavior === 'httpfail') return Promise.resolve({ ok:false, json: async () => ({ok:false}) });
-  if(__fetchBehavior === 'appfail') return Promise.resolve({ ok:true, json: async () => ({ok:false, error:'send failed'}) });
+// Stands in for the network. Nothing in these suites checks what is sent;
+// the lead-delivery tests that did went with the lead form (2026-09-23).
+function __mockFetch(){
   return Promise.resolve({ ok:true, json: async () => ({ok:true}) });
 }
 const ctx = { console, Math, JSON, Object, Array, Number, String, parseInt, parseFloat, isNaN, Intl, encodeURIComponent, decodeURIComponent, setTimeout(){}, clearTimeout(){}, document, window:windowObj, navigator:{share:null,clipboard:{}}, location:windowObj.location, btoa:s=>Buffer.from(s).toString('base64'), atob:s=>Buffer.from(s,'base64').toString(), URLSearchParams, print(){}, alert(){}, history:{replaceState(){}}, fetch:(...a)=>__mockFetch(...a) };
@@ -191,9 +187,9 @@ suite('Core');
     netMonthlyIncome=estimateOntarioNetAnnual(150000)/12; existingDebt=0; firstTimeBuyer=true;
     var __b=calcBP(150000,100000,0); buyPower=__b.bp; comfortBuyPower=__b.comfortBP;
   `);
-  // getLeadSummaryForCity() was removed 2026-09-23: the lead is now built from
-  // the cards on screen (shownCards), and every card comes from a rankCities()
-  // entry. These pin what an entry carries instead.
+  // getLeadSummaryForCity() was removed 2026-09-23: the PDF report and Compare
+  // are built from the cards on screen (shownCards), and every card comes from
+  // a rankCities() entry. These pin what an entry carries instead.
   const bramptonEntry = run(`(function(){ var r = rankCities([M.find(c=>c.n==='Brampton')], {sort:'home'}); var e = r.ranked[0]||r.stretchOnly[0]; return e ? {n:e.n, type:e.type, price:e.price, total:e.costs.total} : null; })()`);
   t('a ranked entry carries city/type/price/monthly cost for a qualifying city', bramptonEntry && bramptonEntry.n==='Brampton' && typeof bramptonEntry.price==='number' && typeof bramptonEntry.total==='number');
   t('the entry price is the real PT table price for that type', bramptonEntry && PT['Brampton'][bramptonEntry.type]===bramptonEntry.price);
@@ -598,7 +594,7 @@ suite('Commute');
 // REPLACED 2026-09-23 (IMPROVEMENT_PLAN.md 1.4). This suite tested
 // getAnglePicks(), a third weighted ranking behind the What-If scenarios, and
 // renderAnglePicks()'s "Outside Your Comfort Range" box. Both are gone:
-// rankCities() is the one ranking for the screen, the lead and the scenarios,
+// rankCities() is the one ranking for the screen and the scenarios,
 // and the stretch-only cities get their own section in render(). Same five
 // buyer profiles, same questions, asked of the one ranking.
 suite('OneRanking');
@@ -671,123 +667,20 @@ suite('OneRanking');
   const renderSrc2 = src.slice(renderStart2, src.indexOf('function selectPropType', renderStart2));
   t('render() orders cities only through rankCities()', /rankCities\(results,/.test(renderSrc2) && !/\.sort\(\(a,b\)=>b\.compositeScore/.test(renderSrc2));
   t('render() has a separate "Only as a stretch" section', /Only as a stretch/.test(renderSrc2));
-  t('render() records the cards it drew (shownCards) for the lead', /shownCards=\[/.test(renderSrc2));
+  t('render() records the cards it drew (shownCards) for the PDF report and Compare', /shownCards=\[/.test(renderSrc2));
   t('the orange "Limited Commute ... long daily drive" box is gone from the cards', !/long daily drive/.test(renderSrc2));
 }
 
-// ───────────────────────────── SUITE 7: LEAD DELIVERY & BREAKDOWN ─────────────────────────────
-// Added July 16, 2026 — covers the same-day lead-delivery rewrite (Formspree -> Cloudflare
-// Worker, awaited response, real success/failure handling) and the new Down Payment /
-// Mortgage Amount (loan) breakdown rows. Async because sub() is now an async function
-// that awaits a real network call (mocked here via __mockFetch).
+// ───────────────────────────── SUITE 7: BREAKDOWN ─────────────────────────────
+// Added July 16, 2026 with the Down Payment / Mortgage Amount (loan) breakdown
+// rows. Until 2026-09-23 this suite also tested lead delivery (sub(), the
+// send-lead Worker, the lead payload). That went with the lead form, which the
+// user removed from the site to rebuild properly later.
 async function runSuite7(){
-  suite('LeadDelivery&Breakdown');
-
-  function resetForm(){
-    __fetchCalls = [];
-    ['nm','em','ph','status','timeline','inc','dwn','dbt','workCity','bpV','subBtn','leadErr','cap','done'].forEach(id=>{ delete __elStore[id]; });
-    getElById('nm').value = 'Jane Buyer';
-    getElById('em').value = 'jane@example.com';
-    getElById('ph').value = '416-555-0100';
-    getElById('status').value = 'renting';
-    getElById('timeline').value = '3-6';
-    getElById('inc').value = '150000';
-    getElById('dwn').value = '100000';
-    getElById('dbt').value = '0';
-    getElById('workCity').value = 'Toronto';
-    getElById('bpV').textContent = '$630,000';
-    getElById('subBtn').disabled = false;
-    getElById('leadErr').style.display = 'none';
-    getElById('cap').style.display = 'block';
-    getElById('done').style.display = 'none';
-    run(`
-      results=[{n:'Brampton'},{n:'Welland'},{n:'Oshawa'}];
-      fam_selected='3'; dn_selected=100000; grossMonthlyIncome=150000/12;
-      netMonthlyIncome=estimateOntarioNetAnnual(150000)/12; existingDebt=0; firstTimeBuyer=false;
-      buyPower=630000; comfortBuyPower=520000; customMortgageRate=0.0419; workArrangement='daily'; lang='en';
-      // What render() last drew (2026-09-23). Deliberately NOT the order of
-      // results above: the lead must follow the screen, never results.
-      shownCards=[
-        {city:'Oshawa',type:'town',price:595000,monthlyCost:3480,pctOfTakeHome:37,commuteMin:55,fit:'Good Fit',section:'ranked'},
-        {city:'Cambridge',type:'condo',price:410000,monthlyCost:2610,pctOfTakeHome:28,commuteMin:60,fit:'Great fit',section:'ranked'},
-        {city:'Kitchener',type:'condo',price:430000,monthlyCost:2700,pctOfTakeHome:29,commuteMin:60,fit:'Great fit',section:'ranked'},
-        {city:'St. Catharines',type:'condo',price:390000,monthlyCost:2600,pctOfTakeHome:28,commuteMin:60,fit:'Great fit',section:'ranked'},
-        {city:'Peterborough',type:'condo',price:390000,monthlyCost:2550,pctOfTakeHome:27,commuteMin:60,fit:'Great fit',section:'ranked'},
-        {city:'Welland',type:'condo',price:299000,monthlyCost:2200,pctOfTakeHome:23,commuteMin:60,fit:'Great fit',section:'ranked'},
-      ];
-    `);
-  }
-  const runSub = async () => await vm.runInContext('sub()', ctx);
-
-  // --- successful submission ---
-  resetForm(); __fetchBehavior = 'success';
-  await runSub();
-  t('success: fetch called exactly once (Formspree fully removed, no dupe calls)', __fetchCalls.length === 1);
-  t('success: correct Worker URL used', __fetchCalls[0].url === 'https://homepilot-send-lead.stakharrealty.workers.dev');
-  t('success: success screen shown (cap hidden, done shown)', getElById('cap').style.display === 'none' && getElById('done').style.display === 'block');
-  t('success: no error message shown', getElById('leadErr').style.display !== 'block');
-  t('success: submit button left disabled (no double-submit) after success', getElById('subBtn').disabled === true);
-
-  // --- HTTP failure (res.ok === false) ---
-  resetForm(); __fetchBehavior = 'httpfail';
-  await runSub();
-  t('http-fail: success screen NOT shown', getElById('done').style.display !== 'block');
-  t('http-fail: cap (form) still visible', getElById('cap').style.display !== 'none');
-  t('http-fail: error message shown to buyer', getElById('leadErr').style.display === 'block');
-  t('http-fail: submit button re-enabled so buyer can retry', getElById('subBtn').disabled === false);
-
-  // --- app-level failure (HTTP 200 but {ok:false} body) ---
-  resetForm(); __fetchBehavior = 'appfail';
-  await runSub();
-  t('app-fail: success screen NOT shown even though HTTP status was 200', getElById('done').style.display !== 'block');
-  t('app-fail: error message shown', getElById('leadErr').style.display === 'block');
-  t('app-fail: button re-enabled', getElById('subBtn').disabled === false);
-
-  // --- network error (fetch throws / rejects) ---
-  resetForm(); __fetchBehavior = 'networkerror';
-  let threw = false;
-  try { await runSub(); } catch(e){ threw = true; }
-  t('network-error: sub() does not let the exception escape (caught internally)', !threw);
-  t('network-error: success screen NOT shown', getElById('done').style.display !== 'block');
-  t('network-error: error message shown', getElById('leadErr').style.display === 'block');
-  t('network-error: button re-enabled', getElById('subBtn').disabled === false);
-
-  // --- missing required fields blocks submission entirely ---
-  resetForm(); __fetchBehavior = 'success';
-  getElById('nm').value = '';
-  await runSub();
-  t('missing name: sub() returns early, no fetch attempted', __fetchCalls.length === 0);
-
-  resetForm(); __fetchBehavior = 'success';
-  getElById('em').value = '';
-  await runSub();
-  t('missing email: sub() returns early, no fetch attempted', __fetchCalls.length === 0);
-
-  // --- leadPayload content sent to the Worker ---
-  resetForm(); __fetchBehavior = 'success';
-  await runSub();
-  const sentBody = JSON.parse(__fetchCalls[0].opts.body);
-  t('payload: name matches form input', sentBody.name === 'Jane Buyer');
-  t('payload: email matches form input', sentBody.email === 'jane@example.com');
-  t('payload: income is a number matching input', sentBody.income === 150000);
-  t('payload: downPayment is a number matching input', sentBody.downPayment === 100000);
-  t('payload: workCity included', sentBody.workCity === 'Toronto');
-  t('payload: mortgageRatePct reflects current slider value (4.19)', sentBody.mortgageRatePct === '4.19');
-  t('payload: topMatches is an array', Array.isArray(sentBody.topMatches));
-  // IMPROVEMENT_PLAN.md 1.2 / REVIEW_BACKLOG.md P0-3: the lead is what the buyer saw.
-  t('payload: topMatches are the first five cards on screen, in screen order',
-    sentBody.topMatches.map(m=>m.city).join('|') === 'Oshawa|Cambridge|Kitchener|St. Catharines|Peterborough');
-  t('payload: each match carries the card\'s own home type, price and monthly cost',
-    sentBody.topMatches[0].type === 'town' && sentBody.topMatches[0].price === 595000 && sentBody.topMatches[0].monthlyCost === 3480);
-  t('payload: nothing comes from the unordered candidate list (results)', !sentBody.topMatches.some(m=>m.city==='Brampton'));
-  t('payload: the legacy cities field matches too', sentBody.cities === 'Oshawa, Cambridge, Kitchener, St. Catharines, Peterborough');
-  t('payload: workArrangement included', sentBody.workArrangement === 'daily');
-  t('payload: firstTimeBuyer boolean included', typeof sentBody.firstTimeBuyer === 'boolean');
-
-  // --- Zapier stays untouched (placeholder, doesn't fire yet) ---
-  resetForm(); __fetchBehavior = 'success';
-  await runSub();
-  t('zapier: still not called while placeholder URL is unset (only Worker fetch fires)', __fetchCalls.length === 1);
+  suite('Breakdown');
+  // Engine state for the checks below. The lead tests' form reset used to set
+  // it, so this suite silently depended on them: 4.19%, not a first-time buyer.
+  run(`customMortgageRate=0.0419; firstTimeBuyer=false; fam_selected='3'; existingDebt=0; lang='en';`);
 
   // --- Breakdown display formula (golden-line source check) ---
   // selectPropType() mutates the DOM in place rather than returning HTML, so instead

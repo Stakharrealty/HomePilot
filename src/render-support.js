@@ -14,7 +14,9 @@
 //     ignoring the comfort range, for cities taken from a DIFFERENT order than
 //     the screen's -- so the lead listed Toronto condos at 53% of take-home
 //     while the buyer was looking at Cambridge and Kitchener (P0-3). The lead
-//     is now built from the cards render() drew (shownCards).
+//     was then built from the cards render() drew (shownCards), as the PDF
+//     report and Compare still are; the lead form itself was removed later
+//     that day.
 //   - renderAnglePicks(): its "Outside Your Comfort Range" box is replaced by
 //     the "Only as a stretch" section render() draws below the main list.
 

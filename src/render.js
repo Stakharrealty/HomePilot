@@ -22,7 +22,8 @@
 //   - Cities past the buyer's commute limit are set aside with a note ("8
 //     hidden — estimated drive over 60 min. Show them"), never ranked.
 //   - Each card states the home it recommends (type, price, monthly cost, % of
-//     take-home), which is exactly what shownCards records for the lead.
+//     take-home), which is exactly what shownCards records for the PDF
+//     report and Compare.
 //   - The commute shows as an estimated drive in minutes, not a tier; the
 //     orange "Limited Commute ... long daily drive" box is gone, because the
 //     buyer has now said how long a drive they accept.
@@ -126,8 +127,9 @@ function render(){
     more.innerHTML=h;
   }
 
-  // The on-screen record the lead is built from (IMPROVEMENT_PLAN.md 1.2):
-  // every card just drawn, in screen order, with the exact figures on it.
+  // The on-screen record the PDF report (report.js) and Compare (compare.js)
+  // are built from (IMPROVEMENT_PLAN.md 1.2): every card just drawn, in screen
+  // order, with the exact figures on it.
   shownCards=[
     ...ranked.map(e=>[e,'ranked']),
     ...stretchOnly.map(e=>[e,'stretch']),
@@ -155,7 +157,7 @@ function render(){
 
 // One city card. `e` is a rankCities() entry; `section` is 'ranked', 'stretch'
 // or 'over'. Every figure on the card comes from the entry, so the card, the
-// ranking and the lead can never show different numbers.
+// ranking and shownCards can never show different numbers.
 function cityCardHtml(e, section){
   const t=T[lang];
   const x=e.city;

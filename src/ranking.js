@@ -23,8 +23,8 @@
 // The buyer can re-sort by shortest commute or lowest monthly cost, and sets
 // their own longest acceptable commute; a city past it is set aside BEFORE
 // ranking, never ranked low. rankCities() is the only thing that orders
-// cities: render() draws its result, the lead is built from the cards render()
-// drew, and the What-If scenarios call it directly.
+// cities: render() draws its result, the PDF report and Compare are built from
+// the cards render() drew, and the What-If scenarios call it directly.
 //
 // Contains: getPriceForTypeStrict() (unchanged), HOME_ORDER, HOME_RANK,
 // RESULT_SORTS, DEFAULT_MAX_COMMUTE, MAX_COMMUTE_CHOICES, commuteEstimateMin(),

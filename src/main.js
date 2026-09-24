@@ -35,8 +35,9 @@ let workZone = null;
 //   resultsSort       -- 'home' | 'commute' | 'cost' (RESULT_SORTS).
 //   showOverCommute   -- the buyer asked to see the cities past their limit.
 //   shownCards        -- the cards render() last drew, in screen order. The
-//                        lead is built from this, so it is exactly what the
-//                        buyer saw (REVIEW_BACKLOG.md P0-3).
+//                        PDF report (report.js) and Compare (compare.js) are
+//                        built from this, so they show exactly what the buyer
+//                        saw (REVIEW_BACKLOG.md P0-3).
 let maxCommuteMin = null, maxCommuteTouched = false, resultsSort = 'home', showOverCommute = false, shownCards = [];
 
 // Two answers the land transfer tax depends on (added 2026-09-23,
@@ -59,8 +60,8 @@ function buyerLttRebateApplies(){ return lttRebateApplies(firstTimeBuyer, lttReb
 // so a what-if household income (scenario-sandbox.js) keeps the same split.
 let partnerIncomeShare = 0;
 function householdNetAnnual(total){ return estimateHouseholdNetAnnual(total*(1-partnerIncomeShare), total*partnerIncomeShare); }
-// The two income boxes, read the same way by go(), the lead, the share link
-// and the debt warning. The partner box is optional: blank means 0.
+// The two income boxes, read the same way by go(), the share link and the
+// debt warning. The partner box is optional: blank means 0.
 function readIncomes(){
   const own=parseFloat(document.getElementById('inc').value)||0;
   const el2=document.getElementById('inc2');
@@ -267,7 +268,7 @@ function go(){
     // is the only place that knows how many cities actually survive full
     // qualification. Setting it here from results.length (the M-table
     // pre-filter) is what made it disagree with the cards below it.
-    document.getElementById("res").style.display="block";document.getElementById("cap").style.display="block";const pfb=document.getElementById("propFilterBar");if(pfb)pfb.style.display="block";const sbr=document.getElementById("sortBar");if(sbr)sbr.style.display="block";
+    document.getElementById("res").style.display="block";const pfb=document.getElementById("propFilterBar");if(pfb)pfb.style.display="block";const sbr=document.getElementById("sortBar");if(sbr)sbr.style.display="block";
     activeProp='all';activeFit='all';
     document.querySelectorAll("[id^='pt-'],[id^='ft-']").forEach(b=>b.classList.remove("on"));const ptAll=document.getElementById('pt-all');if(ptAll)ptAll.classList.add('on');
 
