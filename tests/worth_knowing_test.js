@@ -137,36 +137,44 @@ const BUYERS = [
   { tag: '$60K + $150K hybrid Markham (partner earns more)', income: 60000, partner: 150000, down: 150000, debt: 800, firstTime: false, work: 'hybrid', workCity: 'Markham', limit: 60 },
 ];
 
-// The drive rule for the normal page, written out again from the plan and run
-// on the page as it is: from an answer card, a place further out but within
-// the limit, the same or a bigger home type, comfortable, at most
-// WK_DRIVE_CAP_MIN more minutes, cheaper by WK_DRIVE_MIN_SAVING or
-// WK_DRIVE_MIN_MONTHLY a month (and cheaper on both). Strongest: the least of
-// (extra minutes / cap) / (how many times over the minimum saving).
-const driveSpec = () => data(`(function(){
-  var ot = ${onlyTypeJs}, types = ot ? [ot] : HOME_ORDER;
+// The drive rule for the normal page, as the plan decides it ("a big saving
+// for a short extra drive") and the WK_ lines set it: from an answer card, a
+// place further out but within the limit, the same or a bigger home type,
+// comfortable, at most WK_DRIVE_CAP_MIN more minutes, cheaper on both price
+// and monthly cost, and by at least WK_DRIVE_MIN_SAVING or
+// WK_DRIVE_MIN_MONTHLY a month. Every such trade on the page is listed here
+// and checked against the tip, not picked again: a drive tip shows exactly
+// when the list is not empty, the tip is on it with its own figures, and
+// nothing on it beats the tip outright (a shorter drive saving at least as
+// much on both, or no longer a drive saving more on both, for as much home).
+// How the module weighs minutes against dollars between those is its own
+// choice and is not restated here. Until 2026-09-24 this test copied that
+// weighing line for line, so a mistake in it would have passed.
+const driveCandidates = () => data(`(function(){
+  var ot = ${onlyTypeJs}, types = ot ? [ot] : HOME_ORDER, out = [];
   var a = answerPicks(results, {maxCommute:maxCommuteMin, onlyType:ot});
-  if (!a.byHome.commuteKnown) return null;
-  var best = null;
+  if (!a.byHome.commuteKnown) return out;
   a.picks.forEach(function(p){ var ref = p.entry; if (ref.commuteMin === null) return;
-    a.byHome.ranked.forEach(function(c){
-      if (c.n === ref.n || c.commuteMin === null) return;
-      var extra = c.commuteMin - ref.commuteMin; if (extra <= 0 || extra > ${C.DRIVE}) return;
-      types.forEach(function(t){
-        if (HOME_RANK[t] < HOME_RANK[ref.type]) return;
-        var o = qualifyingOption(c.city, t); if (!isComfortable(o)) return;
-        var s = ref.price - o.price, mo = Math.round(ref.costs.total - o.costs.total);
-        if (!(s > 0 && mo > 0) || (s < ${C.SAVING} && mo < ${C.MONTHLY})) return;
-        var eff = (extra / ${C.DRIVE}) / Math.max(s / ${C.SAVING}, mo / ${C.MONTHLY});
-        if (!best || eff < best.eff || (eff === best.eff && HOME_RANK[t] > HOME_RANK[best.type])) best = { eff: eff, n: c.n, type: t, from: ref.n, fromType: ref.type };
-      });
-    });
-  });
-  return best;
-})()`);
-const driveMatches = (wk) => {
-  const spec = driveSpec(), tip = wk.levers.find((x) => x.kind === 'drive');
-  return spec === null ? !tip : !!tip && tip.claim.n === spec.n && tip.claim.type === spec.type && tip.claim.from.n === spec.from && tip.claim.from.type === spec.fromType;
+    a.byHome.ranked.forEach(function(c){ if (c.n === ref.n || c.commuteMin === null) return;
+      types.forEach(function(t){ var o = qualifyingOption(c.city, t); if (!o) return;
+        out.push({ from: ref.n, fromType: ref.type, fromRank: HOME_RANK[ref.type], n: c.n, type: t, rank: HOME_RANK[t], comfortable: isComfortable(o),
+          extra: c.commuteMin - ref.commuteMin, saving: ref.price - o.price, monthly: Math.round(ref.costs.total - o.costs.total) });
+      }); }); });
+  return out; })()`);
+const driveQualifies = (x) => x.comfortable && x.rank >= x.fromRank && x.extra > 0 && x.extra <= C.DRIVE && x.saving > 0 && x.monthly > 0
+  && (x.saving >= C.SAVING || x.monthly >= C.MONTHLY);
+const driveBeats = (b, a) => b.rank >= a.rank && ((b.extra < a.extra && b.saving >= a.saving && b.monthly >= a.monthly)
+  || (b.extra <= a.extra && b.saving > a.saving && b.monthly > a.monthly));
+const driveHolds = (wk) => {
+  const list = driveCandidates().filter(driveQualifies), tip = wk.levers.find((x) => x.kind === 'drive');
+  if (!list.length) return { ok: !tip, why: tip ? 'a drive tip, but no trade qualifies' : '', n: 0 };
+  if (!tip) return { ok: false, why: list.length + ' trades qualify, but no drive tip', n: list.length };
+  const c = tip.claim;
+  const mine = list.find((x) => x.n === c.n && x.type === c.type && x.from === c.from.n && x.fromType === c.from.type);
+  if (!mine) return { ok: false, why: 'the tip is not one of the trades that qualify: ' + JSON.stringify(c), n: list.length };
+  if (mine.extra !== c.extra || mine.saving !== c.saving || mine.monthly !== c.monthlySaving) return { ok: false, why: 'the tip\'s figures are not the trade\'s: ' + JSON.stringify([mine, c]), n: list.length };
+  const better = list.find((x) => driveBeats(x, mine));
+  return { ok: !better, why: better ? 'beaten outright by ' + JSON.stringify(better) : '', n: list.length };
 };
 
 const seen = { normalTips: 0, emptyClose: 0, emptyFar: 0, emptyNothing: 0, kinds: new Set(), justFits: 0, notJust: 0, savings: 0, earnSplit: 0, justUnder: 0 };
@@ -248,7 +256,8 @@ for (const b of BUYERS) {
     t(`(${tag}) normal page: no "you're close" and nothing far-off`, !wk.close && !wk.far.length);
     t(`(${tag}) normal page: the tips shown are the savings tip, then the strongest of the levers worth showing, two at most`,
       JSON.stringify(wk.tips) === JSON.stringify(wk.tips.filter((x) => x.kind === 'savings-limit').concat(wk.levers).slice(0, C.MAX)));
-    t(`(${tag}) normal page: the drive tip is the one the rule picks (or none when nothing passes it)`, driveMatches(wk), JSON.stringify(driveSpec()));
+    const dh = driveHolds(wk);
+    t(`(${tag}) normal page: a drive tip exactly when a trade qualifies (${dh.n} here), one of them, and none beats it outright`, dh.ok, dh.why);
     // The places the answers show, with the most home each has today.
     const places = [];
     picks.forEach((p) => { if (!places.some((x) => x.n === p.n)) places.push({ n: p.n, type: base.ranked.find((e) => e.n === p.n).type }); });
@@ -362,7 +371,7 @@ for (const b of BUYERS) {
 // The drive rule on many more buyers: commuters to five work cities at a
 // range of incomes and savings, and remote buyers, who never get one.
 {
-  let normal = 0, withDrive = 0, bad = [], remoteBad = [];
+  let normal = 0, withDrive = 0, qualifyingPages = 0, bad = [], remoteBad = [];
   for (const workCity of ['Toronto', 'Brampton', 'Mississauga', 'Markham', 'Oakville']) {
     for (const income of [120000, 160000, 220000, 300000]) {
       for (const down of [60000, 150000, 300000]) {
@@ -380,7 +389,9 @@ for (const b of BUYERS) {
         }
         normal++;
         if (wk.levers.some((x) => x.kind === 'drive')) withDrive++;
-        if (!driveMatches(wk)) bad.push(workCity + ' ' + income + '/' + down);
+        const dh = driveHolds(wk);
+        if (dh.ok && dh.n) qualifyingPages++;
+        if (!dh.ok) bad.push(workCity + ' ' + income + '/' + down + ': ' + dh.why);
       }
     }
   }
@@ -389,7 +400,7 @@ for (const b of BUYERS) {
     const wk = wkNow();
     if (wk.levers.concat(wk.tips, wk.far).some((x) => x.kind === 'drive')) remoteBad.push(income + '/' + down);
   }
-  t(`the drive rule holds for ${normal} more commuters' normal pages (${withDrive} with a drive tip) and their empty pages`, !bad.length && withDrive > 0, bad.join('; '));
+  t(`the drive rule holds for ${normal} more commuters' normal pages (${withDrive} with a drive tip, ${qualifyingPages} with a trade that qualifies) and their empty pages`, !bad.length && withDrive > 0 && qualifyingPages === withDrive, bad.join('; '));
   t('remote buyers never get a drive tip', !remoteBad.length, remoteBad.join('; '));
 }
 
