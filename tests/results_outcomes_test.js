@@ -677,6 +677,12 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
     visible(areaSel) && !visible(areaLine) && areaSel.options.length === 9 && sd2.activeElement === areaSel && visible(sd2.getElementById("area-tooltip").parentElement));
   areaSel.value = "gta"; areaSel.dispatchEvent(new s.Event("change"));
   check("(13j) ...and the line follows the choice", textOf(sd2.getElementById("areaLineText")) === "City of Toronto + Peel");
+  // The commute hint ("Places past your longest commute are set aside...")
+  // sits right under the commute limit it describes, above the area line; it
+  // sat under the area, where it read as a note about the area.
+  const hint13 = sd2.getElementById("wa_hint");
+  check("(13j2) the commute hint follows the commute fields and comes before the area line",
+    hint13.previousElementSibling === sd2.getElementById("workLocationFields") && hint13.nextElementSibling === sd2.getElementById("areaLine"));
 
   // C: the work postal code.
   const postalAdd = sd2.getElementById("workPostalAdd"), postal = sd2.getElementById("workPostal");

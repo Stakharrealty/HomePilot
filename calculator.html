@@ -1377,6 +1377,9 @@ body.cmp-bar-open #waWrap{bottom:80px!important}
         </select>
       </div>
     </div>
+    <!-- Empty until the buyer answers: setWorkArrangement() writes the hint for the answer given (2.5).
+         Right under the commute limit it describes, above the area line (it sat under the area). -->
+    <div style="font-size:11px;color:#9CA3AF;margin-top:8px;" id="wa_hint"></div>
     <div class="form-line" id="areaLine"><span id="areaLineText">All areas</span> · <button type="button" class="link-btn" onclick="openFormField('areaLine','areaField','area')" aria-label="Change the preferred area">change</button></div>
     <div id="areaField" style="display:none;margin-top:12px;">
       <label class="lbl" for="area" style="display:flex;align-items:center;gap:6px;">
@@ -1399,8 +1402,6 @@ body.cmp-bar-open #waWrap{bottom:80px!important}
         <option value="east2">Eastern Ontario</option>
       </select>
     </div>
-    <!-- Empty until the buyer answers: setWorkArrangement() writes the hint for the answer given (2.5). -->
-    <div style="font-size:11px;color:#9CA3AF;margin-top:8px;" id="wa_hint"></div>
   </div>
   <div class="card" id="ftbCard">
     <div class="lbl">Are you a first-time home buyer?</div>
