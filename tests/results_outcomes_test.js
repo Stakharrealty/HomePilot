@@ -1207,8 +1207,10 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
   // own unit tests (tests/worth_knowing_test.js) check the rules in depth.
   const wkNow = () => JSON.parse(win.eval("JSON.stringify(worthKnowing(answerPicks(results,{maxCommute:maxCommuteMin,onlyType:activeProp!=='all'?activeProp:null}),activeProp!=='all'?activeProp:null))"));
   const wkTips = () => [...byId("worthKnowing").querySelectorAll(".wk-tip")].map((e) => ({ kind: e.dataset.kind, text: textOf(e) }));
+  // An earn tip raises one income, the higher earner's (the buyer's when equal),
+  // and says so; a buyer searching again types it into that box.
   const withChange = (b, kind, x) => kind === "save" ? { ...b, down: b.down + x }
-    : b.partnerIncome ? { ...b, income: b.income + x / 2, partnerIncome: b.partnerIncome + x / 2 } : { ...b, income: b.income + x };
+    : b.partnerIncome && b.partnerIncome > b.income ? { ...b, partnerIncome: b.partnerIncome + x } : { ...b, income: b.income + x };
   // A card as the buyer reads it, and its row for one home type.
   const cardFor = (n, typeKey) => cardEls(win).map(readCard).find((c) => c.city === n && TYPE_KEY[c.type] === typeKey);
   const rowFor = (n, typeKey) => {
