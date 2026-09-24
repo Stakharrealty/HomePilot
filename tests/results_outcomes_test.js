@@ -1217,16 +1217,22 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
   // Phone and computer layout, from the stylesheet (jsdom does no layout).
   const css = require("fs").readFileSync(require("path").join(__dirname, "..", "calculator.html"), "utf8").match(/<style>([\s\S]*?)<\/style>/)[1];
   const baseAt = css.indexOf(".answer-grid{display:grid;grid-template-columns:minmax(0,1fr)");
-  const threeAt = css.search(/@media\(min-width:1240px\)\{\s*\.answer-grid-3\{grid-template-columns:repeat\(3,minmax\(0,1fr\)\)\}/);
-  const twoAt = css.search(/@media\(min-width:1024px\)\{\s*\.answer-grid\{align-items:start;row-gap:14px\}\s*\.answer-grid-2\{grid-template-columns:repeat\(2,minmax\(0,1fr\)\)\}/);
+  const threeAt = css.search(/@media\(min-width:1240px\)\{\s*\.answer-grid-3\{grid-template-columns:repeat\(3,minmax\(0,1fr\)\)[;}]/);
+  const twoAt = css.search(/@media\(min-width:1024px\)\{\s*\.answer-grid\{align-items:start;row-gap:14px\}\s*\.answer-grid-2\{grid-template-columns:repeat\(2,minmax\(0,1fr\)\)[;}]/);
   const outsideMedia = (at) => { const before = css.slice(0, at); return (before.match(/\{/g) || []).length === (before.match(/\}/g) || []).length; };
   search(win, { ...COUPLE, income: 180000, down: 120000, work: "hybrid", maxCommute: "60" });
   check("(15z) phone: the answer cards stack at full width, one column, as the first cards always did (the base rule, outside any media query)",
     baseAt !== -1 && outsideMedia(baseAt) && !/max-width[^{]*\{[^}]*answer-grid/.test(css));
-  check("(15aa) computer: three answers side by side, a third of the width each (1240px+, where a card gets a small phone's width), two a half each from 1024px; both after the phone rule, so they win",
+  check("(15aa) computer: three answers side by side, a third of the width each (1240px+, about 223-241px a card up to 1280px), two a half each from 1024px; both after the phone rule, so they win",
     threeAt > baseAt && twoAt > baseAt && byId("answers").querySelector(".answer-grid").classList.contains("answer-grid-3") && d.querySelectorAll("#answers .answer-grid-3 > .answer-slot").length === 3);
   check("(15ab) 'See all places' is the listings page's outlined 'Load more' button, not a new design", /\.listings-load-more,\.see-all-btn\{/.test(css) && /\.listings-load-more:hover,\.see-all-btn:hover\{/.test(css)
     && byId("seeAllBtn").className === "see-all-btn");
+  // Side by side, the labels share one row (a subgrid), so a two-question label
+  // that wraps no longer pushes its card down, and it wraps at the dot, each
+  // question on one line. tests/phone_length_test.js measures it in Chrome.
+  check("(15ac) side by side the labels share one row, and each question in a label stays on one line",
+    css.includes(".answer-grid-3 > .answer-slot{display:grid;grid-row:span 2;grid-template-rows:subgrid}") && css.includes(".answer-grid-2 > .answer-slot{display:grid;grid-row:span 2;grid-template-rows:subgrid}")
+      && css.includes(".answer-q{white-space:nowrap}") &&[...d.querySelectorAll("#answers .answer-slot")].every((s) => s.querySelectorAll(".answer-label .answer-q").length === s.dataset.answers.split(" ").length && [...s.querySelectorAll(".answer-label .answer-q")].map(textOf).join(" · ") === textOf(s.querySelector(".answer-label"))));
 
   // =============== 16. HomePilot Worth Knowing and the "you're close" page (IMPROVEMENT_PLAN.md 2.2, 2.0) ===============
   // Every tip on the page is checked against the page itself: search again

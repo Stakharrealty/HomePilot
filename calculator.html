@@ -546,19 +546,35 @@ select{
    label in the site's eyebrow style (.hiw-eyebrow, .faq-eyebrow). Phones and
    narrow windows: stacked at full width, as the first cards always were.
    Computers: side by side, a third of the width each; with two answers, a
-   half each. A card needs about 230px (a small phone's width): at 1024px the
-   results column beside the form is 481px, so two fit there but three only
-   from 1240px (a 712px column); between the two, three answers stack as
-   today. "See all places" is the listings page's outlined "Load more"
-   button (.listings-load-more). */
+   half each. Three across starts at 1240px, where the results column beside
+   the form is 712px and a card about 223-228px; at 1280px about 236-241px,
+   at 1366px about 270px. That is narrower than any phone's card (288px on a
+   320px phone, 343px at 375), not "a small phone's width", as this comment
+   said until 2026-09-24. At 1024px the column is 481px: two fit, and three
+   stack as today up to 1239px. "See all places" is the listings page's
+   outlined "Load more" button (.listings-load-more).
+   Side by side, the cards start level (2026-09-24): the labels share one row
+   through a subgrid, so a label that wraps ("Most home · Shortest commute")
+   no longer pushes its card below the others, and each question stays on
+   one line (.answer-q). A home-type row that no longer fits its narrow card
+   puts its % and label on a second line instead of cutting off the chevron
+   under the list's overflow:hidden. */
 .answer-grid{display:grid;grid-template-columns:minmax(0,1fr);column-gap:14px}
 .answer-label{font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--green-mid);margin:4px 2px 8px}
+.answer-q{white-space:nowrap}
+.answer-grid [id^="pt-row-"]:not([id$="-chevron"]){flex-wrap:wrap;row-gap:4px}
+.answer-grid [id^="pt-row-"]:not([id$="-chevron"]) > div:first-child{flex-grow:1;flex-shrink:1;flex-basis:min-content}
+.answer-grid [id^="pt-row-"]:not([id$="-chevron"]) > div:last-child{flex:0 0 auto;margin-left:auto}
 @media(min-width:1024px){
   .answer-grid{align-items:start;row-gap:14px}
-  .answer-grid-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .answer-grid-2{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:auto auto;row-gap:0}
+  .answer-grid-2 > .answer-slot{display:grid;grid-row:span 2;grid-template-rows:subgrid}
+  .answer-grid-2 > .answer-slot > .answer-label{align-self:end}
 }
 @media(min-width:1240px){
-  .answer-grid-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .answer-grid-3{grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:auto auto;row-gap:0}
+  .answer-grid-3 > .answer-slot{display:grid;grid-row:span 2;grid-template-rows:subgrid}
+  .answer-grid-3 > .answer-slot > .answer-label{align-self:end}
 }
 #seeAllBody{margin-top:18px}
 /* HomePilot Worth Knowing (2026-09-24, IMPROVEMENT_PLAN.md 2.2 and 2.0), under

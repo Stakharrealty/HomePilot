@@ -37,6 +37,12 @@
 //   - nothing makes the page scroll sideways.
 // It prints each block's height, so a longer page shows where it grew.
 //
+// Then, since 2026-09-24, the answer cards on a computer, at 1240 and 1280px
+// wide, where they sit three across at about 228-241px each (see
+// measureDesktopInPage() below): three side by side, starting level; no
+// home-type row cut off; every figure in every cost breakdown at least 8px
+// from its label; no sideways scroll.
+//
 // When no Chrome or Edge is found, or it will not start, the test says SKIP
 // and exits 0 (a GitHub Actions warning in CI) rather than blocking a deploy
 // over the machine. CHROME_PATH picks a browser.
@@ -226,6 +232,74 @@ async function measureInPage(b) {
   };
 }
 
+// ---------- the answer cards on a computer (2026-09-24) ----------
+// Three across from 1240px, each card about 223-241px wide up to 1280px:
+// narrower than any phone's card. Measured there, before the fixes: a
+// home-type row wider than its bordered list lost its chevron under the
+// list's overflow:hidden (11-15px at 1240); a two-question label
+// ("MOST HOME · SHORTEST COMMUTE") wrapped and pushed its card 16-17px below
+// the other two; and in the cost breakdowns a label ran into its figure
+// ("Estimated Cash Required to Close" 0.1px from "~$123,950").
+const DESKTOP_WIDTHS = [1240, 1280];
+const DESKTOP_BUYERS = [
+  { name: "$90K + $60K, $100K down, hybrid Toronto", income: 90000, partnerIncome: 60000, down: 100000, debt: 0, work: "hybrid", workCity: "Toronto", firstTime: true },
+  { name: "$250K, $300K down, remote, condos only", income: 250000, down: 300000, debt: 0, work: "remote", firstTime: false, onlyType: "condo" },
+  { name: "$300K + $200K, $500K down, daily Toronto", income: 300000, partnerIncome: 200000, down: 500000, debt: 0, work: "daily", workCity: "Toronto", firstTime: false },
+];
+const MIN_LABEL_GAP_PX = 8;
+async function measureDesktopInPage(b) {
+  const d = document;
+  const set = (id, v) => { d.getElementById(id).value = v; };
+  set("inc", String(b.income));
+  set("inc2", b.partnerIncome ? String(b.partnerIncome) : "");
+  set("dwn", String(b.down));
+  set("dbt", String(b.debt || 0));
+  set("fam", "3");
+  set("area", "all");
+  setFTB(b.firstTime === true);
+  setWorkArrangement(b.work);
+  if (b.work !== "remote") { set("workCity", b.workCity); set("workPostal", ""); }
+  go();
+  if (b.onlyType) filtProp(b.onlyType, d.getElementById("pt-" + b.onlyType));
+  if (d.fonts && d.fonts.ready) await d.fonts.ready;
+  const frame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  await frame();
+  const cards = [...d.querySelectorAll("#answers .city")];
+  const lists = cards.flatMap((c) => [...c.querySelectorAll("div[style*='overflow:hidden']")]);
+  const rows = cards.flatMap((c) => [...c.querySelectorAll("[id^='pt-row-']:not([id$='-chevron'])")]);
+  // Every breakdown, opened one at a time: the smallest gap between a label
+  // and its figure on the same line.
+  let minGap = Infinity, pairs = 0;
+  for (const r of rows) {
+    r.click();
+    await frame();
+    const panel = d.getElementById(r.id.replace("pt-row-", "pt-panel-"));
+    if (panel && panel.style.display !== "none") {
+      panel.querySelectorAll("div[style*='justify-content:space-between']").forEach((row) => {
+        if (row.children.length !== 2) return;
+        const rects = (el) => { const rg = d.createRange(); rg.selectNodeContents(el); return [...rg.getClientRects()]; };
+        const a = rects(row.children[0]), f = rects(row.children[1]);
+        if (!a.length || !f.length) return;
+        pairs++;
+        for (const x of a) for (const y of f) if (x.bottom > y.top && y.bottom > x.top) minGap = Math.min(minGap, y.left - x.right);
+      });
+    }
+    r.click();
+  }
+  return {
+    viewport: innerWidth,
+    slots: d.querySelectorAll("#answers .answer-slot").length,
+    columns: getComputedStyle(d.querySelector("#answers .answer-grid")).gridTemplateColumns.split(" ").length,
+    widths: cards.map((c) => Math.round(c.getBoundingClientRect().width)),
+    tops: cards.map((c) => Math.round(c.getBoundingClientRect().top)),
+    labels: [...d.querySelectorAll("#answers .answer-label")].map((l) => l.textContent),
+    overflow: Math.max(0, ...lists.map((l) => l.scrollWidth - l.clientWidth)),
+    chevronsCut: rows.filter((r) => { const c = d.getElementById(r.id + "-chevron"), list = r.parentElement.parentElement; return c && c.getBoundingClientRect().right > list.getBoundingClientRect().right - 1; }).length,
+    minGap: minGap === Infinity ? null : Math.round(minGap * 10) / 10, pairs,
+    pageWidth: d.documentElement.scrollWidth,
+  };
+}
+
 (async () => {
   if (typeof WebSocket !== "function") skip("this Node has no built-in WebSocket (Node 22 or later needed)");
   const exe = findBrowser();
@@ -271,6 +345,26 @@ async function measureInPage(b) {
       check("the answer cards are stacked at full width, as today's phone cards", m.stacked && m.cardWidths.every((w) => Math.abs(w - m.answersWidth) <= 1),
         m.cardWidths.join("/") + " in " + m.answersWidth);
       check("nothing makes the page scroll sideways", m.pageWidth <= PHONE.width, m.pageWidth + "px wide");
+    }
+
+    for (const width of DESKTOP_WIDTHS) {
+      console.log("\nAnswer cards on a computer, " + width + "x800");
+      await page.send("Emulation.setDeviceMetricsOverride", { width, height: 800, deviceScaleFactor: 1, mobile: false });
+      for (const b of DESKTOP_BUYERS) {
+        const loaded = page.next("Page.loadEventFired");
+        await page.send("Page.navigate", { url: URL_CALC });
+        await withTimeout(loaded, 30000, "loading " + URL_CALC);
+        await wait(300);
+        const r = await page.send("Runtime.evaluate", { expression: "(" + measureDesktopInPage.toString() + ")(" + JSON.stringify(b) + ")", awaitPromise: true, returnByValue: true });
+        if (r.exceptionDetails) throw new Error("the page script failed: " + (r.exceptionDetails.exception && r.exceptionDetails.exception.description || r.exceptionDetails.text));
+        const m = r.result.value;
+        console.log("  " + b.name + ": cards " + m.widths.join("/") + "px, tops " + m.tops.join("/") + ", labels " + m.labels.join(" | ") + ", smallest label gap " + m.minGap + "px over " + m.pairs + " lines");
+        check(`${width}px, ${b.name}: three answer cards side by side`, m.viewport === width && m.slots === 3 && m.columns === 3, JSON.stringify({ viewport: m.viewport, slots: m.slots, columns: m.columns }));
+        check(`${width}px, ${b.name}: the three cards start level, a wrapped label included`, Math.max(...m.tops) - Math.min(...m.tops) <= 1, m.tops.join("/"));
+        check(`${width}px, ${b.name}: no home-type row is cut off (nothing wider than its list, every chevron inside it)`, m.overflow === 0 && m.chevronsCut === 0, m.overflow + "px over, " + m.chevronsCut + " chevrons cut");
+        check(`${width}px, ${b.name}: in every cost breakdown each figure stays at least ${MIN_LABEL_GAP_PX}px from its label`, m.pairs > 0 && m.minGap >= MIN_LABEL_GAP_PX, m.minGap + "px");
+        check(`${width}px, ${b.name}: nothing makes the page scroll sideways`, m.pageWidth <= width, m.pageWidth + "px wide");
+      }
     }
   } catch (e) {
     failed++;

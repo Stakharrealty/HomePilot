@@ -191,7 +191,9 @@ function render(){
     :answers.picks.map(p=>{
       const id=nextId(p.entry.n);
       shown.push(shownCardOf(p.entry,'answer-'+p.answers[0],id,{answers:p.answers.slice()}));
-      return slot(p.answers.join(' '),p.answers.map(q=>ANSWER_LABELS[q]).join(' · '),p.entry,'ranked',id);
+      // Each question on one line (.answer-q), so a two-question label wraps at
+      // the dot, never mid-phrase ("...MONTHLY / COST").
+      return slot(p.answers.join(' '),p.answers.map(q=>'<span class="answer-q">'+ANSWER_LABELS[q]+'</span>').join(' · '),p.entry,'ranked',id);
     });
   const answersEl=document.getElementById('answers');
   if(answersEl) answersEl.innerHTML=slots.length?'<div class="answer-grid answer-grid-'+slots.length+'">'+slots.join('')+'</div>':'';
@@ -509,16 +511,20 @@ function costPanelHtml(cityName, tp) {
   const sectionHeadHighlight = (title) =>
     '<div style="font-size:13px;font-weight:800;color:#1a1a1a;margin:16px 0 8px">' + title + '</div>';
 
+  // gap and nowrap (2026-09-24): in a third-width answer card on a computer
+  // a label ran into its figure ("Estimated Cash Required to Close" 0.1px
+  // from "~$123,950"). Now the label wraps and the figure keeps its distance;
+  // where there is room, as on a phone, nothing changes.
   const row = (label, value, color) =>
-    '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f5f5f5">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid #f5f5f5">' +
     '<div style="font-size:12px;color:#666">' + label + '</div>' +
-    '<div style="font-size:13px;font-weight:700;color:' + (color||'#1a1a1a') + '">' + value + '</div>' +
+    '<div style="font-size:13px;font-weight:700;white-space:nowrap;color:' + (color||'#1a1a1a') + '">' + value + '</div>' +
     '</div>';
 
   const totalRow = (label, value, color) =>
-    '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;margin-top:4px">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;margin-top:4px">' +
     '<div style="font-size:13px;font-weight:700;color:#1a1a1a">' + label + '</div>' +
-    '<div style="font-size:15px;font-weight:800;color:' + (color||'#1a1a1a') + '">' + value + '</div>' +
+    '<div style="font-size:15px;font-weight:800;white-space:nowrap;color:' + (color||'#1a1a1a') + '">' + value + '</div>' +
     '</div>';
 
   let html = '<div style="background:#FAFAFA;border-top:2px solid #1D9E75;padding:14px 16px">';

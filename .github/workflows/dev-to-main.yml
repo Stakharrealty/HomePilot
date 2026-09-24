@@ -114,8 +114,10 @@ jobs:
 
       # Phone length (IMPROVEMENT_PLAN.md 2.10): the results fit in about three
       # phone screens. Measured in the runner's headless Chrome at 375x812 for
-      # the plan's three buyers; says SKIP with a warning, rather than failing,
-      # when no Chrome can be started. Needs the static server above.
+      # the plan's three buyers, and the three answer cards side by side at
+      # 1240 and 1280px (level, nothing cut off, figures clear of their
+      # labels); says SKIP with a warning, rather than failing, when no Chrome
+      # can be started. Needs the static server above.
       - name: Phone length test
         run: npm run test:phone-length
 
