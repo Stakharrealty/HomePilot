@@ -1113,6 +1113,13 @@ body.cmp-bar-open #waWrap{bottom:80px!important}
     .calc-layout{grid-template-columns:min(420px, calc(100% - 706px)) minmax(0,1fr);gap:20px}
     .answer-grid{column-gap:10px}
   }
+  /* Three across, a card is 222-240px wide up to 1279px: there "Monthly cost
+     $4,606/mo" ran 1px past the card (measured 2026-09-24 at 1024 and 1100),
+     so the figure is a point smaller and 4px from its label. */
+  @media(min-width:1024px) and (max-width:1279px){
+    .answer-grid-3 .ac-cost{gap:4px}
+    .answer-grid-3 .ac-cost-v{font-size:16px}
+  }
 
   /* Empty state for the results column — shown until the user submits the
      form, so the right side isn't just blank space on first visit. Hidden

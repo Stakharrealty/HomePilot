@@ -55,11 +55,22 @@ const DATA_FRESHNESS = {
     refreshCadence: "Annually — brackets, BPA, CPP/EI maximums and the surtax thresholds are indexed each January."
   },
   condoFees: {
-    value: "City base fee scaled 0.5× around each city's typical condo price (see CONDO_FEES + calcCosts)",
-    lastUpdated: "2026-07-06",
-    source: "Structural fix only (no new market data) — base $/mo figures are still estimates, not sourced " +
-            "from real condo corporation budgets. Upgrade path: read actual fees from IDX listings once live.",
-    refreshCadence: "No live source yet — revisit once DDF/IDX lands."
+    value: "Median real monthly fee of each place's condo listings where 10+ have one (47 places), " +
+           "else the typed estimate; scaled 0.5× around the place's typical condo price (see CONDO_FEES + calcCosts)",
+    lastUpdated: "2026-09-24",
+    source: "tools/city-prices.mjs over the homepilot-listings D1 database (PropTx IDX, read-only), " +
+            "with the listing pages' own fee rules (IMPROVEMENT_PLAN.md 3.2). CONDO_FEES_SOURCE in cities.js " +
+            "says which places use listings.",
+    refreshCadence: "Weekly (plan 3.1a) — run `node tools/city-prices.mjs`; a failed run keeps the last good table."
+  },
+  cityPrices: {
+    value: "Median asking price of each place's current listings × 0.97 where it has 10+ of that type " +
+           "(188 of 220), else the typed 2025 table (PT_TYPED); PT_SOURCE in cities.js says which",
+    lastUpdated: "2026-09-24",
+    source: "tools/city-prices.mjs over the homepilot-listings D1 database (PropTx IDX, read-only), with the " +
+            "listings page's own place and home-type rules (IMPROVEMENT_PLAN.md 3.1a). Before/after for every " +
+            "place and type, against TRREB sold figures: _private/phase3/city-prices-before-after.md.",
+    refreshCadence: "Weekly (plan 3.1a) — run `node tools/city-prices.mjs`; a failed run keeps the last good table."
   }
 };
 function daysSince(dateStr){ return Math.floor((Date.now()-new Date(dateStr).getTime())/86400000); }
