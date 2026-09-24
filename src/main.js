@@ -15,8 +15,8 @@
 // maxCommuteMin, resultsSort, showOverCommute, shownCards),
 // checkRequiredChoices() / showFirstUnansweredChoice() (the two questions with
 // no pre-selected answer), setWorkArrangement(), setMaxCommute(),
-// syncFormLines() / openFormField() / openWorkPostalIfSet() (the one-line
-// settings of the shorter form, 2.3a), setResultsSort(), toggleOverCommute(), candidateCities() and searchAgain()
+// openFormField() / openWorkPostalIfSet() (the postal-code link of the
+// shorter form, 2.3a), setResultsSort(), toggleOverCommute(), candidateCities() and searchAgain()
 // (the search run again with answers changed, for HomePilot Worth Knowing and
 // the What-If),
 // amortizationNote(), the top section of the results (renderTopSection(), the
@@ -185,12 +185,10 @@ function setWorkArrangement(type) {
   if(results.length) render();
 }
 
-// Sets the commute-limit select, and the one line that stands for it, to
-// maxCommuteMin.
+// Sets the commute-limit select to maxCommuteMin.
 function syncMaxCommuteSelect() {
   const sel = document.getElementById('maxCommute');
   if(sel) sel.value = maxCommuteMin ? String(maxCommuteMin) : 'none';
-  syncFormLines();
 }
 
 // The "Longest commute you'd accept (one way)" select. Takes effect on the
@@ -200,34 +198,15 @@ function setMaxCommute(value) {
   maxCommuteMin = MAX_COMMUTE_CHOICES.includes(n) ? n : null;
   maxCommuteTouched = true;
   showOverCommute = false;
-  syncFormLines();
   if(results.length) render();
 }
 
-// ── Shorter form (2026-09-24, IMPROVEMENT_PLAN.md 2.3a A, B, C) ──────────
-// The commute limit and the preferred area each start as one line ("Showing
-// places within 60 minutes · change", "All areas · change"), and the work
-// postal code as a link under the work city. Nothing was taken out: "change"
-// and "+ add postal code" open the same select or box as before, and go()
-// reads them exactly as it did.
+// ── Shorter form (2026-09-24, IMPROVEMENT_PLAN.md 2.3a C) ────────────────
+// The work postal code starts as a link under the work city, "+ add postal
+// code", which opens the same box as before; go() reads it exactly as it did.
+// The commute limit and the preferred area were one-line "· change" stand-ins
+// too, until the user asked for the plain drop-downs back (2026-09-24).
 //
-// syncFormLines() writes what is in force into the two lines. It runs
-// whenever the limit or the area can change: setMaxCommute(),
-// syncMaxCommuteSelect() (the work-style default, go(), a shared link), the
-// area select's own change, and go().
-function commuteLimitLine(min){
-  return min ? 'Showing places within ' + min + ' minutes' : 'Showing places with no commute limit';
-}
-function syncFormLines(){
-  const cl = document.getElementById('maxCommuteLineText');
-  if(cl) cl.textContent = commuteLimitLine(maxCommuteMin);
-  const al = document.getElementById('areaLineText');
-  const area = document.getElementById('area');
-  if(al && area){
-    const opt = area.options && area.selectedIndex >= 0 ? area.options[area.selectedIndex] : null;
-    al.textContent = !area.value || area.value === 'all' ? 'All areas' : (opt ? opt.textContent : area.value);
-  }
-}
 // Swaps a one-line stand-in (lineId) for the field it stands for (fieldId)
 // and puts the cursor in it (controlId).
 function openFormField(lineId, fieldId, controlId){
@@ -246,10 +225,10 @@ function openWorkPostalIfSet(){
   if(field) field.style.display = 'block';
   if(add) add.style.display = 'none';
 }
-// The browser can put back a typed postal code or a chosen area on reload or
-// Back without telling the page.
+// The browser can put back a typed postal code on reload or Back without
+// telling the page.
 if(typeof window !== 'undefined' && typeof window.addEventListener === 'function'){
-  window.addEventListener('pageshow', function(){ openWorkPostalIfSet(); syncFormLines(); });
+  window.addEventListener('pageshow', function(){ openWorkPostalIfSet(); });
 }
 
 // The "Sort by" inside "See all places" (2026-09-24; it was a switch above the
@@ -523,10 +502,8 @@ function go(){
   // -- applied here too, not only in setWorkArrangement(), because a shared
   // link or a restored form can set the work style without that call.
   if(!maxCommuteTouched) { maxCommuteMin = DEFAULT_MAX_COMMUTE[workArrangement] || null; syncMaxCommuteSelect(); }
-  // The one-line settings show what this search uses (2.3a): a postal code
-  // set without the buyer opening its box is shown, and the lines are current.
+  // A postal code set without the buyer opening its box is shown (2.3a).
   if(workArrangement === 'hybrid' || workArrangement === 'daily') openWorkPostalIfSet();
-  syncFormLines();
   const area=document.getElementById("area").value,fam=document.getElementById("fam").value;
   const t=T.en;
   // Validation hardened 2026-09-22 (audit). Previously: an income of exactly 1

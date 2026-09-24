@@ -674,36 +674,32 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
   const shownBoxes = [...form.querySelectorAll("input[type=checkbox]")].filter(visible).map((e) => e.id);
   const questions = shownFields.length + shownYesNo;
   console.log(`  INFO - a daily commuter now sees ${questions} questions (${shownFields.join(", ")} + the first-time Yes/No), plus ${shownBoxes.length} small box (${shownBoxes.join(", ")}); it was 13`);
-  check("(13d) a daily commuter sees 8 questions, down from 13: two incomes, down payment, debt, work arrangement, work city, first-time buyer, family size",
-    questions === 8 && shownFields.join(",") === "inc,inc2,dwn,dbt,waSelect,workCity,fam", shownFields.join(",") + " + " + shownYesNo);
+  // The commute limit and the area are plain drop-downs again (the user,
+  // 2026-09-24: the "· change" lines looked unprofessional), so a daily
+  // commuter sees 10 questions, not the 8 of the one-line version.
+  check("(13d) a daily commuter sees 10 questions, down from 13: two incomes, down payment, debt, work arrangement, work city, commute limit, area, first-time buyer, family size",
+    questions === 10 && shownFields.join(",") === "inc,inc2,dwn,dbt,waSelect,workCity,maxCommute,area,fam", shownFields.join(",") + " + " + shownYesNo);
   check("(13d2) ...plus the one small citizenship box near the bottom; no other box on the form", shownBoxes.join(",") === "nonResident", shownBoxes.join(","));
 
-  // A: the commute limit.
-  const mcLine = sd2.getElementById("maxCommuteLine"), mcSel = sd2.getElementById("maxCommute");
-  check("(13e) A: the commute limit is one line, 'Showing places within 60 minutes · change', with the drop-down closed",
-    visible(mcLine) && textOf(mcLine) === "Showing places within 60 minutes · change" && !visible(mcSel) && s.eval("maxCommuteMin") === 60, textOf(mcLine));
-  mcLine.querySelector("button").click();
-  check("(13f) 'change' opens the same drop-down, every choice still there, showing 60, with the cursor in it",
-    visible(mcSel) && !visible(mcLine) && [...mcSel.options].map((o) => o.value).join(",") === "30,45,60,75,90,none" && mcSel.value === "60" && sd2.activeElement === mcSel);
+  // A: the commute limit, a plain drop-down.
+  const mcSel = sd2.getElementById("maxCommute");
+  check("(13e) A: the commute limit is its drop-down, showing, at 60 minutes, with no '· change' line",
+    visible(mcSel) && mcSel.value === "60" && s.eval("maxCommuteMin") === 60 && !sd2.getElementById("maxCommuteLine") && !/· change/.test(textOf(form)));
+  check("(13f) every choice is still there", [...mcSel.options].map((o) => o.value).join(",") === "30,45,60,75,90,none");
   mcSel.value = "none"; mcSel.dispatchEvent(new s.Event("change"));
-  check("(13g) picking 'No limit' there takes effect, and the line records it", s.eval("maxCommuteMin") === null && s.eval("maxCommuteTouched") === true
-    && textOf(sd2.getElementById("maxCommuteLineText")) === "Showing places with no commute limit");
+  check("(13g) picking 'No limit' takes effect", s.eval("maxCommuteMin") === null && s.eval("maxCommuteTouched") === true);
 
-  // B: the preferred area.
-  const areaLine = sd2.getElementById("areaLine"), areaSel = sd2.getElementById("area");
-  check("(13h) B: the preferred area is one line, 'All areas · change', with the drop-down closed",
-    visible(areaLine) && textOf(areaLine) === "All areas · change" && !visible(areaSel) && areaSel.value === "all", textOf(areaLine));
-  areaLine.querySelector("button").click();
-  check("(13i) 'change' opens the same drop-down, all nine areas, with the cursor in it",
-    visible(areaSel) && !visible(areaLine) && areaSel.options.length === 9 && sd2.activeElement === areaSel && visible(sd2.getElementById("area-tooltip").parentElement));
+  // B: the preferred area, a plain drop-down.
+  const areaSel = sd2.getElementById("area");
+  check("(13h) B: the preferred area is its drop-down, showing, at 'All GTA and surrounding areas', with no '· change' line",
+    visible(areaSel) && areaSel.value === "all" && !sd2.getElementById("areaLine"), areaSel.value);
+  check("(13i) all nine areas are there, with the area tooltip", areaSel.options.length === 9 && visible(sd2.getElementById("area-tooltip").parentElement));
   areaSel.value = "gta"; areaSel.dispatchEvent(new s.Event("change"));
-  check("(13j) ...and the line follows the choice", textOf(sd2.getElementById("areaLineText")) === "City of Toronto + Peel");
   // The commute hint ("Places past your longest commute are set aside...")
-  // sits right under the commute limit it describes, above the area line; it
-  // sat under the area, where it read as a note about the area.
+  // sits right under the commute limit it describes, above the area.
   const hint13 = sd2.getElementById("wa_hint");
-  check("(13j2) the commute hint follows the commute fields and comes before the area line",
-    hint13.previousElementSibling === sd2.getElementById("workLocationFields") && hint13.nextElementSibling === sd2.getElementById("areaLine"));
+  check("(13j2) the commute hint follows the commute fields and comes before the area",
+    hint13.previousElementSibling === sd2.getElementById("workLocationFields") && hint13.nextElementSibling === sd2.getElementById("areaField"));
 
   // C: the work postal code.
   const postalAdd = sd2.getElementById("workPostalAdd"), postal = sd2.getElementById("workPostal");
@@ -727,23 +723,19 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
       && !/hidden — estimated drive/.test(sd2.getElementById("rankNotes").textContent),
     s.eval("workZone") + " / " + s.eval("results.map(function(r){ return r.n + ':' + r.r; }).join(',')"));
 
-  // A second page: the lines say what is in force without being opened.
+  // A second page: the commute drop-down follows the work style and the limit.
   const lf = await openCalculator();
   const l = lf.win, ld = l.document;
-  const lLine = ld.getElementById("maxCommuteLine");
+  const lSel = ld.getElementById("maxCommute");
   l.eval("setWorkArrangement('remote')");
-  check("(13n) a remote worker gets no commute line (as the drop-down before it), but does get the area line",
-    !visible(lLine) && !visible(ld.getElementById("workPostalAdd")) && visible(ld.getElementById("areaLine")));
+  check("(13n) a remote worker gets no commute drop-down (as before), but does get the area drop-down",
+    !visible(lSel) && !visible(ld.getElementById("workPostalAdd")) && visible(ld.getElementById("area")));
   l.eval("setWorkArrangement('hybrid')");
-  check("(13o) hybrid: the line shows, at the 60-minute default", visible(lLine) && textOf(lLine) === "Showing places within 60 minutes · change");
-  l.eval("setMaxCommute('45')");
-  const at45 = textOf(ld.getElementById("maxCommuteLineText"));
-  l.eval("setMaxCommute('none')");
-  check("(13p) ...and it keeps up with the limit however it is set: 45 minutes, then no limit",
-    at45 === "Showing places within 45 minutes" && textOf(ld.getElementById("maxCommuteLineText")) === "Showing places with no commute limit" && !visible(ld.getElementById("maxCommute")), at45);
-  ld.getElementById("area").value = "niag";
-  l.eval("syncFormLines()");
-  check("(13q) the area line names the area in force", textOf(ld.getElementById("areaLineText")) === "Niagara / Hamilton");
+  check("(13o) hybrid: the drop-down shows, at the 60-minute default", visible(lSel) && lSel.value === "60");
+  lSel.value = "45"; lSel.dispatchEvent(new l.Event("change"));
+  const at45 = l.eval("maxCommuteMin");
+  lSel.value = "none"; lSel.dispatchEvent(new l.Event("change"));
+  check("(13p) ...and picking from it sets the limit: 45 minutes, then no limit", at45 === 45 && l.eval("maxCommuteMin") === null, at45);
   ld.getElementById("workPostal").value = "M5V 2T6";
   l.eval("setWorkArrangement('daily')");
   check("(13r) a postal code already filled in is shown open, never used unseen", visible(ld.getElementById("workPostal")) && !visible(ld.getElementById("workPostalAdd")));
