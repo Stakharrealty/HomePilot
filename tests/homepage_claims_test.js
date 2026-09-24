@@ -170,7 +170,12 @@ const visible = indexHtml.replace(/<script[\s\S]*?<\/script>/g, " ").replace(/<s
   // couple, and each row is a card on the calculator page with the same figures.
   cwin.eval("toggleSeeAll()");
   const readCalcCard = (el) => {
-    const head = /^(.*?) · \$([\d,]+)/.exec(el.querySelector(".card-headline").textContent.trim());
+    // Answer cards (2026-09-24) name their home under the monthly cost; its
+    // price is that home's row, the one with the card's verdict (.fit-pill).
+    const acLbl = el.querySelector(".ac-type");
+    const acRow = acLbl && el.querySelector(".fit-pill").closest("[id^='pt-row-']");
+    const head = acLbl ? [null, acLbl.textContent.split(" · ")[0], (/\$([\d,]+)(?![\d,]|\/mo)/.exec(acRow.textContent) || [])[1]]
+      : /^(.*?) · \$([\d,]+)/.exec(el.querySelector(".card-headline").textContent.trim());
     const pct = /(\d+)% of take-home/.exec(el.textContent);
     // Answer cards have no drive badge (2026-09-24); their drive is At a glance's first line.
     const drive = /About (\d+) min drive/.exec((el.querySelector(".commute-badge") || {}).textContent || "")

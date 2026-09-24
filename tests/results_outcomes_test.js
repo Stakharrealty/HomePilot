@@ -126,11 +126,16 @@ function readCard(el) {
   const dm = drive ? /About (\d+) min drive/.exec(drive.textContent)
     : el.querySelector(".ac-head") ? /Estimated commute: about (\d+) min drive/.exec(el.textContent) : null;
   const monthly = el.querySelector("[id$='-mtotal']");
+  // An answer card (2026-09-24) names its home under the monthly cost
+  // ("Condo"); its price is that home's row, the one with the card's verdict
+  // (.fit-pill).
+  const acLbl = el.querySelector(".ac-type"), acPill = acLbl && el.querySelector(".fit-pill");
+  const acMoney = acPill ? rowMoney(acPill.closest("[id^='pt-row-']").textContent) : null;
   return {
     id: el.id,
     city: el.querySelector(".cn").textContent.trim(),
-    type: m ? m[1].trim() : null,
-    price: m ? Number(m[2].replace(/,/g, "")) : null,
+    type: m ? m[1].trim() : acLbl ? acLbl.textContent.split(" · ")[0].trim() : null,
+    price: m ? Number(m[2].replace(/,/g, "")) : acMoney ? Number(acMoney[1].replace(/,/g, "")) : null,
     monthly: monthly ? Number(monthly.textContent.replace(/[^0-9]/g, "")) : null,
     fit: el.querySelector(".fit-pill") ? el.querySelector(".fit-pill").textContent.trim() : null,
     drive: dm ? Number(dm[1]) : null,
@@ -1106,7 +1111,7 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
     return [...c.querySelector(".city-body").children].filter((k) => !k.matches(".ct, .ac-head")).map((k) => k.matches(".ac-sec") ? k.innerHTML : k.outerHTML).join("") + c.querySelector(":scope > .view-btn").outerHTML; };
   check("(15d) each answer card is cityCardHtml()'s answer card, and below its new top it is today's card, part for part (At a glance, the home-type rows, AI Insights, compare, View available homes)",
     todays.length === 3 && a15.every((a, i) => a.slot.querySelector(".city").outerHTML === asParsed(todays[i][0]) && belowTop(todays[i][0]) === belowTop(todays[i][1]))
-      && a15.every((a) => { const el = a.slot.querySelector(".city"); return el.querySelector(".cn") && el.querySelector(".card-headline .fit-pill") && el.querySelector("[id$='-mtotal']") && /At a glance/.test(el.textContent) && el.querySelector("[id^='pt-row-']") && el.querySelector(".ai-insights-trigger") && el.querySelector(".cmp-cb") && el.querySelector(".view-btn"); }));
+      && a15.every((a) => { const el = a.slot.querySelector(".city"); return el.querySelector(".cn") && el.querySelector(".ac-type") && el.querySelectorAll(".fit-pill").length === 1 && el.querySelector(".fit-pill").closest("[id^='pt-row-']") && el.querySelector("[id$='-mtotal']") && /At a glance/.test(el.textContent) && el.querySelector("[id^='pt-row-']") && el.querySelector(".ai-insights-trigger") && el.querySelector(".cmp-cb") && el.querySelector(".view-btn"); }));
   check("(15e) each label sits on top of its card, in the site's small eyebrow style",
     a15.every((a) => a.slot.firstElementChild.className === "answer-label" && a.slot.children[1].classList.contains("city") && a.slot.children.length === 2));
   check("(15f) HomePilot Worth Knowing has its place: #worthKnowing between the answers and 'See all places', holding exactly what worthKnowingHtml() gives (section 16 checks what it says)",

@@ -563,18 +563,23 @@ select{
    monthly cost all end at the same edge. */
 .ac-row-chev{position:absolute;right:10px;top:10px;font-size:13px;font-weight:400;color:#bbb;transition:transform 0.2s}
 .ac-row-line{display:flex;justify-content:space-between;align-items:center;margin-top:4px}
+/* The fit label sat 8px under the type but the % only 4px under the price,
+   so the label read as low (measured 2026-09-24). Even gaps: */
+.ac-row-top + .ac-row-line{margin-top:1px}
 .ac-row-pct{font-size:17px;font-weight:800;color:#222}
 .ac-row-sub{justify-content:flex-end;font-size:11px;color:#999;margin-top:2px}
 /* The answer cards' top (the user, 2026-09-24, these three cards only): one
-   item per line -- the place, "Monthly cost" with $X/mo on the right,
-   "% of take-home", then the home and price with the fit label on the right.
-   No commute badge: the drive is At a glance's first line. The figures and
-   their styles are the card's own. */
+   item per line -- the place, then "Monthly cost" with $X/mo on the right,
+   then the home ("Condo") on the left with "% of take-home" under the
+   figure. The home's price and fit
+   label are its row under At a glance, not repeated here. No commute badge:
+   the drive is At a glance's first line. The figures and their styles are
+   the card's own. */
 .ac-cost{display:flex;align-items:baseline;justify-content:space-between;gap:6px;white-space:nowrap;margin-top:4px}
 .ac-cost-lbl{font-size:10px;color:#555;font-weight:700;text-transform:uppercase;letter-spacing:0.05em}
 .ac-cost-v{font-size:17px;font-weight:800;color:#1D9E75}
-.ac-pct{font-size:11px;color:#777;margin-top:2px;text-align:right}
-.ac-home{justify-content:space-between;flex-wrap:nowrap;margin-top:6px}
+.ac-pct{display:flex;justify-content:space-between;align-items:baseline;gap:6px;font-size:11px;color:#777;margin-top:2px;text-align:right}
+.ac-type{font-size:12.5px;font-weight:600;color:var(--ink-mid);text-align:left}
 /* Split into .ac-sec parts, the AI Insights row's bottom margin would add to
    the Compare line's top margin instead of overlapping it (10px + 10px).
    Dropping it keeps the gap at today's 10px, open or closed. */

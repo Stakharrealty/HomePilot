@@ -317,6 +317,9 @@ async function measureDesktopInPage(b) {
     chevronsCut: rows.filter((r) => { const c = d.getElementById(r.id + "-chevron"), list = r.parentElement.parentElement; return c && c.getBoundingClientRect().right > list.getBoundingClientRect().right - 1; }).length,
     minGap: minGap === Infinity ? null : Math.round(minGap * 10) / 10, pairs,
     buttonSpread: buttonSpread === Infinity ? null : Math.round(buttonSpread * 10) / 10,
+    // The top of each answer card (2026-09-24): how far its widest line runs
+    // past the card's content box ("Condo · Monthly cost $3,921/mo" once did).
+    headOverflow: Math.max(0, ...cards.flatMap((c) => [...c.querySelectorAll(".ac-head, .ac-head > *")].map((h) => h.scrollWidth - h.clientWidth))),
     pageWidth: d.documentElement.scrollWidth,
   };
 }
@@ -385,6 +388,7 @@ async function measureDesktopInPage(b) {
         check(`${width}px, ${b.name}: no home-type row is cut off (nothing wider than its list, every chevron inside it)`, m.overflow === 0 && m.chevronsCut === 0, m.overflow + "px over, " + m.chevronsCut + " chevrons cut");
         check(`${width}px, ${b.name}: in every cost breakdown each figure stays at least ${MIN_LABEL_GAP_PX}px from its label`, m.pairs > 0 && m.minGap >= MIN_LABEL_GAP_PX, m.minGap + "px");
         check(`${width}px, ${b.name}: every part (top, At a glance, home types, AI Insights, Compare) and "View Available Homes" lines up across the three cards, however many home types each lists, breakdowns open or closed`, m.buttonSpread !== null && m.buttonSpread <= 1, m.buttonSpread + "px apart");
+        check(`${width}px, ${b.name}: every line at the top of the answer cards fits inside its card`, m.headOverflow === 0, m.headOverflow + "px over");
         check(`${width}px, ${b.name}: nothing makes the page scroll sideways`, m.pageWidth <= width, m.pageWidth + "px wide");
       }
     }

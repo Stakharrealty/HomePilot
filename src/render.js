@@ -351,16 +351,17 @@ function cityCardHtml(e, section, cardId, answer){
   // monthly range and the property list below.
   const options=(activeProp==='all'?['condo','town','semi','detached']:[activeProp])
     .map(tp=>qualifyingOption(x,tp)).filter(Boolean);
-  // The answer cards' top, one item per line (the user, 2026-09-24): the
-  // place; the monthly cost; the % of take-home; the home and its price with
-  // the fit label on the right. Same figures, same ids. No commute badge: the
-  // drive is the first line of At a glance, which lines up across the three
-  // cards (the user, 2026-09-24).
+  // The answer cards' top (the user, 2026-09-24): the place; "Monthly cost"
+  // with the figure on the right; the home it is for ("Condo") on the left
+  // under it, with the % of take-home on the right. The home's price and fit
+  // label are its row below (no repeat up here); naming the home says which
+  // row the figure belongs to. ("Condo · Monthly cost" on one line ran past a
+  // third-width card.) No commute badge: the drive is At a glance's first
+  // line. Same figures, same ids.
   const answerHead='<div class="ac-head">'+
     '<div class="cn">'+x.n+'</div>'+
     '<div class="ac-cost"><span class="ac-cost-lbl">Monthly cost</span><span class="ac-cost-v" id="'+id+'-mtotal">'+fc(c.total)+'/mo</span></div>'+
-    '<div class="ac-pct" id="'+id+'-mmort">'+(e.pct!==null?e.pct+'% of take-home':t.mortgage+': '+fc(c.mort)+'/mo')+'</div>'+
-    '<div class="card-headline ac-home"><span>'+(PROP_LABELS[e.type]||e.type)+' · '+fc(displayPrice)+'</span>'+fitPill(fit)+'</div>'+
+    '<div class="ac-pct"><span class="ac-type">'+(PROP_LABELS[e.type]||e.type)+'</span><span id="'+id+'-mmort">'+(e.pct!==null?e.pct+'% of take-home':t.mortgage+': '+fc(c.mort)+'/mo')+'</span></div>'+
     '</div>';
   // On an answer card each part sits in its own .ac-sec, so side by side the
   // parts line up across the three cards (the .answer-grid rules in
@@ -395,7 +396,9 @@ function cityCardHtml(e, section, cardId, answer){
         const panelId='pt-panel-'+id+'-'+r.type;
         const pct=net>0?Math.round(r.costs.total/net*100):0;
         const s=FIT_STYLE[r.fit.cls]||FIT_STYLE.fo;
-        const pill='<div style="font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px;background:'+s.bg+';color:'+s.color+'">'+r.fit.lbl+'</div>';
+        // On an answer card the row of the card's own home carries its verdict
+        // (.fit-pill): the top no longer repeats it (the user, 2026-09-24).
+        const pill='<div'+(r.type===e.type?' class="fit-pill"':'')+' style="font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px;background:'+s.bg+';color:'+s.color+'">'+r.fit.lbl+'</div>';
         const tap='onclick="event.stopPropagation();selectPropType(\''+id+'\',\''+r.type+'\',\''+x.n+'\')"';
         // Answer cards (the user, 2026-09-24): the home type with its price on
         // the right; the fit label under the type, with the % on the right;
