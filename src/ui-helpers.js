@@ -122,3 +122,20 @@ function endTour(){
   const overlay = document.getElementById('tourOverlay');
   if(overlay) overlay.style.display = 'none';
 }
+
+// ── WHATSAPP NOTE ON PHONES (IMPROVEMENT_PLAN.md 2.10) ──────────────────
+// The floating WhatsApp button on index.html and calculator.html (#waWrap)
+// carries a "Questions about your analysis?" note (#waTooltip) 210px wide.
+// On a 375px phone that is more than half the screen, and it sat over the
+// stats, the form and the result cards until the buyer found its small close
+// button. On phones (under 600px, the site's own phone breakpoint) the note
+// now steps aside the first time the page scrolls; the green button stays
+// where it is. Wider screens are unchanged. tests/phone_fixes_test.js.
+const WA_NOTE_PHONE_QUERY = '(max-width: 599px)';
+function hideWaNoteOnPhoneScroll(){
+  if(!window.matchMedia || !window.matchMedia(WA_NOTE_PHONE_QUERY).matches) return;
+  const note = document.getElementById('waTooltip');
+  if(note) note.style.display = 'none';
+  window.removeEventListener('scroll', hideWaNoteOnPhoneScroll);
+}
+window.addEventListener('scroll', hideWaNoteOnPhoneScroll, { passive: true });

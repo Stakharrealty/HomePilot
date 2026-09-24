@@ -9,14 +9,19 @@
 // toggleCmpCity(), buildCompare() (renders the side-by-side comparison table).
 
 let cmpSelected=[];
-function initCompare(){cmpSelected=[];const table=document.getElementById('cmpTable'),btn=document.getElementById('cmpBtn');if(table)table.innerHTML='';if(btn)btn.style.display='none';const sticky=document.getElementById('cmpSticky');if(sticky)sticky.style.display='none';}
+// The compare bar (#cmpSticky, fixed at the bottom) and the WhatsApp button
+// share the bottom-right corner. While the bar is up, body.cmp-bar-open moves
+// the WhatsApp button above it (CSS in calculator.html), so it no longer
+// covers the bar's Compare button (IMPROVEMENT_PLAN.md 2.10).
+function setCmpBarOpen(open){if(document.body)document.body.classList.toggle('cmp-bar-open',!!open);}
+function initCompare(){cmpSelected=[];const table=document.getElementById('cmpTable'),btn=document.getElementById('cmpBtn');if(table)table.innerHTML='';if(btn)btn.style.display='none';const sticky=document.getElementById('cmpSticky');if(sticky)sticky.style.display='none';setCmpBarOpen(false);}
 function toggleCmpCity(cityName,checkbox){
   const id='c-'+cityName.replace(/[^a-zA-Z0-9]/g,'-'),cityEl=document.getElementById(id);
   if(checkbox.checked){if(cmpSelected.length>=3){checkbox.checked=false;return;}cmpSelected.push(cityName);if(cityEl)cityEl.classList.add('cmp-on');}
   else{cmpSelected=cmpSelected.filter(c=>c!==cityName);if(cityEl)cityEl.classList.remove('cmp-on');}
   const btn=document.getElementById('cmpBtn');btn.style.display=cmpSelected.length>=2?'block':'none';
   const sticky=document.getElementById('cmpSticky'),stickyLabel=document.getElementById('cmpStickyLabel');
-  if(sticky){sticky.style.display=cmpSelected.length>=2?'flex':'none';if(stickyLabel)stickyLabel.textContent=cmpSelected.length+' cit'+(cmpSelected.length===1?'y':'ies')+' selected';}
+  if(sticky){sticky.style.display=cmpSelected.length>=2?'flex':'none';setCmpBarOpen(cmpSelected.length>=2);if(stickyLabel)stickyLabel.textContent=cmpSelected.length+' cit'+(cmpSelected.length===1?'y':'ies')+' selected';}
   if(document.getElementById('cmpTable').innerHTML&&cmpSelected.length>=2)buildCompare();
 }
 function buildCompare(){

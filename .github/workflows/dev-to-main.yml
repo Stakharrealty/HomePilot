@@ -92,6 +92,13 @@ jobs:
       - name: English only test
         run: npm run test:english-only
 
+      # Phone fixes (IMPROVEMENT_PLAN.md 2.10): the homepage example shows on
+      # phones, and the WhatsApp button covers nothing a buyer needs: the footer
+      # scrolls clear of it, its note steps aside on phones, it moves above the
+      # compare bar, and pop-ups sit above it. Needs the static server above.
+      - name: Phone fixes test
+        run: npm run test:phone-fixes
+
       # Everything above must exit 0 or the workflow stops here -- this
       # step (and therefore the push to main) is unreachable otherwise.
       - name: Fast-forward main to dev and push

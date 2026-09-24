@@ -54,7 +54,11 @@ body{
 .w{
   max-width:480px;
   margin:0 auto;
-  padding:1.25rem 1rem 3rem;
+  /* 6rem at the bottom on phones (IMPROVEMENT_PLAN.md 2.10): the WhatsApp
+     button sits 20px from the bottom and is 56px tall, so with 3rem it sat over
+     the bottom of the footer. Now the footer scrolls 20px clear of it. The
+     600px and 1024px rules below keep 3rem, as before. */
+  padding:1.25rem 1rem 6rem;
 }
 @media(min-width:600px){.w{max-width:600px;padding:1.5rem 1.25rem 3rem}}
 @media(min-width:780px){.w{max-width:740px}}
@@ -173,7 +177,32 @@ body{
 .hero2-statsbar .stat .val{font-size:19px;font-weight:800;color:var(--navy-mid)}
 .hero2-statsbar .stat .lbl{font-size:11px;color:var(--ink-faint);margin-top:2px}
 
-.hero2-example{display:none}
+/* The example panel shows at every width (IMPROVEMENT_PLAN.md 2.10). Until
+   2026-09-24 it was display:none below 1024px and all of its styles lived in
+   the desktop block, so phone visitors never saw what results look like. On a
+   phone it stacks under the "See What I Can Afford" button, in the same
+   style as the desktop panel. tests/phone_fixes_test.js keeps it showing. */
+.hero2-example{
+  display:block;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  padding:20px;
+  margin-top:24px;
+}
+.hero2-example-lbl{font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:12px}
+.hero2-example-buyer{font-size:12px;color:var(--ink-soft);line-height:1.45;margin:-6px 0 12px}
+.lb-list{display:flex;flex-direction:column;gap:10px}
+.lb-row{display:flex;align-items:flex-start;gap:12px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;transition:border-color 0.15s,box-shadow 0.15s}
+.lb-row:hover{border-color:var(--green);box-shadow:var(--shadow)}
+.lb-rank{flex-shrink:0;width:26px;height:26px;border-radius:50%;background:var(--navy);color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;margin-top:1px}
+.lb-body{flex:1;min-width:0}
+.lb-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px}
+.lb-city{font-size:14.5px;font-weight:700;color:var(--ink)}
+.lb-badge{font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap}
+.lb-meta{font-size:12.5px;color:var(--ink-soft);margin-bottom:8px}
+.lb-bar{height:5px;border-radius:999px;background:var(--border);overflow:hidden}
+.lb-bar-fill{height:100%;border-radius:999px}
 
 @media(min-width:1024px){
   .hero2-grid{display:grid;grid-template-columns:1.1fr 1fr;gap:56px;align-items:center}
@@ -181,26 +210,8 @@ body{
   .hero2-left h1{font-size:42px}
   .hero2-sub{max-width:520px;text-align:left}
   .hero2-benefits{max-width:none;margin-left:0;margin-right:0;text-align:left}
-  .hero2-example{
-    display:block;
-    background:var(--surface);
-    border:1px solid var(--border);
-    border-radius:var(--radius-lg);
-    padding:20px;
-  }
-  .hero2-example-lbl{font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:12px}
-  .hero2-example-buyer{font-size:12px;color:var(--ink-soft);line-height:1.45;margin:-6px 0 12px}
-  .lb-list{display:flex;flex-direction:column;gap:10px}
-  .lb-row{display:flex;align-items:flex-start;gap:12px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;transition:border-color 0.15s,box-shadow 0.15s}
-  .lb-row:hover{border-color:var(--green);box-shadow:var(--shadow)}
-  .lb-rank{flex-shrink:0;width:26px;height:26px;border-radius:50%;background:var(--navy);color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;margin-top:1px}
-  .lb-body{flex:1;min-width:0}
-  .lb-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px}
-  .lb-city{font-size:14.5px;font-weight:700;color:var(--ink)}
-  .lb-badge{font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap}
-  .lb-meta{font-size:12.5px;color:var(--ink-soft);margin-bottom:8px}
-  .lb-bar{height:5px;border-radius:999px;background:var(--border);overflow:hidden}
-  .lb-bar-fill{height:100%;border-radius:999px}
+  /* side by side with the text here, so no gap above it */
+  .hero2-example{margin-top:0}
   .hero2-statsbar{grid-template-columns:repeat(4,1fr);max-width:900px;margin:40px auto 0}
 }
 
@@ -632,6 +643,13 @@ select{
   transition:background 0.15s;
 }
 .cmp-sticky-btn:hover{background:#F2F0E9}
+
+/* ── WHATSAPP BUTTON (IMPROVEMENT_PLAN.md 2.10) ──────────────── */
+/* #waWrap (bottom of the page) is as wide as its 210px note, so while the
+   note showed, the empty strip beside the round button took taps meant for
+   what was under it. Only the note and the button itself take taps now. */
+#waWrap{pointer-events:none}
+#waWrap > *{pointer-events:auto}
 
 /* ── TOP PICKS TOGGLE ───────────────────────────────────────── */
 .tp-toggle{
