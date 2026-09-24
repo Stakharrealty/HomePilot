@@ -87,7 +87,7 @@ function render(){
     const notes=[];
     if(stretchOnly.length) notes.push(stretchOnly.length+(ranked.length?' more ':' ')+(stretchOnly.length===1?'city works':'cities work')+' only as a stretch — listed below'+(ranked.length?' the others.':'.'));
     if(ranking.limit!==null&&overCommute.length) notes.push(overCommute.length+' '+(overCommute.length===1?'city':'cities')+' hidden — estimated drive over '+ranking.limit+' min'+(overComfortable?' ('+overComfortable+' with '+typeWord+' you can comfortably afford)':'')+'. <button type="button" class="link-btn" onclick="toggleOverCommute()">'+(showOverCommute?'Hide them':'Show them')+'</button>');
-    if(workArrangement!=='remote'&&!workZone) notes.push("We couldn't place your work location, so commute isn't used below. Check the work city or postal code.");
+    if((workArrangement==='hybrid'||workArrangement==='daily')&&!workZone) notes.push("We couldn't place your work location, so commute isn't used below. Check the work city or postal code.");
     notesEl.innerHTML='<div class="rank-rule">'+rankRuleSentence(ranking.sort,ranking.commuteKnown)+'</div>'+notes.map(x=>'<div class="rank-note">'+x+'</div>').join('');
   }
 

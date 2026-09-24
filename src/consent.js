@@ -53,8 +53,17 @@ function recordHomePilotConsent(){
 
 // Entry point for the Go button. Runs the calculation immediately for anyone
 // who has already accepted the current version; otherwise opens the gate.
+//
+// A buyer who hasn't answered "Work arrangement" or "First-time buyer" (no
+// answer is pre-selected; IMPROVEMENT_PLAN.md 2.5) is shown what's missing
+// before the consent pop-up, not after it. With consent already given, go()
+// makes the same check alongside the other form checks.
 function requestCalculation(){
   if(hasHomePilotConsent()){ go(); return; }
+  if(typeof checkRequiredChoices === 'function' && !checkRequiredChoices()){
+    if(typeof showFirstUnansweredChoice === 'function') showFirstUnansweredChoice();
+    return;
+  }
   openConsentModal();
 }
 

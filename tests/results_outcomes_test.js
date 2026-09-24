@@ -21,6 +21,8 @@
 //   6. The What-If scenario's #1 is the screen's #1 (one ranking).
 //   7. Smaller fixes: the rate note's amortization, neutral icons, the sort
 //      switch, no Ottawa for a Toronto worker.
+//  12. No pre-filled answers: "Work arrangement" and "First-time buyer" start
+//      unanswered, and no results appear until both are chosen.
 //
 // Requires: a local static server on :8843 (npx http-server -p 8843 -s).
 // Run: node --no-warnings tests/results_outcomes_test.js
@@ -374,6 +376,77 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
   check("(11i) a negative income is refused with a visible message",
     win.document.getElementById("err").style.display === "block" && /can't be negative/.test(win.document.getElementById("err").textContent));
   // (11j checked the partner box's translations; the site went English only 2026-09-23.)
+
+  // =============== 12. no pre-filled answers (IMPROVEMENT_PLAN.md 2.5) ===============
+  // "Work arrangement" and "First-time buyer" used to arrive answered
+  // ("Remote" and "No"), so a buyer who skipped them got results built on
+  // answers they never gave. Both now start unanswered, and no results appear
+  // until both are chosen. A fresh page, because the one above has answers.
+  const fresh = await openCalculator();
+  const fw = fresh.win, fd = fw.document;
+  const scrolledTo = [];
+  fw.Element.prototype.scrollIntoView = function () { scrolledTo.push(this.id); };
+  try { fw.localStorage.removeItem("hp_consent"); } catch (e) { /* no storage: consent is not given either way */ }
+  const GREEN = /#1D9E75|rgb\(29, 158, 117\)/i;
+  const shows = (id) => fd.getElementById(id).style.display === "block";
+  const noResults = () => fw.eval("results.length") === 0 && fd.getElementById("bpBox").style.display !== "block"
+    && fd.querySelectorAll("#list .city, #listMore .city").length === 0;
+  const waSel = fd.getElementById("waSelect");
+  check("(12a) work arrangement starts unanswered: the select reads 'Choose one' and the page holds no answer",
+    waSel.value === "" && waSel.options[waSel.selectedIndex].textContent === "Choose one" && fw.eval("workArrangement") === null,
+    waSel.value + " / " + fw.eval("workArrangement"));
+  check("(12b) first-time buyer starts unanswered: neither Yes nor No is highlighted",
+    fw.eval("firstTimeBuyer") === null && !GREEN.test(fd.getElementById("ftb-yes").style.background) && !GREEN.test(fd.getElementById("ftb-no").style.background),
+    fd.getElementById("ftb-yes").style.background + " / " + fd.getElementById("ftb-no").style.background);
+  check("(12c) the browser can't refill an old work arrangement on reload (autocomplete off)", waSel.getAttribute("autocomplete") === "off");
+  check("(12d) no question message shows before the buyer tries to continue", !shows("wa_err") && !shows("ftb_err"));
+  fd.getElementById("inc").value = "130000";
+  fd.getElementById("dwn").value = "70000";
+  fd.getElementById("dbt").value = "450";
+  fd.getElementById("goBtn").click();
+  check("(12e) pressing the button with neither answered shows no results", noResults());
+  check("(12f) ...and a clear message next to each question, in the form's error style",
+    shows("wa_err") && shows("ftb_err") && fd.getElementById("wa_err").classList.contains("err") && fd.getElementById("ftb_err").classList.contains("err")
+      && /remote, hybrid or daily/.test(fd.getElementById("wa_err").textContent) && /Yes or No/.test(fd.getElementById("ftb_err").textContent)
+      && fd.getElementById("workArrangementCard").contains(fd.getElementById("wa_err")) && fd.getElementById("ftbCard").contains(fd.getElementById("ftb_err")));
+  check("(12g) ...before the consent pop-up, which stays closed", fd.getElementById("consentModalOverlay").style.display !== "flex");
+  check("(12h) ...and the first unanswered question is brought into view, with its select focused",
+    scrolledTo[scrolledTo.length - 1] === "workArrangementCard" && fd.activeElement === waSel, scrolledTo.join(",") + " / " + (fd.activeElement && fd.activeElement.id));
+  fw.eval("go()");
+  check("(12i) go() itself refuses too (a shared link or a returning visitor reaches it directly)", noResults() && shows("wa_err") && shows("ftb_err"));
+  fw.eval("setWorkArrangement('office')");
+  check("(12j) only remote, hybrid or daily count as an answer", fw.eval("workArrangement") === null && waSel.value === "");
+  waSel.value = "hybrid";
+  waSel.dispatchEvent(new fw.Event("change"));
+  fd.getElementById("workCity").value = "Toronto";
+  check("(12k) choosing a work arrangement clears its message at once", !shows("wa_err") && fw.eval("workArrangement") === "hybrid" && fw.eval("maxCommuteMin") === 60);
+  fw.eval("go()");
+  check("(12l) with only the work arrangement answered: still no results, and only the first-time message shows",
+    noResults() && !shows("wa_err") && shows("ftb_err"));
+  check("(12m) ...and the page brings the first-time question into view", scrolledTo[scrolledTo.length - 1] === "ftbCard", scrolledTo.join(","));
+  fd.getElementById("ftb-yes").click();
+  check("(12n) choosing Yes clears its message and highlights Yes only",
+    !shows("ftb_err") && fw.eval("firstTimeBuyer") === true && GREEN.test(fd.getElementById("ftb-yes").style.background) && !GREEN.test(fd.getElementById("ftb-no").style.background));
+  fw.eval("go()");
+  check("(12o) with both answered, results appear, built on the answers given",
+    fw.eval("results.length") > 0 && fd.getElementById("bpBox").style.display === "block" && fd.querySelectorAll("#list .city, #listMore .city").length > 0
+      && fw.eval("workZone") !== null && /30-year amortization \(first-time buyer\)/.test(fd.getElementById("rateNote").textContent),
+    fd.getElementById("rateNote").textContent.slice(0, 120));
+
+  // A shared link restores the answers it carries. It has no first-time
+  // answer (the share service keeps seven fields), so it stops and asks.
+  const shared = await openCalculator();
+  const sw = shared.win, sd = sw.document;
+  try { sw.localStorage.removeItem("hp_consent"); } catch (e) { /* as above */ }
+  sw.fetch = async () => ({ ok: true, json: async () => ({ inc: 130000, dn: 70000, dbt: 450, fam: "3", wa: "hybrid", wp: "" }) });
+  sw.history.replaceState(null, "", "?s=test-link");
+  await sw.eval("loadScenarioFromURL()");
+  await new Promise((r) => setTimeout(r, 300));
+  check("(12p) a shared link fills in the work arrangement it carries", sd.getElementById("waSelect").value === "hybrid" && sw.eval("workArrangement") === "hybrid");
+  check("(12q) ...but not a first-time answer, so it stops at that question: no results, no pop-up yet",
+    sw.eval("firstTimeBuyer") === null && sd.getElementById("ftb_err").style.display === "block" && sd.getElementById("wa_err").style.display !== "block"
+      && sw.eval("results.length") === 0 && sd.getElementById("consentModalOverlay").style.display !== "flex");
+  check("(12r) no script errors on either fresh page", fresh.errors.length === 0 && shared.errors.length === 0, [...fresh.errors, ...shared.errors].join(" | "));
 
   check("(8) no uncaught script errors during any of this", errors.length === 0, errors.join(" | "));
 

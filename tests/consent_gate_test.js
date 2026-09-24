@@ -58,9 +58,12 @@ const shim = `
     setItem: (k, v) => { __store[k] = String(v); }
   }};
   const document = { addEventListener: () => {}, getElementById: (id) => __els[id] || null };
+  // main.js's check of the two questions with no pre-selected answer (2.5).
+  const checkRequiredChoices = () => __choicesOk !== false;
+  const showFirstUnansweredChoice = () => { __shownQuestion++; };
 `;
 
-function runScenario(label, { seed, checked, modalPresent }, assertFn) {
+function runScenario(label, { seed, checked, modalPresent, choicesOk }, assertFn) {
   const els = {};
   if (modalPresent) {
     els.consentModalOverlay = { style: { display: "none" }, focus() {} };
@@ -70,12 +73,12 @@ function runScenario(label, { seed, checked, modalPresent }, assertFn) {
   let calls = 0;
   const store = seed ? { hp_consent: JSON.stringify(seed) } : {};
   const fn = new Function(
-    "__store", "__els", "__callsRef",
-    `let __calls = 0;${shim}${consentJs}
+    "__store", "__els", "__callsRef", "__choicesOk",
+    `let __calls = 0, __shownQuestion = 0;${shim}${consentJs}
      const __api = { requestCalculation, acceptConsentAndCalculate, hasHomePilotConsent };
-     return { api: __api, getCalls: () => __calls, store: __store, els: __els };`
+     return { api: __api, getCalls: () => __calls, getShownQuestion: () => __shownQuestion, store: __store, els: __els };`
   );
-  const ctx = fn(store, els, calls);
+  const ctx = fn(store, els, calls, choicesOk);
   assertFn(ctx, label);
 }
 
@@ -122,6 +125,15 @@ runScenario("stale consent", { modalPresent: true, seed: { version: "1900-01-01"
 runScenario("modal missing", { modalPresent: false }, (ctx) => {
   ctx.api.requestCalculation();
   t("modal missing: fails open instead of blocking forever", ctx.getCalls() === 1);
+});
+
+// 7. Work arrangement or first-time buyer unanswered (IMPROVEMENT_PLAN.md 2.5)
+//    -> the buyer is shown the question, not the consent pop-up, and nothing runs
+runScenario("unanswered question", { modalPresent: true, choicesOk: false }, (ctx) => {
+  ctx.api.requestCalculation();
+  t("unanswered question: calculation is blocked", ctx.getCalls() === 0);
+  t("unanswered question: the consent pop-up stays closed", ctx.els.consentModalOverlay.style.display === "none");
+  t("unanswered question: the question is brought into view", ctx.getShownQuestion() === 1);
 });
 
 console.log(failures === 0 ? "\nAll consent gate tests passed." : `\n${failures} consent gate test(s) FAILED.`);

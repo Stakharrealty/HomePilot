@@ -24,15 +24,19 @@ function checkDebtSanity(){
   const looksTooHigh = dbtVal > 0 && monthlyIncome > 0 && dbtVal > monthlyIncome*0.20;
   warnEl.style.display = looksTooHigh ? 'block' : 'none';
 }
-// Paints a Yes/No button pair.
+// Paints a Yes/No button pair. Anything but true/false paints neither as
+// picked (the first-time question starts unanswered; IMPROVEMENT_PLAN.md 2.5).
 function paintYesNo(yesId, noId, val){
   const yes=document.getElementById(yesId),no=document.getElementById(noId);
   if(!yes||!no)return;
-  if(val){yes.style.background='#1D9E75';yes.style.color='#fff';yes.style.borderColor='#1D9E75';no.style.background='#fff';no.style.color='#555';no.style.borderColor='#e8e8e8';}
+  if(val!==true&&val!==false){[yes,no].forEach(b=>{b.style.background='#fff';b.style.color='#3D4555';b.style.borderColor='#E4E7EC';});}
+  else if(val){yes.style.background='#1D9E75';yes.style.color='#fff';yes.style.borderColor='#1D9E75';no.style.background='#fff';no.style.color='#555';no.style.borderColor='#e8e8e8';}
   else{no.style.background='#1D9E75';no.style.color='#fff';no.style.borderColor='#1D9E75';yes.style.background='#fff';yes.style.color='#555';yes.style.borderColor='#e8e8e8';}
 }
 function setFTB(val){
   firstTimeBuyer=val;paintYesNo('ftb-yes','ftb-no',val);
+  // Answered: clear the "Please choose Yes or No" message (main.js, 2.5).
+  if(val===true||val===false){const fe=document.getElementById('ftb_err');if(fe)fe.style.display='none';}
   // The land transfer tax rebate question only means anything for a
   // first-time buyer (see lttRebateApplies below).
   const row=document.getElementById('ltt_rebate_row');if(row)row.style.display=val?'flex':'none';

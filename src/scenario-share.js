@@ -111,12 +111,12 @@ async function loadScenarioFromURL() {
     if(p.dn)   document.getElementById('dwn').value  = p.dn;
     if(p.dbt)  document.getElementById('dbt').value  = p.dbt || 0;
     if(p.fam)  document.getElementById('fam').value  = p.fam;
-    if(p.wa) {
-      workArrangement = p.wa;
-      const sel = document.getElementById('waSelect');
-      if(sel) sel.value = p.wa;
-      setWorkArrangement(p.wa);
-    }
+    // setWorkArrangement() takes only remote / hybrid / daily and sets the
+    // select; anything else leaves the question unanswered. The link has no
+    // first-time buyer answer (the share service keeps only the fields
+    // above), and nothing is pre-selected any more (IMPROVEMENT_PLAN.md 2.5),
+    // so the run below stops at that question and asks the recipient.
+    if(p.wa) setWorkArrangement(p.wa);
     if(p.wp) {
       const wpEl = document.getElementById('workPostal');
       if(wpEl) wpEl.value = p.wp;

@@ -1253,12 +1253,17 @@ select{
   </div>
 
   <div class="card" id="workArrangementCard">
-    <label class="lbl" id="wa_lbl">Work arrangement</label>
-    <select id="waSelect" onchange="setWorkArrangement(this.value)">
-      <option value="remote" selected>Remote</option>
+    <label class="lbl" id="wa_lbl" for="waSelect">Work arrangement</label>
+    <!-- No answer is pre-selected (2026-09-24, IMPROVEMENT_PLAN.md 2.5): the buyer must pick one,
+         and go() stops with wa_err until they do. autocomplete="off" stops the browser refilling
+         an old answer on reload that the page never received. -->
+    <select id="waSelect" onchange="setWorkArrangement(this.value)" autocomplete="off">
+      <option value="" disabled selected>Choose one</option>
+      <option value="remote">Remote</option>
       <option value="hybrid">Hybrid (2–4 days/week)</option>
       <option value="daily">Daily (5+ days/week)</option>
     </select>
+    <div class="err" id="wa_err" role="alert">Please choose one: remote, hybrid or daily.</div>
     <div id="workLocationFields" style="display:none;" class="work-location-fields">
       <div style="margin-top:12px;">
         <label class="lbl" id="wc_lbl" style="margin-bottom:5px;">Work city</label>
@@ -1305,12 +1310,14 @@ select{
       <option value="east2">Eastern Ontario</option>
     </select>
   </div>
-  <div class="card">
+  <div class="card" id="ftbCard">
     <div class="lbl" id="ftb_lbl">Are you a first-time home buyer?</div>
+    <!-- Neither Yes nor No starts selected (2026-09-24, IMPROVEMENT_PLAN.md 2.5); go() stops with ftb_err until one is picked. -->
     <div style="display:flex;gap:10px;margin-top:8px">
       <button id="ftb-yes" onclick="setFTB(true)" style="flex:1;padding:10px;border-radius:999px;border:1.5px solid #E4E7EC;background:#fff;color:#3D4555;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;font-family:var(--font)">Yes</button>
-      <button id="ftb-no" onclick="setFTB(false)" style="flex:1;padding:10px;border-radius:999px;border:1.5px solid #1D9E75;background:#1D9E75;color:#fff;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;font-family:var(--font)">No</button>
+      <button id="ftb-no" onclick="setFTB(false)" style="flex:1;padding:10px;border-radius:999px;border:1.5px solid #E4E7EC;background:#fff;color:#3D4555;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;font-family:var(--font)">No</button>
     </div>
+    <div class="err" id="ftb_err" role="alert">Please choose Yes or No.</div>
     <div style="font-size:11px;color:#9CA3AF;margin-top:6px" id="ftb_hint">First-time buyers may qualify for a 30-year mortgage and land transfer tax rebates</div>
     <!-- The rebates have a stricter rule than the 30-year mortgage (2026-09-23, IMPROVEMENT_PLAN.md 1.7;
          see closingcosts.js). Unticked by default, so no rebate is shown to someone who owned a home abroad. -->

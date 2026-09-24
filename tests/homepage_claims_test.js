@@ -106,8 +106,10 @@ const visible = indexHtml.replace(/<script[\s\S]*?<\/script>/g, " ").replace(/<s
   check("every example row names its % of take-home and its drive", rows.every((r) => /% of take-home/.test(r.meta) && /min drive/.test(r.meta)));
   check("the example's commuter stays within the default 60-minute hybrid limit",
     rows.every((r) => { const m = /about (\d+) min drive/.exec(r.meta); return m && Number(m[1]) <= 60; }));
+  // Work arrangement and first-time buyer start unanswered (null) since
+  // 2026-09-24 (IMPROVEMENT_PLAN.md 2.5); they were 'remote' and false.
   check("computing the example leaves the page's own globals untouched",
-    win.eval("grossMonthlyIncome === 0 && buyPower === 0 && workZone === null && workArrangement === 'remote' && firstTimeBuyer === false"));
+    win.eval("grossMonthlyIncome === 0 && buyPower === 0 && workZone === null && workArrangement === null && firstTimeBuyer === null"));
   check("the example label says it is one sample buyer, and who", /SAMPLE BUYER/.test(win.document.getElementById("heroExampleLbl").textContent)
     && /\$150K household income \(\$90K \+ \$60K\) · \$100K down · first-time buyers · work in Toronto 2–4 days a week/.test(win.document.getElementById("heroExampleBuyer").textContent),
     win.document.getElementById("heroExampleBuyer").textContent);

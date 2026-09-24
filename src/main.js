@@ -13,17 +13,26 @@
 // grossMonthlyIncome, netMonthlyIncome, customMortgageRate, firstTimeBuyer,
 // existingDebt, activeProp, activeFit, devMode, workArrangement, workZone,
 // maxCommuteMin, resultsSort, showOverCommute, shownCards),
-// setWorkArrangement(), setMaxCommute(), setResultsSort(), toggleOverCommute(),
+// checkRequiredChoices() / showFirstUnansweredChoice() (the two questions with
+// no pre-selected answer), setWorkArrangement(), setMaxCommute(),
+// setResultsSort(), toggleOverCommute(),
 // amortizationNote(), and go() — the main calculation orchestrator that runs
 // when the buyer submits the form.
 
 const RF={all:null,gta:["gta"],west:["west"],east:["east"],north:["north"],duff:["duff"],niag:["niag"],wloo:["wloo"],east2:["east2"]};
-let results=[],buyPower=0,comfortBuyPower=0,fam_selected="3",dn_selected=0,grossMonthlyIncome=0,netMonthlyIncome=0,customMortgageRate=DEFAULT_MORTGAGE_RATE_PCT/100,firstTimeBuyer=false,existingDebt=0;
+let results=[],buyPower=0,comfortBuyPower=0,fam_selected="3",dn_selected=0,grossMonthlyIncome=0,netMonthlyIncome=0,customMortgageRate=DEFAULT_MORTGAGE_RATE_PCT/100,firstTimeBuyer=null,existingDebt=0;
 
 let activeProp='all',activeFit='all',devMode=false;
 
-let workArrangement = 'remote';
+// No silent defaults (2026-09-24, IMPROVEMENT_PLAN.md 2.5, REVIEW_BACKLOG.md
+// P1-9). firstTimeBuyer and workArrangement start as null, "not answered":
+// the form used to arrive with "No" and "Remote" already picked, so a buyer
+// who skipped them got results built on answers they never gave (a 25-year
+// mortgage instead of 30, no commute limit). go() now stops until both are
+// answered; see checkRequiredChoices() below.
+let workArrangement = null;
 let workZone = null;
+const WORK_ARRANGEMENTS = ['remote', 'hybrid', 'daily'];
 
 // Commute limit, result order and the on-screen record (added 2026-09-23,
 // IMPROVEMENT_PLAN.md 1.2 / 1.4 -- see ranking.js):
@@ -69,8 +78,39 @@ function readIncomes(){
   return { own, partner, total: own+partner };
 }
 
+// The two questions with no pre-selected answer. checkRequiredChoices() shows
+// the message under each one still unanswered (and hides it once answered);
+// it returns true when both are answered. showFirstUnansweredChoice() brings
+// the first of them into view, because the button sits at the bottom of a
+// long form.
+function hasWorkArrangement(){ return WORK_ARRANGEMENTS.includes(workArrangement); }
+function hasFirstTimeAnswer(){ return firstTimeBuyer === true || firstTimeBuyer === false; }
+function showChoiceError(id, show){
+  const el = document.getElementById(id);
+  if(el) el.style.display = show ? 'block' : 'none';
+}
+function checkRequiredChoices(){
+  const waOk = hasWorkArrangement(), ftbOk = hasFirstTimeAnswer();
+  showChoiceError('wa_err', !waOk);
+  showChoiceError('ftb_err', !ftbOk);
+  return waOk && ftbOk;
+}
+function showFirstUnansweredChoice(){
+  const card = document.getElementById(!hasWorkArrangement() ? 'workArrangementCard' : !hasFirstTimeAnswer() ? 'ftbCard' : '');
+  if(!card) return;
+  if(typeof card.scrollIntoView === 'function') card.scrollIntoView({behavior:'smooth', block:'center'});
+  if(!hasWorkArrangement()){
+    const sel = document.getElementById('waSelect');
+    if(sel && typeof sel.focus === 'function') sel.focus({preventScroll:true});
+  }
+}
+
 function setWorkArrangement(type) {
+  // Only the three real answers; anything else (the "Choose one" placeholder,
+  // a bad shared link) leaves the question unanswered.
+  if(!WORK_ARRANGEMENTS.includes(type)) return;
   workArrangement = type;
+  showChoiceError('wa_err', false);
   const sel = document.getElementById('waSelect');
   if(sel && sel.value !== type) sel.value = type;
   const fields = document.getElementById('workLocationFields');
@@ -156,8 +196,8 @@ function go(){
     const _rh=document.getElementById('rateHint');
     if(_rh) _rh.textContent='Current market rate';
   }
-  // Resolve work location coords
-  if(workArrangement !== 'remote') {
+  // Resolve work location coords (only for a commuter; unanswered is not one)
+  if(workArrangement === 'hybrid' || workArrangement === 'daily') {
     workZone = getWorkZone();
   } else {
     workZone = null;
@@ -178,12 +218,16 @@ function go(){
   // next to the previous run's number.
   const err=document.getElementById("err");
   const fail=(msg)=>{
-    err.textContent=msg; err.style.display="block";
+    if(msg){ err.textContent=msg; err.style.display="block"; }
     const bp=document.getElementById("bpBox"); if(bp) bp.style.display="none";
     const bpv=document.getElementById("bpV"); if(bpv) bpv.textContent="";
     return false;
   };
   err.style.display="none";
+  // The two unanswered-by-default questions (2.5). Their messages are shown
+  // now, next to each question, so a buyer who also mistyped an amount sees
+  // every problem at once; the search stops after the checks below.
+  const choicesOk=checkRequiredChoices();
   // Checked before the total: -5,000 plus 100,000 would otherwise pass.
   if(incomes.own<0||incomes.partner<0) return void fail("Incomes can't be negative. Leave the partner box blank if you're buying on your own.");
   if(!Number.isFinite(inc)||inc<1000) return void fail(t.err);
@@ -197,6 +241,7 @@ function go(){
   if(dn>50000000) return void fail("That down payment is outside the range this calculator is built for.");
   if(dbt<0) return void fail("Monthly debt payments can't be negative. Enter 0 if you have none.");
   if(!Number.isFinite(dbt)||dbt>inc) return void fail("Your monthly debt payments look larger than your annual income. Enter the MONTHLY amount you pay, not the total balance owing.");
+  if(!choicesOk){ showFirstUnansweredChoice(); return void fail(); }
   const btn=document.getElementById("goBtn");btn.disabled=true;btn.innerHTML='<div class="spin"></div>';
   try{
     const{bp:b,comfortBP:cBP,mo,comfortMo,downPaymentLimited,incomeCapBP,downPaymentShortfall}=calcBP(inc,dn,dbt);

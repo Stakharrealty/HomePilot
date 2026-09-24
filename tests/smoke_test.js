@@ -76,7 +76,10 @@ function check(name, cond, detail) {
         document.getElementById("dbt").value = "0";
         document.getElementById("area").value = document.getElementById("area").options[0].value;
         document.getElementById("fam").value = document.getElementById("fam").options[0].value;
-        workArrangement = "remote";
+        // Both answers picked explicitly: neither is pre-selected any more,
+        // and go() stops until they are (IMPROVEMENT_PLAN.md 2.5).
+        setWorkArrangement("remote");
+        setFTB(false);
         go();
         var cnt = document.getElementById("cnt");
         var list = document.getElementById("list");
