@@ -395,6 +395,8 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
   check("(12a) work arrangement starts unanswered: the select reads 'Choose one' and the page holds no answer",
     waSel.value === "" && waSel.options[waSel.selectedIndex].textContent === "Choose one" && fw.eval("workArrangement") === null,
     waSel.value + " / " + fw.eval("workArrangement"));
+  check("(12a2) ...and the hint under it is empty until the buyer answers (it used to describe Remote, the old pre-selected answer)",
+    fd.getElementById("wa_hint").textContent.trim() === "", fd.getElementById("wa_hint").textContent);
   check("(12b) first-time buyer starts unanswered: neither Yes nor No is highlighted",
     fw.eval("firstTimeBuyer") === null && !GREEN.test(fd.getElementById("ftb-yes").style.background) && !GREEN.test(fd.getElementById("ftb-no").style.background),
     fd.getElementById("ftb-yes").style.background + " / " + fd.getElementById("ftb-no").style.background);
@@ -420,6 +422,7 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
   waSel.dispatchEvent(new fw.Event("change"));
   fd.getElementById("workCity").value = "Toronto";
   check("(12k) choosing a work arrangement clears its message at once", !shows("wa_err") && fw.eval("workArrangement") === "hybrid" && fw.eval("maxCommuteMin") === 60);
+  check("(12k2) ...and the hint now describes the answer given (hybrid: the longest commute)", /longest commute/.test(fd.getElementById("wa_hint").textContent), fd.getElementById("wa_hint").textContent);
   fw.eval("go()");
   check("(12l) with only the work arrangement answered: still no results, and only the first-time message shows",
     noResults() && !shows("wa_err") && shows("ftb_err"));
