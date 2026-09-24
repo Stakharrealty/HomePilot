@@ -314,7 +314,28 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
     !!twoOfAPlace && ticked[0].type !== ticked[1].type && ticked[0].price !== ticked[1].price, twoOfAPlace ? JSON.stringify(ticked.map((c) => c.id + " " + c.type)) : "none");
   ticked.forEach((c) => win.document.getElementById("cmp-chk-" + c.id).click());
   check("(3j3) unticking both empties the selection", win.eval("cmpSelected.length") === 0);
+  // A new search starts Compare afresh. A tick keeps the home its card showed,
+  // so a tick carried into new answers compared homes from the old search:
+  // some no longer on the page, some above the new budget.
+  ticked.forEach((c) => win.document.getElementById("cmp-chk-" + c.id).click());
+  search(win, { ...COUPLE, income: 180000, down: 90000, work: "hybrid", maxCommute: "60" });
+  const sticky3 = win.document.getElementById("cmpSticky");
+  check("(3j4) a new search clears Compare: nothing ticked, no compare bar, no 'N selected' left over",
+    win.eval("cmpSelected.length") === 0 && win.eval("Object.keys(cmpTicked).length") === 0 && (!sticky3 || sticky3.style.display === "none")
+      && !win.document.body.classList.contains("cmp-bar-open") && win.document.querySelectorAll(".city.cmp-on").length === 0,
+    win.eval("JSON.stringify(cmpSelected)"));
+  const newScreen = cardsOnScreen().slice(0, 2);
+  newScreen.forEach((c) => win.document.getElementById("cmp-chk-" + c.id).click());
+  written.length = 0;
+  win.eval("buildCompare()");
+  const cmpNew = written[0] && written[0].html ? new win.DOMParser().parseFromString(written[0].html, "text/html") : null;
+  const newPrices = cmpNew ? [...cmpNew.querySelectorAll(".cmp-row")[0].querySelectorAll(".cmp-cell")].slice(1).map((e) => Number(e.textContent.replace(/[^0-9]/g, ""))) : [];
+  check("(3j5) ...and cards ticked after it compare the new search's homes",
+    newScreen.length === 2 && newPrices.join("|") === newScreen.map((c) => c.price).join("|") && newScreen.every((c) => c.price <= win.eval("buyPower")),
+    newPrices.join("|") + " vs " + newScreen.map((c) => c.price).join("|"));
+  newScreen.forEach((c) => win.document.getElementById("cmp-chk-" + c.id).click());
   win.eval("cmpSelected=[]");
+  search(win, { ...COUPLE, income: 180000, down: 120000, work: "hybrid", maxCommute: "60" });
   win.open = realOpen; win.alert = realAlert;
   // Back to the "No limit" section 1 left, which the sections below expect.
   win.eval("setMaxCommute('none')");

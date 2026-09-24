@@ -542,6 +542,10 @@ function go(){
     results=cands.map(m=>({...m,displayMax:Math.min(m.max,b),homePrice:Math.min(m.max,b)}));
     // A new search starts with "See all places" closed, in its default order.
     shownCards=[];showOverCommute=false;seeAllOpen=false;resultsSort='home';
+    // ...and with nothing ticked for Compare: a tick keeps the home its card
+    // showed (compare.js), and after new answers that home may be gone from
+    // the page or above the new budget.
+    if(typeof initCompare==='function') initCompare();
 
     // ── THE TOP SECTION: the HomePilot comfort range (renderTopSection()) ──
     lastSearch={own:incomes.own,partner:incomes.partner,total:inc,dn,dbt,area,rate:customMortgageRate,calc};

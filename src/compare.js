@@ -6,8 +6,10 @@
 // inline script, same shared global scope as before.
 //
 // Contains: cmpSelected (up to 3 ticked cards, by card id) and cmpTicked
-// (the home each showed), initCompare(), shownCardFor() / cmpCardFor(),
-// toggleCmpCity(), buildCompare() (renders the side-by-side comparison table).
+// (the home each showed), initCompare() (go() calls it on every new search:
+// the ticks belong to the cards of the search they were made on),
+// shownCardFor() / cmpCardFor(), toggleCmpCity(), buildCompare() (renders the
+// side-by-side comparison table).
 
 let cmpSelected=[], cmpTicked={};
 // The compare bar (#cmpSticky, fixed at the bottom) and the WhatsApp button
