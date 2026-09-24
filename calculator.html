@@ -549,7 +549,7 @@ select{
    puts its % and label on a second line instead of cutting off the chevron
    under the list's overflow:hidden. */
 .answer-grid{display:grid;grid-template-columns:minmax(0,1fr);column-gap:14px}
-.answer-label{font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--green-mid);margin:4px 2px 8px}
+.answer-label{font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--green-mid);margin:4px 2px 8px;text-align:center}
 .answer-q{white-space:nowrap}
 .answer-grid [id^="pt-row-"]:not([id$="-chevron"]){flex-wrap:wrap;row-gap:4px}
 .answer-grid [id^="pt-row-"]:not([id$="-chevron"]) > div:first-child{flex-grow:1;flex-shrink:1;flex-basis:min-content}
@@ -562,7 +562,7 @@ select{
 .ac-cost{display:flex;align-items:baseline;justify-content:space-between;gap:6px;white-space:nowrap;margin-top:4px}
 .ac-cost-lbl{font-size:10px;color:#555;font-weight:700;text-transform:uppercase;letter-spacing:0.05em}
 .ac-cost-v{font-size:17px;font-weight:800;color:#1D9E75}
-.ac-pct{font-size:11px;color:#777;margin-top:2px}
+.ac-pct{font-size:11px;color:#777;margin-top:2px;text-align:right}
 .ac-home{justify-content:space-between;flex-wrap:nowrap;margin-top:6px}
 /* Split into .ac-sec parts, the AI Insights row's bottom margin would add to
    the Compare line's top margin instead of overlapping it (10px + 10px).
