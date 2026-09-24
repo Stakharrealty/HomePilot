@@ -550,9 +550,18 @@ select{
 .answer-grid{display:grid;grid-template-columns:minmax(0,1fr);column-gap:14px}
 .answer-label{font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--green-mid);margin:4px 2px 8px;text-align:center}
 .answer-q{white-space:nowrap}
-.answer-grid [id^="pt-row-"]:not([id$="-chevron"]){flex-wrap:wrap;row-gap:4px}
-.answer-grid [id^="pt-row-"]:not([id$="-chevron"]) > div:first-child{flex-grow:1;flex-shrink:1;flex-basis:min-content}
-.answer-grid [id^="pt-row-"]:not([id$="-chevron"]) > div:last-child{flex:0 0 auto;margin-left:auto}
+.answer-grid [id^="pt-row-"]:not([id$="-chevron"]):not(.ac-row){flex-wrap:wrap;row-gap:4px}
+.answer-grid [id^="pt-row-"]:not([id$="-chevron"]):not(.ac-row) > div:first-child{flex-grow:1;flex-shrink:1;flex-basis:min-content}
+.answer-grid [id^="pt-row-"]:not([id$="-chevron"]):not(.ac-row) > div:last-child{flex:0 0 auto;margin-left:auto}
+/* The answer cards' home-type rows (the user, 2026-09-24): the type; the %
+   left and the fit label right; the price under the % and the monthly cost
+   under the label. Today's row sizes and colours. */
+.ac-row{padding:10px 12px;cursor:pointer;transition:background 0.15s}
+.ac-row-top{display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:700;color:#2a2a2a}
+.ac-row-chev{font-size:13px;font-weight:400;color:#bbb;transition:transform 0.2s}
+.ac-row-line{display:flex;justify-content:space-between;align-items:center;margin-top:4px}
+.ac-row-pct{font-size:17px;font-weight:800;color:#222}
+.ac-row-sub{font-size:11px;color:#999;margin-top:2px}
 /* The answer cards' top (the user, 2026-09-24, these three cards only): one
    item per line -- the place, "Monthly cost" with $X/mo on the right,
    "% of take-home", then the home and price with the fit label on the right.

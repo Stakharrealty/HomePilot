@@ -488,7 +488,9 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
   const REPORTED = { income: 234243, down: 324234, debt: 0, family: 3, firstTime: false, work: "daily", workCity: "Mississauga", workPostal: "L4W 5L5", maxCommute: 30 };
   const RANK = { Condo: 1, Townhouse: 2, "Semi-Detached": 3, Detached: 4 };
   const rowsOf = (el) => [...el.querySelectorAll("[id^='pt-row-']:not([id$='-chevron'])")].map((r) => {
-    const m = /\$([\d,]+) · \$([\d,]+)\/mo/.exec(r.textContent);
+    // Answer cards put the price and the monthly cost on their own line, with
+    // no " · " between them (2026-09-24).
+    const m = /\$([\d,]+)(?: · )?\$([\d,]+)\/mo/.exec(r.textContent);
     return {
       type: r.firstElementChild && r.firstElementChild.firstElementChild ? r.firstElementChild.firstElementChild.textContent.trim() : null,
       price: m ? Number(m[1].replace(/,/g, "")) : null,
@@ -950,7 +952,7 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
   const pctOf = (c) => { const m = /(\d+)% of take-home/.exec(c.text); return m ? Number(m[1]) : null; };
   // Every property row on every card: its %, its label and its monthly cost.
   const allRows = () => cardEls(win).flatMap((el) => [...el.querySelectorAll("[id^='pt-row-']:not([id$='-chevron'])")].map((r) => {
-    const m = /\$[\d,]+ · \$([\d,]+)\/mo/.exec(r.textContent), p = /(\d+)%/.exec(r.textContent.replace(/\$[\d,]+/g, ""));
+    const m = /\$[\d,]+(?: · )?\$([\d,]+)\/mo/.exec(r.textContent), p = /(\d+)%/.exec(r.textContent.replace(/\$[\d,]+/g, ""));
     return { monthly: m ? Number(m[1].replace(/,/g, "")) : null, pct: p ? Number(p[1]) : null, label: (LBL.find((l) => r.textContent.includes(l)) || null) };
   }));
   const cardsBefore = [...mainCards(win), ...moreCards(win)], rowsBefore = allRows();
@@ -1083,6 +1085,16 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
   const belowTop = (html) => { const box = d.createElement("div"); box.innerHTML = html; const c = box.firstElementChild;
     const tab = c.querySelector(".ai-insights-trigger > span:first-child");
     if (tab) { const words = tab.classList.contains("ac-ai-title") ? [...tab.children].map((s) => s.textContent).join(" for ") : tab.textContent; tab.replaceWith(words); }
+    // So do the home-type rows' layout (answer cards: type; % and label;
+    // price and monthly cost, 2026-09-24): each row must say the same thing --
+    // its id, type, %, label, price and monthly cost.
+    c.querySelectorAll("[id^='pt-row-']:not([id$='-chevron'])").forEach((r) => {
+      const t = r.textContent, m = /\$([\d,]+)(?: · )?\$([\d,]+)\/mo/.exec(t);
+      const type = (r.firstElementChild && r.firstElementChild.firstElementChild || r.firstElementChild).textContent.trim();
+      const pct = (/(\d+)%/.exec(t.replace(/\$[\d,]+/g, "")) || [])[1];
+      const label = LBL.find((l) => t.includes(l)) || "";
+      r.replaceWith([r.id, type, pct, label, m && m[1], m && m[2]].join("|"));
+    });
     return [...c.querySelector(".city-body").children].filter((k) => !k.matches(".ct, .ac-head")).map((k) => k.matches(".ac-sec") ? k.innerHTML : k.outerHTML).join("") + c.querySelector(":scope > .view-btn").outerHTML; };
   check("(15d) each answer card is cityCardHtml()'s answer card, and below its new top it is today's card, part for part (At a glance, the home-type rows, AI Insights, compare, View available homes)",
     todays.length === 3 && a15.every((a, i) => a.slot.querySelector(".city").outerHTML === asParsed(todays[i][0]) && belowTop(todays[i][0]) === belowTop(todays[i][1]))
@@ -1288,7 +1300,7 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
   const rowFor = (n, typeKey) => {
     const el = cardEls(win).find((e) => e.querySelector(".cn").textContent.trim() === n);
     const row = el && [...el.querySelectorAll("[id^='pt-row-']:not([id$='-chevron'])")].find((r) => r.id.endsWith("-" + typeKey));
-    const m = row && /\$([\d,]+) · \$([\d,]+)\/mo/.exec(row.textContent);
+    const m = row && /\$([\d,]+)(?: · )?\$([\d,]+)\/mo/.exec(row.textContent);
     return m ? { price: Number(m[1].replace(/,/g, "")), monthly: Number(m[2].replace(/,/g, "")), pct: Number((/(\d+)%/.exec(row.textContent.replace(/\$[\d,]+/g, "")) || [])[1]) } : null;
   };
   // A save or earn tip: search again with it, and the card it names shows what it said.
