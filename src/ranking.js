@@ -217,9 +217,12 @@ function answerPicks(cities, opts) {
 
 // The rule in force, in one sentence: the order of "See all places" (render.js).
 function rankRuleSentence(sort, commuteKnown) {
-  if (sort === 'commute') return 'Ranked by shortest estimated drive to work, then the most home you can comfortably afford.';
-  if (sort === 'cost') return 'Ranked by lowest monthly cost: each place shows the cheapest home you can comfortably afford there.';
+  // "That fits your HomePilot comfort range", the page's own words, since
+  // 2026-09-24 (it said "you can comfortably afford"; plan 2.2: always the
+  // branded name).
+  if (sort === 'commute') return 'Ranked by shortest estimated drive to work, then the most home that fits your HomePilot comfort range.';
+  if (sort === 'cost') return 'Ranked by lowest monthly cost: each place shows the cheapest home that fits your HomePilot comfort range there.';
   return commuteKnown
-    ? 'Ranked by the most home you can comfortably afford, shortest commute first.'
-    : 'Ranked by the most home you can comfortably afford, lowest monthly cost first.';
+    ? 'Ranked by the most home that fits your HomePilot comfort range, shortest commute first.'
+    : 'Ranked by the most home that fits your HomePilot comfort range, lowest monthly cost first.';
 }

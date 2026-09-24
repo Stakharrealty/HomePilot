@@ -495,7 +495,7 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
   check("(10c) ...so the 'Lowest monthly cost' card is the cheapest comfortable home on the page",
     costCards.length > 0 && costCards[0].monthly === cheapestAnywhere, (costCards[0] && costCards[0].city + " " + costCards[0].monthly) + " vs " + cheapestAnywhere);
   check("(10d) ...and See all goes on from cheapest to dearest", costCards.every((c, i) => i === 0 || costCards[i - 1].monthly <= c.monthly), costCards.map((c) => c.monthly).join(","));
-  check("(10e) the rule sentence says what the sort compares", /each place shows the cheapest home you can comfortably afford/.test(win.document.getElementById("seeAllRule").textContent));
+  check("(10e) the rule sentence says what the sort compares", /each place shows the cheapest home that fits your HomePilot comfort range there/.test(win.document.getElementById("seeAllRule").textContent));
   win.eval("setResultsSort('home')");
   const homeCards = cardsWithRows("home");
   check("(10f) 'Most home' is unchanged: the answer and each card in See all lead with the biggest home they list within comfort",
@@ -1084,7 +1084,7 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
     opened.map((c) => c.city + "|" + c.type).join(", ") + " vs " + restHome.map((e) => e.key).join(", "));
   check("(15k) ...with its 'Sort by' (Most home picked) and the rule it follows",
     visible(byId("seeAllSort")) && textOf(byId("seeAllSort")) === "Sort by Most home Shortest commute Lowest monthly cost" && byId("seeAllSort-home").classList.contains("on")
-      && /Ranked by the most home you can comfortably afford, shortest commute first\./.test(textOf(byId("seeAllRule"))), textOf(byId("seeAllSort")));
+      && /Ranked by the most home that fits your HomePilot comfort range, shortest commute first\./.test(textOf(byId("seeAllRule"))), textOf(byId("seeAllSort")));
   byId("seeAllSort-cost").click();
   const byCost15 = listCards(), restCost = restOf(cost15);
   check("(15l) 'Sort by: Lowest monthly cost' reorders See all by rankCities()'s cost order (each place's cheapest comfortable home)",
@@ -1340,9 +1340,28 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
   const showBtn = [...byId("rankNotes").querySelectorAll("button")].find((x) => /Show them/.test(x.textContent));
   if (showBtn) showBtn.click();
   check("(16n) ...and 'Show them' still brings in the places past the limit, in their own section", !!showBtn && /Past your 60-minute commute limit/.test(byId("listMore").textContent));
+  // The brand (plan 2.2): the results text around the cards never says
+  // "comfortably afford" or a bare "comfort range". The cards themselves are
+  // today's cards, unchanged.
+  const unbranded = (x) => /comfortably afford/.test(x) || (x.match(/comfort range/g) || []).length !== (x.match(/HomePilot comfort range/g) || []).length;
+  const resultsText = () => [textOf(byId("resTitle")), textOf(byId("cnt")), textOf(byId("rankNotes")), textOf(byId("worthKnowing")), textOf(byId("seeAllRule")),
+    ...[...d.querySelectorAll("#answers .answer-label, #listMore .more-section > .sec-title, #listMore .more-section > .count")].map(textOf)];
   check("(16o) the old empty-page message and its hint are gone; the new pieces never say 'comfortably afford' or a bare 'comfort range'",
-    !/the closest options are below|Try adjusting your filters/.test(d.body.textContent)
-      && ![textOf(byId("cnt")), textOf(byId("worthKnowing"))].some((x) => /comfortably afford/.test(x) || (x.match(/comfort range/g) || []).length !== (x.match(/HomePilot comfort range/g) || []).length));
+    !/the closest options are below|Try adjusting your filters/.test(d.body.textContent) && !resultsText().some(unbranded), resultsText().filter(unbranded).join(" | "));
+  // ...and a normal page: the count, the notes (places past the limit, stretch
+  // only), the rule sentence under "Sort by", and the two sections inside "See
+  // all places". Until 2026-09-24 these said "you can comfortably afford" and
+  // "above your comfort range". $140K, $100K down, $450 debt, hybrid: one place
+  // fits, nine only as a stretch, and 23 past the limit fit.
+  search(win, { ...COUPLE, income: 140000, down: 100000, work: "hybrid", maxCommute: "60" });
+  openSeeAll(win);
+  if (!win.eval("showOverCommute")) win.eval("toggleOverCommute()");
+  const normalText = resultsText();
+  check("(16o2) ...nor on a normal page with 'See all places' open: count, notes, rule sentence, 'Only as a stretch' and 'Past your commute limit'",
+    !normalText.some(unbranded) && /that fits your HomePilot comfort range/.test(textOf(byId("cnt"))) && /that fits your HomePilot comfort range\)/.test(textOf(byId("rankNotes")))
+      && d.querySelectorAll("#listMore .more-section").length === 2 && /above your HomePilot comfort range/.test(textOf(byId("listMore"))),
+    normalText.filter(unbranded).join(" | ") + " // " + textOf(byId("cnt")) + " // " + textOf(byId("rankNotes")));
+  win.eval("toggleOverCommute()");
 
   // The same couple with the 90-minute limit the plan used: a drive tip too.
   search(win, { ...WORKED, maxCommute: "90" });

@@ -132,7 +132,9 @@ function render(){
   // range yet, but you're close." Places further out that fit, and what
   // would get the buyer there, are HomePilot Worth Knowing's tips.
   const overComfortable=overCommute.filter(e=>e.comfortable).length;
-  const typeWord=activeProp==='all'?'a home':'a '+(PROP_LABELS[activeProp]||'home').toLowerCase();
+  // "a home", or with a home type picked "a condo", "a detached home" (WK_TYPE,
+  // worth-knowing.js; it read "a detached").
+  const typeWord=activeProp==='all'?'a home':'a '+((typeof WK_TYPE!=='undefined'&&WK_TYPE[activeProp])||(PROP_LABELS[activeProp]||'home').toLowerCase());
   // "Cities you can afford" heads the list; on the empty page the count line is
   // the heading ("Nothing within 60 minutes fits ... yet"), and the title
   // above it said the opposite, so it steps aside there (2026-09-24).
@@ -142,7 +144,7 @@ function render(){
   if(cntEl){
     const n=ranked.length;
     cntEl.innerHTML=n
-      ?'<span>'+n+' '+(n===1?'city':'cities')+'</span> with '+typeWord+' you can comfortably afford — tap a city for the full monthly breakdown'
+      ?'<span>'+n+' '+(n===1?'city':'cities')+'</span> with '+typeWord+' that fits your HomePilot comfort range — tap a city for the full monthly breakdown'
       :(typeof wkEmptyHeading==='function'?wkEmptyHeading(wk||{limit:byHome.limit,onlyType,close:false}):'');
   }
 
@@ -155,7 +157,7 @@ function render(){
     if(stretchOnly.length&&!noAnswers) notes.push(stretchOnly.length+' more '+cityWord(stretchOnly.length)+' only as a stretch — listed under "See all places", after the others.');
     // The empty page: the closest of them are the cards below.
     else if(stretchOnly.length) notes.push(stretchOnly.length+' '+cityWord(stretchOnly.length)+' only as a stretch — '+(stretchOnly.length>closest.length?'the closest '+closest.length+' are below, the rest under "See all places".':(stretchOnly.length===1?'it is':'all are')+' below.'));
-    if(byHome.limit!==null&&overCommute.length) notes.push(overCommute.length+' '+(overCommute.length===1?'city':'cities')+' hidden — estimated drive over '+byHome.limit+' min'+(overComfortable?' ('+overComfortable+' with '+typeWord+' you can comfortably afford)':'')+'. <button type="button" class="link-btn" onclick="toggleOverCommute()">'+(showOverCommute?'Hide them':'Show them')+'</button>');
+    if(byHome.limit!==null&&overCommute.length) notes.push(overCommute.length+' '+(overCommute.length===1?'city':'cities')+' hidden — estimated drive over '+byHome.limit+' min'+(overComfortable?' ('+overComfortable+' with '+typeWord+' that fits your HomePilot comfort range)':'')+'. <button type="button" class="link-btn" onclick="toggleOverCommute()">'+(showOverCommute?'Hide them':'Show them')+'</button>');
     if((workArrangement==='hybrid'||workArrangement==='daily')&&!workZone) notes.push("We couldn't place your work location, so commute isn't used below. Check the work city or postal code.");
     notesEl.innerHTML=notes.map(x=>'<div class="rank-note">'+x+'</div>').join('');
     notesEl.style.display=notes.length?'':'none';
@@ -286,7 +288,7 @@ function renderSeeAll(){
     let h='';
     if(open&&stretchOnly.length){
       h+='<div class="more-section"><div class="sec-title">Only as a stretch</div>'+
-        '<div class="count">A bank may lend enough for these, but nothing here is comfortable: every option is above your comfort range or would take 45% or more of your take-home pay.</div>'+
+        '<div class="count">A bank may lend enough for these, but nothing here is comfortable: every option is above your HomePilot comfort range or would take 45% or more of your take-home pay.</div>'+
         stretchOnly.map(e=>card(e,'stretch')).join('')+'</div>';
     }
     if(open&&visibleOver.length){
