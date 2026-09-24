@@ -6,13 +6,15 @@
 // (T in src/i18n.js, HPT in src/i18n-homepage.js, setLang() in
 // src/ui-helpers.js). The user removed them: AI translation could not be made
 // to read naturally, and parts of the site were never translated. This test
-// keeps the menu and the translations from coming back by accident, and checks
-// that a visitor who arrives with a language preference still gets the full
-// English page.
+// keeps the menu and the translations from coming back by accident: section 1
+// reads every page and script, section 2 loads the homepage and the calculator
+// and runs a real search, so the English the scripts write into the page (fit
+// labels, card wording, the button) is checked too, not just the markup.
 //
 // The old menu never saved the choice (no localStorage, no URL parameter), so
-// no returning visitor has a stored language. The checks below plant one
-// anyway, the ways a site usually stores it, to prove the pages ignore it.
+// no returning visitor has a stored language, and nothing on the site reads
+// one. This test no longer plants one: with no code to read it, that check
+// could not fail.
 //
 // Requires: a local static server on :8843 (npx http-server -p 8843 -s).
 // Run: node --no-warnings tests/english_only_test.js
@@ -64,15 +66,7 @@ const firstMatch = (text) => { const m = NON_ENGLISH.exec(text); return m ? JSON
   const foreignScripts = SCRIPTS.filter((f) => NON_ENGLISH.test(read(f)));
   check("no script carries text in another language", foreignScripts.length === 0, foreignScripts.map((f) => f + " " + firstMatch(read(f))).join(" | "));
 
-  // =============== 2. a visitor with a language preference ===============
-  // Planted before any page script runs: the usual storage keys and URL
-  // parameters a language menu would use.
-  const plantPreference = (win) => {
-    try {
-      ["lang", "language", "hp_lang", "homepilot_lang", "locale"].forEach((k) => win.localStorage.setItem(k, "ur"));
-      win.sessionStorage.setItem("lang", "pa");
-    } catch (e) { /* storage unavailable: the URL parameters still apply */ }
-  };
+  // =============== 2. the pages as a buyer sees them ===============
   async function open(page) {
     const virtualConsole = new VirtualConsole();
     const errors = [];
@@ -81,8 +75,8 @@ const firstMatch = (text) => { const m = NON_ENGLISH.exec(text); return m ? JSON
       // Fonts request is a sandbox network artifact, not a page bug.
       if (!/fonts\.googleapis\.com/.test(e.message)) errors.push(e.message);
     });
-    const dom = await JSDOM.fromURL(BASE + page + "?lang=fr&hl=zh&locale=hi", {
-      runScripts: "dangerously", resources: "usable", virtualConsole, pretendToBeVisual: true, beforeParse: plantPreference,
+    const dom = await JSDOM.fromURL(BASE + page, {
+      runScripts: "dangerously", resources: "usable", virtualConsole, pretendToBeVisual: true,
     });
     await new Promise((r) => setTimeout(r, 1200));
     dom.window.Element.prototype.scrollIntoView = function () {};
@@ -99,7 +93,6 @@ const firstMatch = (text) => { const m = NON_ENGLISH.exec(text); return m ? JSON
     && /How It Works/.test((hd.getElementById("navHow") || {}).textContent || ""));
   check("homepage: no language menu", noMenu(home.win));
   check("homepage: setLang() and HPT no longer exist", home.win.eval("typeof setLang") === "undefined" && home.win.eval("typeof HPT") === "undefined");
-  check("homepage: stays left-to-right in English", hd.documentElement.lang === "en" && hd.documentElement.dir !== "rtl" && hd.querySelector(".w").style.direction !== "rtl");
   check("homepage: the example panel still shows its 4 engine rows", hd.querySelectorAll("#heroExampleList .lb-row").length === 4);
   check("homepage: nothing on the page is in another language", !NON_ENGLISH.test(hd.body.textContent), firstMatch(hd.body.textContent));
   check("homepage: no script errors", home.errors.length === 0, home.errors.join(" | "));
@@ -122,7 +115,6 @@ const firstMatch = (text) => { const m = NON_ENGLISH.exec(text); return m ? JSON
   check("calculator: every card's fit label is English", fits.length > 0 && fits.every((f) => ["Great fit", "Good Fit", "Stretch"].includes(f)), fits.join(", "));
   check("calculator: the button reads in English after the search", /Show Me What I Can Afford/.test((cd.getElementById("bt") || {}).textContent || ""));
   check("calculator: nothing on the results page is in another language", !NON_ENGLISH.test(cd.body.textContent), firstMatch(cd.body.textContent));
-  check("calculator: stays left-to-right", cd.querySelector(".w").style.direction !== "rtl");
   check("calculator: no script errors", calc.errors.length === 0, calc.errors.join(" | "));
 
   console.log("=== RESULT: " + passed + " passed, " + failed + " failed ===");

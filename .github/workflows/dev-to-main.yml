@@ -94,8 +94,8 @@ jobs:
         run: npm run test:homepage-claims
 
       # The site is English only (IMPROVEMENT_PLAN.md 2.4b): no language menu
-      # or translated text on any page, and a visitor arriving with a language
-      # preference still gets the full English page.
+      # or translated text in any page or script, and after a real search the
+      # results the scripts write are in English too. Needs the static server.
       - name: English only test
         run: npm run test:english-only
 
