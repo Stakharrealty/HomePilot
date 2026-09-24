@@ -162,7 +162,14 @@ const visible = indexHtml.replace(/<script[\s\S]*?<\/script>/g, " ").replace(/<s
     cwin.eval("workZone") === buyer.workZone && cwin.eval("maxCommuteMin") === 60 && cwin.eval("resultsSort") === "home");
   check("the calculator's take-home for this couple is the example's two-earner figure",
     Math.abs(cwin.eval("netMonthlyIncome") - pairNet) < 0.01, cwin.eval("netMonthlyIncome") + " vs " + pairNet);
-  const calcCards = [...cd.querySelectorAll("#list .city")].slice(0, 4).map((el) => {
+  // Since 2026-09-24 (IMPROVEMENT_PLAN.md 2.2) the calculator opens with three
+  // answer cards (Most home, Shortest commute, Lowest monthly cost), and the
+  // rest of the places are under "See all places", ordered by most home. The
+  // example lists the most-home order, so: its first row is the "Most home"
+  // card, the four rows are the calculator's own most-home order for the same
+  // couple, and each row is a card on the calculator page with the same figures.
+  cwin.eval("toggleSeeAll()");
+  const readCalcCard = (el) => {
     const head = /^(.*?) · \$([\d,]+)/.exec(el.querySelector(".card-headline").textContent.trim());
     const pct = /(\d+)% of take-home/.exec(el.textContent);
     const drive = /About (\d+) min drive/.exec((el.querySelector(".commute-badge") || {}).textContent || "");
@@ -175,16 +182,25 @@ const visible = indexHtml.replace(/<script[\s\S]*?<\/script>/g, " ").replace(/<s
       pct: pct ? Number(pct[1]) : null,
       drive: drive ? Number(drive[1]) : null,
     };
-  });
+  };
+  const allCalcCards = [...cd.querySelectorAll("#answers .city, #list .city")].map(readCalcCard);
+  const mostHomeSlot = [...cd.querySelectorAll("#answers .answer-slot")].find((s) => s.dataset.answers.split(" ").includes("home"));
+  const mostHomeCard = mostHomeSlot ? readCalcCard(mostHomeSlot.querySelector(".city")) : null;
+  const calcOrder = cwin.eval(`rankCities(results, {sort:'home', maxCommute:maxCommuteMin, onlyType:null}).ranked.slice(0, 4).map(function(e){ return {city:e.n, type:e.type, price:e.price}; })`);
   const K = (n) => "$" + Math.round(n / 1000) + "K";
   const money = (n) => "$" + Math.round(n).toLocaleString("en-US");
-  check("the example's 4 rows are the calculator's first 4 cards for the same couple: place, home, price, monthly cost, label, % and drive",
-    calcCards.length === 4 && rows.length === 4 && calcCards.every((c, i) => {
-      const r = rows[i], e = engine[i];
-      return r.city === c.city && r.fit === c.fit && e.price === c.price
-        && r.meta === c.type + " · " + K(c.price) + " · " + money(c.monthly) + "/mo · " + c.pct + "% of take-home · about " + c.drive + " min drive";
-    }),
+  const TYPE_LABEL = { condo: "Condo", town: "Townhouse", semi: "Semi-Detached", detached: "Detached" };
+  const calcCards = engine.map((e) => allCalcCards.find((c) => c.city === e.city && c.type === TYPE_LABEL[e.type]) || null);
+  check("the example's 4 rows are the calculator's most-home order for the same couple, and each is a card on the calculator page: place, home, price, monthly cost, label, % and drive",
+    rows.length === 4 && calcOrder.length === 4 && calcOrder.every((o, i) => o.city === engine[i].city && o.type === engine[i].type && o.price === engine[i].price)
+      && calcCards.every((c, i) => {
+        const r = rows[i], e = engine[i];
+        return !!c && r.city === c.city && r.fit === c.fit && e.price === c.price
+          && r.meta === c.type + " · " + K(c.price) + " · " + money(c.monthly) + "/mo · " + c.pct + "% of take-home · about " + c.drive + " min drive";
+      }),
     JSON.stringify({ homepage: rows.map((r) => r.city + ": " + r.meta), calculator: calcCards }));
+  check("...and its first row is the calculator's 'Most home' answer card",
+    !!mostHomeCard && !!calcCards[0] && JSON.stringify(mostHomeCard) === JSON.stringify(calcCards[0]), JSON.stringify(mostHomeCard));
   check("no script errors on the calculator page", calcErrors.length === 0, calcErrors.join(" | "));
   cwin.close();
 

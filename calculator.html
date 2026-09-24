@@ -541,6 +541,27 @@ select{
 .fit-pill{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px}
 .more-section{margin-top:18px}
 
+/* ── THREE ANSWERS, SEE ALL PLACES (2026-09-24, IMPROVEMENT_PLAN.md 2.2) ──
+   The answer cards are today's .city cards, unchanged, each under a small
+   label in the site's eyebrow style (.hiw-eyebrow, .faq-eyebrow). Phones and
+   narrow windows: stacked at full width, as the first cards always were.
+   Computers: side by side, a third of the width each; with two answers, a
+   half each. A card needs about 230px (a small phone's width): at 1024px the
+   results column beside the form is 481px, so two fit there but three only
+   from 1240px (a 712px column); between the two, three answers stack as
+   today. "See all places" is the listings page's outlined "Load more"
+   button (.listings-load-more). */
+.answer-grid{display:grid;grid-template-columns:minmax(0,1fr);column-gap:14px}
+.answer-label{font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--green-mid);margin:4px 2px 8px}
+@media(min-width:1024px){
+  .answer-grid{align-items:start;row-gap:14px}
+  .answer-grid-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(min-width:1240px){
+  .answer-grid-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+#seeAllBody{margin-top:18px}
+
 /* ── FILTER PILLS ────────────────────────────────────────────── */
 .filters{display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap;align-items:center}
 .filter-group{margin-bottom:16px}
@@ -997,7 +1018,7 @@ body.cmp-bar-open #waWrap{bottom:80px!important}
 .listing-realtor-badge-logo{flex-shrink:0;display:block}
 .listing-realtor-badge-mark{flex:1}
 .listing-realtor-badge-arrow{color:var(--green)}
-.listings-load-more{
+.listings-load-more,.see-all-btn{
   display:block;width:100%;margin-top:14px;padding:11px;
   font-family:var(--font);
   font-size:13px;font-weight:700;
@@ -1006,7 +1027,7 @@ body.cmp-bar-open #waWrap{bottom:80px!important}
   background:var(--card);color:var(--green);cursor:pointer;
   transition:background 0.15s;
 }
-.listings-load-more:hover{background:var(--green-light)}
+.listings-load-more:hover,.see-all-btn:hover{background:var(--green-light)}
 .listings-load-more:disabled{opacity:0.55;cursor:default}
 .listings-trademark{
   font-size:10px;color:var(--ink-faint);
@@ -1461,15 +1482,8 @@ body.cmp-bar-open #waWrap{bottom:80px!important}
         <button id="pt-detached" onclick="filtProp('detached',this)" class="fb">Detached</button>
       </div>
     </div>
-    <!-- One ranking, three orders (2026-09-23, IMPROVEMENT_PLAN.md 1.4). See rankCities() in src/ranking.js. -->
-    <div class="filter-group" id="sortBar" style="display:none">
-      <div class="filter-label">Sort by</div>
-      <div class="filters">
-        <button id="sort-home"    onclick="setResultsSort('home')"    class="fb on">Most home</button>
-        <button id="sort-commute" onclick="setResultsSort('commute')" class="fb">Shortest commute</button>
-        <button id="sort-cost"    onclick="setResultsSort('cost')"    class="fb">Lowest monthly cost</button>
-      </div>
-    </div>
+    <!-- The sort switch that stood here went into "See all places" below (2026-09-24,
+         IMPROVEMENT_PLAN.md 2.2): the three answer cards answer the three orders instead. -->
     <div id="topPicks"></div>
 
     <div id="printReport"></div>
@@ -1538,8 +1552,30 @@ body.cmp-bar-open #waWrap{bottom:80px!important}
 
       <div id="scenarioResults" style="margin-top:16px"></div>
     </div>
-    <div id="list"></div>
-    <div id="listMore"></div>
+    <!-- Three answers, then "See all places" (2026-09-24, IMPROVEMENT_PLAN.md 2.2; drawn by
+         render() and renderSeeAll() in src/render.js). #answers: today's cards, one per question
+         (Most home, Shortest commute, Lowest monthly cost), each under its label. #worthKnowing:
+         HomePilot Worth Knowing goes here, between the answers and "See all places"; empty until
+         that item is built. #seeAllBody: the rest of the places (#list) in the order picked in its
+         "Sort by", then "Only as a stretch" and "Past your commute limit" (#listMore). -->
+    <div id="answers"></div>
+    <div id="worthKnowing"></div>
+    <div id="seeAll">
+      <button type="button" class="see-all-btn" id="seeAllBtn" onclick="toggleSeeAll()" aria-expanded="false" aria-controls="seeAllBody" style="display:none">See all places</button>
+      <div id="seeAllBody" style="display:none">
+        <div class="filter-group" id="seeAllSort" style="display:none">
+          <div class="filter-label">Sort by</div>
+          <div class="filters">
+            <button type="button" id="seeAllSort-home"    onclick="setResultsSort('home')"    class="fb on">Most home</button>
+            <button type="button" id="seeAllSort-commute" onclick="setResultsSort('commute')" class="fb">Shortest commute</button>
+            <button type="button" id="seeAllSort-cost"    onclick="setResultsSort('cost')"    class="fb">Lowest monthly cost</button>
+          </div>
+        </div>
+        <div class="rank-notes" id="seeAllRule" style="display:none"></div>
+        <div id="list"></div>
+        <div id="listMore"></div>
+      </div>
+    </div>
   </div>
 
   <button class="cmp-btn" id="cmpBtn" onclick="buildCompare()">📊 Compare Selected</button>

@@ -655,6 +655,33 @@ suite('OneRanking');
     t('"Shortest commute" order is shortest first @'+inc, o.drive);
     t('the three sorts reorder the same cities, never change which ones @'+inc, o.same);
   }
+  // The three answer cards (2026-09-24, IMPROVEMENT_PLAN.md 2.2): each answer
+  // is its sort's #1; identical homes share a card; free slots go to the best
+  // most-home entries not already shown; never more than three, never a
+  // commute answer without a commute.
+  for(const [inc,dn,wa] of [[100000,60000,'daily'],[150000,100000,'hybrid'],[175000,120000,'daily'],[200000,150000,'remote'],[300000,250000,'remote']]){
+    setup(inc, dn, wa, 'Brampton');
+    const a = run(`(function(){
+      var r = answerPicks(M, {maxCommute:60}), picks = r.picks, keys = picks.map(function(p){ return homeKey(p.entry); });
+      var first = { home: r.byHome.ranked[0], commute: r.byCommute && r.byCommute.ranked[0], cost: r.byCost.ranked[0] };
+      var winnersOk = ['home','commute','cost'].every(function(q){
+        var holders = picks.filter(function(p){ return p.answers.indexOf(q) >= 0; });
+        return first[q] ? holders.length === 1 && homeKey(holders[0].entry) === homeKey(first[q]) : holders.length === 0;
+      });
+      var labelled = picks.filter(function(p){ return p.answers[0] !== 'also'; }).length;
+      var expectAlso = r.byHome.ranked.filter(function(e){ return keys.slice(0, labelled).indexOf(homeKey(e)) < 0; }).slice(0, 3 - labelled).map(homeKey);
+      return {
+        n: picks.length, unique: new Set(keys).size === keys.length, winnersOk: winnersOk,
+        alsoOk: JSON.stringify(keys.slice(labelled)) === JSON.stringify(expectAlso),
+        fills: picks.length === Math.min(3, labelled + expectAlso.length),
+        noCommute: r.commuteKnown || picks.every(function(p){ return p.answers.indexOf('commute') < 0; }),
+      };
+    })()`);
+    t('answer cards: at most three, no home twice @'+inc+'/'+wa, a.n <= 3 && a.unique);
+    t('answer cards: each question answered once, by its sort\'s #1 @'+inc+'/'+wa, a.winnersOk);
+    t('answer cards: free slots are the best most-home homes not already shown @'+inc+'/'+wa, a.alsoOk && a.fills);
+    t('answer cards: no commute answer without a commute @'+inc+'/'+wa, a.noCommute);
+  }
   setup(45000, 15000, 'daily', 'Brampton');
   const lowRes = run(`(function(){ try { rankCities(M, {sort:'home', maxCommute:60}); return false; } catch(e){ return true; } })()`);
   t('low BP profile does not crash the ranking', !lowRes);

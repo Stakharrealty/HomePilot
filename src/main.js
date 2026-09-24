@@ -43,13 +43,17 @@ const WORK_ARRANGEMENTS = ['remote', 'hybrid', 'daily'];
 //                        (DEFAULT_MAX_COMMUTE) until the buyer picks one.
 //   maxCommuteTouched -- true once the buyer has picked, so switching work
 //                        style no longer overrides their choice.
-//   resultsSort       -- 'home' | 'commute' | 'cost' (RESULT_SORTS).
+//   resultsSort       -- 'home' | 'commute' | 'cost' (RESULT_SORTS): the order
+//                        of "See all places" (2026-09-24; it was the order of
+//                        the whole list, set by a switch above it).
+//   seeAllOpen        -- the buyer opened "See all places" (render.js). Closed
+//                        by default, and again on every new search.
 //   showOverCommute   -- the buyer asked to see the cities past their limit.
 //   shownCards        -- the cards render() last drew, in screen order. The
 //                        PDF report (report.js) and Compare (compare.js) are
 //                        built from this, so they show exactly what the buyer
 //                        saw (REVIEW_BACKLOG.md P0-3).
-let maxCommuteMin = null, maxCommuteTouched = false, resultsSort = 'home', showOverCommute = false, shownCards = [];
+let maxCommuteMin = null, maxCommuteTouched = false, resultsSort = 'home', seeAllOpen = false, showOverCommute = false, shownCards = [];
 
 // Two answers the land transfer tax depends on (added 2026-09-23,
 // IMPROVEMENT_PLAN.md 1.7; the rules and their sources are in closingcosts.js):
@@ -246,15 +250,19 @@ if(typeof window !== 'undefined' && typeof window.addEventListener === 'function
   window.addEventListener('pageshow', function(){ openWorkPostalIfSet(); syncFormLines(); });
 }
 
-// The sort switch above the results.
+// The "Sort by" inside "See all places" (2026-09-24; it was a switch above the
+// whole list). It orders the places there; the three answer cards above stay
+// as they are, so only "See all places" is drawn again.
 function setResultsSort(sort) {
   resultsSort = RESULT_SORTS.includes(sort) ? sort : 'home';
-  if(results.length) render();
+  if(results.length) renderSeeAll();
 }
 
 // "Show them" / "Hide them" on the note about cities past the commute limit.
+// Their section is inside "See all places", so "Show them" opens it.
 function toggleOverCommute() {
   showOverCommute = !showOverCommute;
+  if(showOverCommute) seeAllOpen = true;
   if(results.length) render();
 }
 
@@ -537,7 +545,8 @@ function go(){
     // listed (REVIEW_BACKLOG.md P0-3). Ordering now happens in exactly one
     // place, rankCities() (ranking.js), when render() draws the cards.
     results=cands.map(m=>({...m,displayMax:Math.min(m.max,b),homePrice:Math.min(m.max,b)}));
-    shownCards=[];showOverCommute=false;
+    // A new search starts with "See all places" closed, in its default order.
+    shownCards=[];showOverCommute=false;seeAllOpen=false;resultsSort='home';
 
     // ── THE TOP SECTION: the HomePilot comfort range (renderTopSection()) ──
     lastSearch={own:incomes.own,partner:incomes.partner,total:inc,dn,dbt,calc};
@@ -554,7 +563,7 @@ function go(){
     // is the only place that knows how many cities actually survive full
     // qualification. Setting it here from results.length (the M-table
     // pre-filter) is what made it disagree with the cards below it.
-    document.getElementById("res").style.display="block";const pfb=document.getElementById("propFilterBar");if(pfb)pfb.style.display="block";const sbr=document.getElementById("sortBar");if(sbr)sbr.style.display="block";
+    document.getElementById("res").style.display="block";const pfb=document.getElementById("propFilterBar");if(pfb)pfb.style.display="block";
     activeProp='all';activeFit='all';
     document.querySelectorAll("[id^='pt-'],[id^='ft-']").forEach(b=>b.classList.remove("on"));const ptAll=document.getElementById('pt-all');if(ptAll)ptAll.classList.add('on');
 

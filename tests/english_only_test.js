@@ -113,7 +113,9 @@ const firstMatch = (text) => { const m = NON_ENGLISH.exec(text); return m ? JSON
   nrBox.checked = false;
   nrBox.dispatchEvent(new calc.win.Event("change"));
   calc.win.eval("setFTB(true); setWorkArrangement('remote'); go()");
-  const cards = [...cd.querySelectorAll("#list .city")];
+  // The answer cards, then "See all places" opened (2026-09-24, IMPROVEMENT_PLAN.md 2.2).
+  calc.win.eval("toggleSeeAll()");
+  const cards = [...cd.querySelectorAll("#answers .city, #list .city")];
   const fits = cards.map((c) => (c.querySelector(".fit-pill") || {}).textContent || "").map((s) => s.trim());
   check("calculator: a search shows ranked places", cards.length > 0, cards.length);
   check("calculator: every card's fit label is English", fits.length > 0 && fits.every((f) => ["Great fit", "Good Fit", "Stretch"].includes(f)), fits.join(", "));

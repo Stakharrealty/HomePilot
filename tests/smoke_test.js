@@ -82,9 +82,16 @@ function check(name, cond, detail) {
         setFTB(false);
         go();
         var cnt = document.getElementById("cnt");
-        var list = document.getElementById("list");
-        // render() emits one <div class="city"> per city card.
-        var cardCount = list ? list.querySelectorAll(".city").length : -1;
+        // render() emits one <div class="city"> per card: the three answer
+        // cards, then the rest under "See all places", drawn once it is opened
+        // (2026-09-24, IMPROVEMENT_PLAN.md 2.2). A place can have two cards
+        // (two homes), so the count is of places.
+        var answers = document.getElementById("answers");
+        var answerCount = answers ? answers.querySelectorAll(".city").length : -1;
+        toggleSeeAll();
+        var places = {};
+        document.querySelectorAll("#answers .city .cn, #list .city .cn").forEach(function (n) { places[n.textContent.trim()] = true; });
+        var cardCount = Object.keys(places).length;
         var m = cnt ? /(\\d+)\\s+(?:city|cities)/.exec(cnt.textContent) : null;
         return JSON.stringify({
           results: Array.isArray(results) ? results.length : -1,
@@ -92,6 +99,7 @@ function check(name, cond, detail) {
           errVisible: document.getElementById("err").style.display,
           bpShown: document.getElementById("bpV").textContent,
           claimed: m ? Number(m[1]) : null,
+          answerCount: answerCount,
           cardCount: cardCount,
         });
       } catch (e) { return JSON.stringify({ error: e.message + " | " + e.stack }); }
@@ -102,12 +110,12 @@ function check(name, cond, detail) {
   check("go() set a buying power", Number.isFinite(go.buyPower) && go.buyPower > 0, go.buyPower);
   check("the buying power box shows a dollar figure", /^\$[\d,]+$/.test(String(go.bpShown)), go.bpShown);
   check("go() produced city results", go.results > 0, go.results);
-  check("at least one city card rendered", go.cardCount > 0, go.cardCount);
+  check("at least one answer card rendered, at most three", go.answerCount > 0 && go.answerCount <= 3, go.answerCount);
   // The headline count and the cards below it are derived from different
   // tables; they diverged badly enough to say "38 cities match your budget"
   // above an empty list. render() owns the count now — this asserts it stays
   // owned there.
-  check("the city count matches the cards actually rendered",
+  check("the city count matches the places on the cards actually rendered",
     go.claimed !== null && go.claimed === go.cardCount, `claimed ${go.claimed}, rendered ${go.cardCount}`);
 
   check("no uncaught DOM errors", errors.length === 0, errors.join(" | "));

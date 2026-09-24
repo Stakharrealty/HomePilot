@@ -13,14 +13,15 @@
 //   2. The #1 card never carries a warning.
 //   3. The old lead form is gone (removed 2026-09-23 to be rebuilt later);
 //      WhatsApp and the consent gate stay. The PDF report and Compare show
-//      exactly the cards on screen (shownCards), before and after a re-sort.
+//      exactly the cards on screen (shownCards), with "See all places" closed
+//      and open, and before and after a re-sort.
 //   4. The comfort label and the comfort budget never contradict each other
 //      on a card.
 //   5. "N cities" counts only cities with a comfortable home; stretch-only
 //      cities are listed separately.
 //   6. The What-If scenario's #1 is the screen's #1 (one ranking).
 //   7. Smaller fixes: the rate note's amortization, neutral icons, the sort
-//      switch, no Ottawa for a Toronto worker.
+//      (inside "See all places" since 2.2), no Ottawa for a Toronto worker.
 //  12. No pre-filled answers: "Work arrangement" and "First-time buyer" start
 //      unanswered, and no results appear until both are chosen.
 //  13. The shorter form (IMPROVEMENT_PLAN.md 2.3a): the income and debt
@@ -33,6 +34,17 @@
 //      print with the details behind it; and the estimated take-home, which
 //      the buyer can replace with their own: that changes every % of
 //      take-home and every fit label, and never the buying power.
+//  15. Three answers and "See all places" (IMPROVEMENT_PLAN.md 2.2): the
+//      three answer cards are today's cards, each the winner of its own sort
+//      (rankCities()), labelled; identical homes share a card; a remote
+//      buyer's third card; "See all places" closed until opened, with the
+//      rest of the places and its own sort; side by side on a computer,
+//      stacked on a phone.
+//
+// Since 2026-09-24 (2.2) the results are three answer cards (#answers), then
+// "See all places" (#list, #listMore inside #seeAllBody), drawn only while it
+// is open. mainCards() opens it and reads every comfortable card in screen
+// order: the answers, then the rest.
 //
 // Requires: a local static server on :8843 (npx http-server -p 8843 -s).
 // Run: node --no-warnings tests/results_outcomes_test.js
@@ -96,6 +108,7 @@ function readCard(el) {
   const dm = drive ? /About (\d+) min drive/.exec(drive.textContent) : null;
   const monthly = el.querySelector("[id$='-mtotal']");
   return {
+    id: el.id,
     city: el.querySelector(".cn").textContent.trim(),
     type: m ? m[1].trim() : null,
     price: m ? Number(m[2].replace(/,/g, "")) : null,
@@ -105,8 +118,18 @@ function readCard(el) {
     text: el.textContent,
   };
 }
-const mainCards = (win) => [...win.document.querySelectorAll("#list .city")].map(readCard);
-const moreCards = (win) => [...win.document.querySelectorAll("#listMore .city")].map(readCard);
+// "See all places" draws its cards only while open (2.2), so the readers
+// below open it first, as a buyer would.
+const openSeeAll = (win) => { if (!win.eval("seeAllOpen")) win.eval("toggleSeeAll()"); };
+// The answer cards, then the rest of the comfortable places, in screen order.
+const answerCards = (win) => [...win.document.querySelectorAll("#answers .city")].map(readCard);
+const seeAllCards = (win) => { openSeeAll(win); return [...win.document.querySelectorAll("#list .city")].map(readCard); };
+const mainCards = (win) => { openSeeAll(win); return [...win.document.querySelectorAll("#answers .city, #list .city")].map(readCard); };
+const moreCards = (win) => { openSeeAll(win); return [...win.document.querySelectorAll("#listMore .city")].map(readCard); };
+// Every card element on the page, See all opened.
+const cardEls = (win) => { openSeeAll(win); return [...win.document.querySelectorAll("#answers .city, #list .city, #listMore .city")]; };
+// The places the comfortable cards show (a place can have two cards).
+const placesOf = (cards) => new Set(cards.map((c) => c.city)).size;
 const WARNING = /⚠|long daily drive|stretches your comfort|beyond comfortable|Over your/;
 const TYPE_LABEL = { condo: "Condo", town: "Townhouse", semi: "Semi-Detached", detached: "Detached" };
 
@@ -173,7 +196,9 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
     // 5. The count is the ranked cards; stretch-only cities are separate.
     const cnt = win.document.getElementById("cnt").textContent;
     const n = (/(\d+)\s+(?:city|cities)/.exec(cnt) || [])[1];
-    check(`(5a) "N cities" equals the ranked cards on screen (${tag})`, cards.length === 0 ? /No cities/.test(cnt) : Number(n) === cards.length, `${cnt} vs ${cards.length}`);
+    // 2.2: a place can have two cards (an answer and its card under "See all
+    // places" with a different home), so the count is of places.
+    check(`(5a) "N cities" equals the places the comfortable cards show (${tag})`, cards.length === 0 ? /No cities/.test(cnt) : Number(n) === placesOf(cards), `${cnt} vs ${placesOf(cards)}`);
     const stretchCards = [...win.document.querySelectorAll("#listMore .more-section")].filter((s) => /Only as a stretch/.test(s.textContent));
     check(`(5b) stretch-only cities sit in their own section, below (${tag})`, stretchCards.every((s) => [...s.querySelectorAll(".city")].every((el) => /beyond comfortable/.test(el.textContent))));
   }
@@ -182,7 +207,9 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
   // Removed 2026-09-23 by the user's decision, to be rebuilt properly later.
   // Until then nothing on the page collects a lead, and WhatsApp is the way
   // to reach Sandeep.
-  search(win, { ...COUPLE, income: 180000, down: 120000, work: "hybrid" });
+  // At the 60-minute default (section 1 left "No limit" picked), where this
+  // buyer's answers show one place twice with two homes (3j2).
+  search(win, { ...COUPLE, income: 180000, down: 120000, work: "hybrid", maxCommute: "60" });
   const d3 = win.document;
   check("(3a) no lead form on the results page: no name, email or 'Send me homes' button",
     !d3.getElementById("cap") && !d3.getElementById("nm") && !d3.getElementById("em") && !d3.getElementById("subBtn") && !/Send me homes in my budget/.test(d3.body.textContent));
@@ -195,10 +222,22 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
   // render()). The lead was checked against the screen this way until it was
   // removed; these two still read the record, so it must follow the screen
   // (REVIEW_BACKLOG.md P0-3: the report once listed different cities).
-  const cardsOnScreen = () => [...mainCards(win), ...moreCards(win)];
+  // Since 2026-09-24 (2.2) the screen is the three answer cards, then "See
+  // all places", whose cards are drawn only while it is open; every line of
+  // shownCards also says which part of the page its card is in.
+  const drawnEls = () => [...win.document.querySelectorAll("#answers .city, #list .city, #listMore .city")];
+  const cardsOnScreen = () => drawnEls().map(readCard);
+  const sectionOf = (el) => {
+    const slot = el.closest(".answer-slot");
+    if (slot) return "answer-" + slot.dataset.answers.split(" ")[0];
+    const more = el.closest(".more-section");
+    if (!more) return "ranked";
+    return /Only as a stretch/.test(more.querySelector(".sec-title").textContent) ? "stretch" : "over";
+  };
   const cityOrder = (list) => list.map((c) => c.city).join("|");
   const matchesScreen = (rec, screen) => rec.length === screen.length && rec.every((m, i) =>
-    m.city === screen[i].city && TYPE_LABEL[m.type] === screen[i].type && m.price === screen[i].price && Math.round(m.monthlyCost) === screen[i].monthly);
+    m.city === screen[i].city && TYPE_LABEL[m.type] === screen[i].type && m.price === screen[i].price && Math.round(m.monthlyCost) === screen[i].monthly && m.cardId === screen[i].id);
+  const sectionsMatch = (rec) => { const els = drawnEls(); return rec.length === els.length && rec.every((m, i) => m.section === sectionOf(els[i])); };
   const cardDetail = (rec, screen) => JSON.stringify(rec.slice(0, 2)) + " vs " + JSON.stringify(screen.slice(0, 2).map(({ text, ...c }) => c));
   // downloadReport() and buildCompare() write into a new window; jsdom has
   // none, so capture what they write.
@@ -208,35 +247,66 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
   win.alert = (msg) => written.push({ html: "", alert: String(msg) });
   const reportCities = () => { written.length = 0; win.eval("downloadReport()"); const w = written[0] || { html: "" }; return { cities: [...w.html.matchAll(/class="pr-city-name">([^<]*)</g)].map((x) => x[1]), alert: w.alert }; };
 
+  // "See all places" closed, as after every search: the answer cards only.
+  const closedScreen = cardsOnScreen();
+  const recClosed = win.eval("shownCards").map((c) => ({ ...c }));
+  check("(3e) See all closed: shownCards is exactly the answer cards on screen, same order, each marked with its answer",
+    closedScreen.length > 0 && closedScreen.length <= 3 && win.document.querySelectorAll("#list .city, #listMore .city").length === 0
+      && matchesScreen(recClosed, closedScreen) && sectionsMatch(recClosed) && recClosed.every((c) => /^answer-(home|commute|cost|also)$/.test(c.section) && Array.isArray(c.answers)),
+    JSON.stringify(recClosed.map((c) => c.city + ":" + c.type + ":" + c.section)) + " vs " + cityOrder(closedScreen));
+  const reportClosed = reportCities();
+  check("(3e2) ...and the PDF report lists those cards, in the same order",
+    !reportClosed.alert && reportClosed.cities.join("|") === cityOrder(closedScreen), (reportClosed.alert || reportClosed.cities.join("|")) + "  vs  " + cityOrder(closedScreen));
+
+  openSeeAll(win);
   const onScreen = cardsOnScreen();
   const rec = win.eval("shownCards").map((c) => ({ ...c }));
-  check("(3e) shownCards is the cards on screen, same order",
-    onScreen.length > 0 && cityOrder(rec) === cityOrder(onScreen), cityOrder(rec) + "  vs  " + cityOrder(onScreen));
-  check("(3f) ...with each card's own home type, price and monthly cost", matchesScreen(rec, onScreen), cardDetail(rec, onScreen));
+  check("(3e3) See all open: shownCards is every card on screen, same order: the answers, then 'ranked' (then 'stretch' / 'over')",
+    onScreen.length > closedScreen.length && cityOrder(rec) === cityOrder(onScreen) && sectionsMatch(rec)
+      && rec.slice(closedScreen.length).every((c) => ["ranked", "stretch", "over"].includes(c.section)),
+    cityOrder(rec) + "  vs  " + cityOrder(onScreen));
+  check("(3f) ...with each card's own home type, price, monthly cost and id", matchesScreen(rec, onScreen), cardDetail(rec, onScreen));
   const report = reportCities();
   check("(3g) the PDF report lists the first five cards on screen, same order",
     !report.alert && report.cities.join("|") === cityOrder(onScreen.slice(0, 5)), (report.alert || report.cities.join("|")) + "  vs  " + cityOrder(onScreen.slice(0, 5)));
 
+  // The sort is inside "See all places" now: it reorders the rest, never the answers.
   win.eval("setResultsSort('cost')");
   const reordered = cardsOnScreen();
   const rec2 = win.eval("shownCards").map((c) => ({ ...c }));
-  check("(3h) re-sorting changes shownCards the same way it changes the screen",
-    matchesScreen(rec2, reordered), cityOrder(rec2).slice(0, 120) + "  vs  " + cityOrder(reordered).slice(0, 120));
+  check("(3h) re-sorting See all changes shownCards the same way it changes the screen, and leaves the answers as they were",
+    matchesScreen(rec2, reordered) && sectionsMatch(rec2) && JSON.stringify(rec2.slice(0, closedScreen.length)) === JSON.stringify(recClosed)
+      && cityOrder(rec2) !== cityOrder(rec),
+    cityOrder(rec2).slice(0, 160) + "  vs  " + cityOrder(reordered).slice(0, 160));
   const report2 = reportCities();
   check("(3i) ...and the PDF report follows the new order",
     !report2.alert && report2.cities.join("|") === cityOrder(reordered.slice(0, 5)), (report2.alert || report2.cities.join("|")) + "  vs  " + cityOrder(reordered.slice(0, 5)));
 
-  const ticked = reordered.slice(0, 2);
+  // Compare, ticked on the cards themselves. Where a place has two cards on the
+  // page (this buyer: a most-home card and a lowest-cost card of the same
+  // place, 2.2), tick both: each must compare its own home.
+  const twoOfAPlace = reordered.find((c, i) => reordered.findIndex((o) => o.city === c.city) !== i);
+  const ticked = twoOfAPlace ? reordered.filter((c) => c.city === twoOfAPlace.city).slice(0, 2) : reordered.slice(0, 2);
+  ticked.forEach((c) => win.document.getElementById("cmp-chk-" + c.id).click());
+  const selected = win.eval("cmpSelected.slice()");
   written.length = 0;
-  win.eval(`cmpSelected=${JSON.stringify(ticked.map((c) => c.city))}; buildCompare();`);
+  win.eval("buildCompare()");
   const cmpDoc = written[0] && written[0].html ? new win.DOMParser().parseFromString(written[0].html, "text/html") : null;
   const cmpHeads = cmpDoc ? [...cmpDoc.querySelectorAll(".cmp-head-cell")].slice(1).map((e) => e.textContent.trim()) : [];
   const cmpRow = (i) => { const row = cmpDoc ? cmpDoc.querySelectorAll(".cmp-row")[i] : null; return row ? [...row.querySelectorAll(".cmp-cell")].slice(1).map((e) => Number(e.textContent.replace(/[^0-9]/g, ""))) : []; };
-  check("(3j) Compare shows the home each ticked card showed: same places, price and monthly cost",
-    cmpHeads.join("|") === cityOrder(ticked) && cmpRow(0).join("|") === ticked.map((c) => c.price).join("|") && cmpRow(1).join("|") === ticked.map((c) => c.monthly).join("|"),
-    JSON.stringify({ cmpHeads, prices: cmpRow(0), monthly: cmpRow(1) }) + " vs " + JSON.stringify(ticked.map(({ city, price, monthly }) => ({ city, price, monthly }))));
+  check("(3j) Compare shows the home each ticked card showed: same places, price and monthly cost" + (twoOfAPlace ? " (two cards of " + twoOfAPlace.city + ", two different homes)" : ""),
+    selected.join("|") === ticked.map((c) => c.id).join("|")
+      && cmpHeads.join("|") === cityOrder(ticked) && cmpRow(0).join("|") === ticked.map((c) => c.price).join("|") && cmpRow(1).join("|") === ticked.map((c) => c.monthly).join("|")
+      && ticked.every((c) => win.document.getElementById(c.id).classList.contains("cmp-on")),
+    JSON.stringify({ selected, cmpHeads, prices: cmpRow(0), monthly: cmpRow(1) }) + " vs " + JSON.stringify(ticked.map(({ id, city, price, monthly }) => ({ id, city, price, monthly }))));
+  check("(3j2) ...this buyer does have a place with two cards and two different homes (Most home and Lowest monthly cost)",
+    !!twoOfAPlace && ticked[0].type !== ticked[1].type && ticked[0].price !== ticked[1].price, twoOfAPlace ? JSON.stringify(ticked.map((c) => c.id + " " + c.type)) : "none");
+  ticked.forEach((c) => win.document.getElementById("cmp-chk-" + c.id).click());
+  check("(3j3) unticking both empties the selection", win.eval("cmpSelected.length") === 0);
   win.eval("cmpSelected=[]");
   win.open = realOpen; win.alert = realAlert;
+  // Back to the "No limit" section 1 left, which the sections below expect.
+  win.eval("setMaxCommute('none')");
 
   // Stands in for the network, so the share test (11h) can read what would be saved.
   let sentBody = null;
@@ -247,7 +317,7 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
   const screenFirst = mainCards(win)[0];
   win.eval("openScenarioSandbox()");
   const snap = win.eval("_getAngleSnapshot(grossMonthlyIncome*12, dn_selected, workArrangement, workZone)");
-  check("(6) the What-If scenario's #1 place is the #1 card on screen",
+  check("(6) the What-If scenario's #1 place is the #1 card on screen (the Most home answer)",
     !!screenFirst && snap.picks && snap.picks.home.n === screenFirst.city, `${snap.picks && snap.picks.home.n} vs ${screenFirst && screenFirst.city}`);
   win.eval("closeScenarioSandbox()");
 
@@ -261,25 +331,37 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
   // (7c-7f checked the lead form's required fields; the form was removed 2026-09-23.)
 
   search(win, { ...COUPLE, income: 250000, down: 200000, work: "hybrid" });
-  const glance = [...win.document.querySelectorAll("#list .city")].flatMap((el) => [...el.querySelectorAll("div")].filter((d) => /At a glance/.test(d.textContent) && d.children.length > 1));
-  const ticks = win.document.querySelector("#list").innerHTML;
+  const glanceEls = cardEls(win);
+  const glance = glanceEls.flatMap((el) => [...el.querySelectorAll("div")].filter((d) => /At a glance/.test(d.textContent) && d.children.length > 1));
+  const ticks = glanceEls.map((el) => el.innerHTML).join("");
   check("(7g) no green tick sits next to a stretch or a commute fact (P1-6)",
     !/✓<\/span><span>[^<]*(stretch|Estimated commute)/.test(ticks) && glance.length > 0);
+  // Since 2.2 the three orders are the three answer cards, and the sort lives
+  // inside "See all places", where it orders the rest.
+  const answerFor = (q) => { const slot = [...win.document.querySelectorAll("#answers .answer-slot")].find((s) => s.dataset.answers.split(" ").includes(q)); return slot ? readCard(slot.querySelector(".city")) : null; };
   win.eval("setResultsSort('cost')");
-  const byCost = mainCards(win);
-  check("(7h) 'Lowest monthly cost' puts the cheapest card first", byCost.every((c, i) => i === 0 || byCost[i - 1].monthly <= c.monthly), byCost.map((c) => c.monthly).join(","));
+  const byCost = seeAllCards(win), cheapest = answerFor("cost");
+  check("(7h) 'Lowest monthly cost': the answer card is the cheapest, and See all goes from cheapest to dearest after it",
+    !!cheapest && byCost.length > 1 && byCost.every((c, i) => (i === 0 ? cheapest.monthly : byCost[i - 1].monthly) <= c.monthly), (cheapest && cheapest.monthly) + " | " + byCost.map((c) => c.monthly).join(","));
   win.eval("setResultsSort('commute')");
-  const byDrive = mainCards(win);
-  check("(7i) 'Shortest commute' puts the shortest estimated drive first", byDrive.every((c, i) => i === 0 || byDrive[i - 1].drive <= c.drive), byDrive.map((c) => c.drive).join(","));
-  check("(7j) the rule in force is stated in one sentence", /Ranked by shortest estimated drive to work/.test(win.document.getElementById("rankNotes").textContent));
+  const byDrive = seeAllCards(win), closest = answerFor("commute");
+  check("(7i) 'Shortest commute': the answer card is the shortest drive, and See all goes from shortest to longest after it",
+    !!closest && byDrive.length > 1 && byDrive.every((c, i) => (i === 0 ? closest.drive : byDrive[i - 1].drive) <= c.drive), (closest && closest.drive) + " | " + byDrive.map((c) => c.drive).join(","));
+  check("(7j) the rule in force is stated in one sentence, inside See all", /Ranked by shortest estimated drive to work/.test(win.document.getElementById("seeAllRule").textContent)
+    && !/Ranked by/.test(win.document.getElementById("rankNotes").textContent));
   search(win, { ...COUPLE, work: "remote" });
-  check("(7k) remote: no 'Shortest commute' sort, no commute limit", win.document.getElementById("sort-commute").style.display === "none" && win.eval("maxCommuteMin") === null);
+  openSeeAll(win);
+  check("(7k) remote: no 'Shortest commute' sort or answer, no commute limit",
+    win.document.getElementById("seeAllSort-commute").style.display === "none" && !/Shortest commute/.test(win.document.getElementById("answers").textContent) && win.eval("maxCommuteMin") === null);
   check("(7l) the property list uses the one fit function: no '<35 / <=45' leftovers in the page code",
     !/pct<35\)\{fitLbl='Great Fit'/.test(win.eval("render.toString()+selectPropType.toString()+costPanelHtml.toString()")));
 
   // =============== 9. newcomers: the rebate and non-resident taxes (1.7) ===============
   // Opens one Toronto city's cost breakdown the way a buyer taps it.
+  // The place's first card: an answer card, or its card under "See all
+  // places", which is opened first (2.2).
   const breakdown = (city, type) => {
+    openSeeAll(win);
     const id = "c-" + city.replace(/[^a-zA-Z0-9]/g, "-");
     win.eval(`selectPropType(${JSON.stringify(id)}, ${JSON.stringify(type)}, ${JSON.stringify(city)})`);
     const panel = win.document.getElementById("pt-panel-" + id + "-" + type);
@@ -339,24 +421,30 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
       stretch: /Stretch/.test(r.textContent),
     };
   });
-  const cardsWithRows = () => [...win.document.querySelectorAll("#list .city")].map((el) => ({ ...readCard(el), rows: rowsOf(el) }));
+  // Since 2026-09-24 (2.2) an order is its answer card (the winner) followed
+  // by the rest of the places under "See all places", sorted the same way.
+  const cardsWithRows = (q) => {
+    const slot = [...win.document.querySelectorAll("#answers .answer-slot")].find((s) => s.dataset.answers.split(" ").includes(q));
+    openSeeAll(win);
+    return [slot ? slot.querySelector(".city") : null, ...win.document.querySelectorAll("#list .city")].filter(Boolean).map((el) => ({ ...readCard(el), rows: rowsOf(el) }));
+  };
   search(win, REPORTED);
   const comfortCap = win.eval("comfortBuyPower");
   const comfortableRows = (c) => c.rows.filter((r) => !r.stretch && r.price !== null && r.price <= comfortCap);
   win.eval("setResultsSort('cost')");
-  const costCards = cardsWithRows();
+  const costCards = cardsWithRows("cost");
   check("(10a) the reported buyer gets several places to compare", costCards.length >= 2 && costCards.every((c) => c.rows.length > 0), String(costCards.length));
   check("(10b) sorted by cost, each card leads with the cheapest home it lists that is within the comfort range and not a Stretch",
     costCards.every((c) => comfortableRows(c).length > 0 && comfortableRows(c).every((r) => c.monthly <= r.monthly)),
     costCards.map((c) => c.city + " " + c.monthly + " vs " + comfortableRows(c).map((r) => r.monthly).join("/")).join("; "));
-  const cheapestAnywhere = Math.min(...costCards.flatMap((c) => comfortableRows(c).map((r) => r.monthly)));
-  check("(10c) ...so the #1 card is the cheapest comfortable home on the page",
+  const cheapestAnywhere = Math.min(...[...win.document.querySelectorAll("#answers .city, #list .city")].flatMap((el) => comfortableRows({ rows: rowsOf(el) }).map((r) => r.monthly)));
+  check("(10c) ...so the 'Lowest monthly cost' card is the cheapest comfortable home on the page",
     costCards.length > 0 && costCards[0].monthly === cheapestAnywhere, (costCards[0] && costCards[0].city + " " + costCards[0].monthly) + " vs " + cheapestAnywhere);
-  check("(10d) ...and the cards go from cheapest to dearest", costCards.every((c, i) => i === 0 || costCards[i - 1].monthly <= c.monthly), costCards.map((c) => c.monthly).join(","));
-  check("(10e) the rule sentence says what the sort compares", /each place shows the cheapest home you can comfortably afford/.test(win.document.getElementById("rankNotes").textContent));
+  check("(10d) ...and See all goes on from cheapest to dearest", costCards.every((c, i) => i === 0 || costCards[i - 1].monthly <= c.monthly), costCards.map((c) => c.monthly).join(","));
+  check("(10e) the rule sentence says what the sort compares", /each place shows the cheapest home you can comfortably afford/.test(win.document.getElementById("seeAllRule").textContent));
   win.eval("setResultsSort('home')");
-  const homeCards = cardsWithRows();
-  check("(10f) 'Most home' is unchanged: each card still leads with the biggest home it lists within comfort",
+  const homeCards = cardsWithRows("home");
+  check("(10f) 'Most home' is unchanged: the answer and each card in See all lead with the biggest home they list within comfort",
     homeCards.length > 0 && homeCards.every((c) => comfortableRows(c).every((r) => RANK[c.type] >= RANK[r.type])),
     homeCards.map((c) => c.city + " " + c.type).join("; "));
 
@@ -414,7 +502,7 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
   const GREEN = /#1D9E75|rgb\(29, 158, 117\)/i;
   const shows = (id) => fd.getElementById(id).style.display === "block";
   const noResults = () => fw.eval("results.length") === 0 && fd.getElementById("bpBox").style.display !== "block"
-    && fd.querySelectorAll("#list .city, #listMore .city").length === 0;
+    && fd.querySelectorAll("#answers .city, #list .city, #listMore .city").length === 0;
   const waSel = fd.getElementById("waSelect");
   check("(12a) work arrangement starts unanswered: the select reads 'Choose one' and the page holds no answer",
     waSel.value === "" && waSel.options[waSel.selectedIndex].textContent === "Choose one" && fw.eval("workArrangement") === null,
@@ -456,7 +544,7 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
     !shows("ftb_err") && fw.eval("firstTimeBuyer") === true && GREEN.test(fd.getElementById("ftb-yes").style.background) && !GREEN.test(fd.getElementById("ftb-no").style.background));
   fw.eval("go()");
   check("(12o) with both answered, results appear, built on the answers given",
-    fw.eval("results.length") > 0 && fd.getElementById("bpBox").style.display === "block" && fd.querySelectorAll("#list .city, #listMore .city").length > 0
+    fw.eval("results.length") > 0 && fd.getElementById("bpBox").style.display === "block" && fd.querySelectorAll("#answers .city, #list .city, #listMore .city").length > 0
       && fw.eval("workZone") !== null && /30-year amortization \(first-time buyer\)/.test(fd.getElementById("rateNote").textContent),
     fd.getElementById("rateNote").textContent.slice(0, 120));
 
@@ -550,7 +638,7 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
   sd2.getElementById("workCity").value = "Toronto";
   postal.value = "L4W 5L5";
   s.eval("go()");
-  const areaCards = [...sd2.querySelectorAll("#list .city, #listMore .city")];
+  const areaCards = [...sd2.querySelectorAll("#answers .city, #list .city, #listMore .city")];
   check("(13m) a search uses all three: the postal code's work area, only Toronto + Peel, and no commute limit",
     s.eval("workZone") === s.eval("FSA_TO_WORK_ZONE['L4W']") && s.eval("workZone") !== s.eval("CITY_TO_WORK_ZONE['toronto']")
       && s.eval("results.length") > 0 && s.eval("results.every(function(r){ return r.r === 'gta'; })") && areaCards.length > 0
@@ -602,7 +690,7 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
       && s.eval("canadianResident") === true && nrBox.getAttribute("autocomplete") === "off");
   nrBox.click();
   s.eval("go()");
-  const firstCard = sd2.querySelector("#list .city, #listMore .city");
+  const firstCard = sd2.querySelector("#answers .city, #list .city, #listMore .city");
   const firstRow = firstCard ? firstCard.querySelector("[id^='pt-row-']:not([id$='-chevron'])") : null;
   if (firstRow) firstRow.click();
   const nrPanel = firstCard ? [...firstCard.querySelectorAll("[id^='pt-panel-']")].find((p) => p.style.display === "block") : null;
@@ -621,7 +709,7 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
   breakdown("Toronto - Scarborough", torType);
   const torCard = win.document.getElementById(torId), openPanel = torPanel(torType);
   // A second breakdown open on another card, to show every open one follows.
-  const otherCard = [...win.document.querySelectorAll("#list .city")].find((el) => el.id !== torId);
+  const otherCard = [...win.document.querySelectorAll("#answers .city, #list .city")].find((el) => el.id !== torId);
   const otherRow = otherCard ? otherCard.querySelector("[id^='pt-row-']:not([id$='-chevron'])") : null;
   if (otherRow) otherRow.click();
   const otherPanel = otherCard ? [...otherCard.querySelectorAll("[id^='pt-panel-']")].find((p) => p.style.display === "block") : null;
@@ -758,7 +846,7 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
   const fitLabelFor = (ratio) => (ratio < 0.35 ? LBL[0] : ratio < 0.45 ? LBL[1] : LBL[2]);
   const pctOf = (c) => { const m = /(\d+)% of take-home/.exec(c.text); return m ? Number(m[1]) : null; };
   // Every property row on every card: its %, its label and its monthly cost.
-  const allRows = () => [...d.querySelectorAll("#list .city, #listMore .city")].flatMap((el) => [...el.querySelectorAll("[id^='pt-row-']:not([id$='-chevron'])")].map((r) => {
+  const allRows = () => cardEls(win).flatMap((el) => [...el.querySelectorAll("[id^='pt-row-']:not([id$='-chevron'])")].map((r) => {
     const m = /\$[\d,]+ · \$([\d,]+)\/mo/.exec(r.textContent), p = /(\d+)%/.exec(r.textContent.replace(/\$[\d,]+/g, ""));
     return { monthly: m ? Number(m[1].replace(/,/g, "")) : null, pct: p ? Number(p[1]) : null, label: (LBL.find((l) => r.textContent.includes(l)) || null) };
   }));
@@ -794,9 +882,9 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
       && rowsBefore.some((r) => r.label !== fitLabelFor(r.monthly / OWN)) && cardsBefore.some((c) => pctOf(c) !== Math.round(c.monthly / OWN * 100)));
   const cnt14 = byId("cnt").textContent, n14 = Number((/(\d+)\s+(?:city|cities)/.exec(cnt14) || [])[1] || 0);
   check("(14u) the count of places still matches the cards (the stricter labels can move places to 'Only as a stretch')",
-    mainCards(win).length === 0 ? /No cities/.test(cnt14) : n14 === mainCards(win).length && mainCards(win).every((c) => c.fit !== LBL[2]), cnt14);
+    mainCards(win).length === 0 ? /No cities/.test(cnt14) : n14 === placesOf(mainCards(win)) && mainCards(win).every((c) => c.fit !== LBL[2]), cnt14);
   // A breakdown, the PDF report, Compare, Scenarios and the listings handover.
-  const anyCard = d.querySelector("#list .city, #listMore .city");
+  const anyCard = cardEls(win)[0];
   const anyRow = anyCard.querySelector("[id^='pt-row-']:not([id$='-chevron'])");
   anyRow.click();
   const panel14 = [...anyCard.querySelectorAll("[id^='pt-panel-']")].find((p) => p.style.display === "block");
@@ -813,7 +901,7 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
     ladder.length > 0 && ladder.every((r) => r.pct === Math.round(r.monthly / OWN * 100)) && /Your Take-home<\/div><div class="pr-profile-val">\$6,000\/mo/.test(rep), ladder.slice(0, 4).map((r) => JSON.stringify(r)).join(" "));
   const ticked14 = cardsAfter.slice(0, 2);
   written.length = 0;
-  win.eval(`cmpSelected=${JSON.stringify(ticked14.map((c) => c.city))}; buildCompare();`);
+  win.eval(`cmpSelected=${JSON.stringify(ticked14.map((c) => c.id))}; buildCompare();`);
   const cmp14 = written[0] && written[0].html ? new win.DOMParser().parseFromString(written[0].html, "text/html") : null;
   const cmpFits = cmp14 ? [...cmp14.querySelectorAll(".cmp-fit")].map((e) => e.textContent.trim()) : [];
   check("(14x) Compare's labels are the cards' labels on the buyer's take-home", ticked14.length === 2 && cmpFits.join("|") === ticked14.map((c) => c.fit).join("|"), cmpFits.join("|") + " vs " + ticked14.map((c) => c.fit).join("|"));
@@ -849,6 +937,192 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
   search(win, { ...TOP, income: 70000, partnerIncome: 0 });
   check("(14ae) one income: the box asks for 'Your actual monthly take-home', with no 'both of you'",
     textOf(byId("takeHomeEdit").querySelector("label")) === "Your actual monthly take-home");
+
+  // =============== 15. three answers and "See all places" (IMPROVEMENT_PLAN.md 2.2) ===============
+  // The user's decision: the top three are three labelled answers, one per
+  // question, each that question's winner; they are today's cards,
+  // completely unchanged, a third of the width side by side on a computer and
+  // stacked on a phone; the rest of the places are behind "See all places",
+  // ordered by most home, with a small "Sort by" there.
+  // A search keeps the commute limit picked earlier (section 10 picked 30
+  // minutes), so the commuters below set the 60-minute default explicitly.
+  win.eval("resetTakeHome()");
+  const TYPE_KEY = { Condo: "condo", Townhouse: "town", "Semi-Detached": "semi", Detached: "detached" };
+  // The answers as a buyer reads them: the label on top, then the card.
+  const answersOnPage = () => [...d.querySelectorAll("#answers .answer-slot")].map((s) => {
+    const c = readCard(s.querySelector(".city"));
+    return { ...c, label: textOf(s.querySelector(".answer-label")), answers: s.dataset.answers.split(" "), key: c.city + "|" + TYPE_KEY[c.type], slot: s };
+  });
+  // Each order's ranking, from the engine, with the page's own commute limit and home-type filter.
+  const engineRanked = (sort) => win.eval(`rankCities(results, {sort:${JSON.stringify(sort)}, maxCommute:maxCommuteMin, onlyType: activeProp!=='all'?activeProp:null}).ranked.map(function(e){ return {key: e.n+'|'+e.type, n: e.n, type: e.type, price: e.price, monthly: Math.round(e.costs.total)}; })`);
+  const sameHome = (card, e) => !!card && !!e && card.city === e.n && TYPE_KEY[card.type] === e.type && card.price === e.price && card.monthly === e.monthly;
+  const seeAllOpenNow = () => visible(byId("seeAllBody")) && byId("seeAllBtn").getAttribute("aria-expanded") === "true";
+  const listCards = () => [...d.querySelectorAll("#list .city")].map(readCard);
+
+  // A commuter whose three answers are three different homes, one place twice.
+  search(win, { ...COUPLE, income: 180000, down: 120000, work: "hybrid", maxCommute: "60" });
+  const a15 = answersOnPage(), home15 = engineRanked("home"), commute15 = engineRanked("commute"), cost15 = engineRanked("cost");
+  check("(15a) three answer cards, labelled 'Most home', 'Shortest commute', 'Lowest monthly cost', in that order",
+    a15.length === 3 && a15.map((a) => a.label).join("|") === "Most home|Shortest commute|Lowest monthly cost", a15.map((a) => a.label).join("|"));
+  check("(15b) ...each is its question's winner: the #1 of rankCities() sorted by most home, by shortest commute and by lowest monthly cost (place, home, price, monthly cost)",
+    sameHome(a15[0], home15[0]) && sameHome(a15[1], commute15[0]) && sameHome(a15[2], cost15[0]),
+    JSON.stringify(a15.map((a) => a.key)) + " vs " + JSON.stringify([home15[0], commute15[0], cost15[0]].map((e) => e && e.key)));
+  const twice = a15.filter((a) => a.city === a15[2].city);
+  check("(15c) the same place can win twice with a different home, and is shown both times, each card with its own id",
+    twice.length === 2 && twice[0].type !== twice[1].type && twice[0].id !== twice[1].id && twice[1].id === twice[0].id + "__2", JSON.stringify(twice.map((a) => a.id + " " + a.type)));
+  const todays = win.eval(`(function(){ var cards = document.querySelectorAll('#answers .city'); return answerPicks(results, {maxCommute: maxCommuteMin, onlyType: null}).picks.map(function(p, i){ return cityCardHtml(p.entry, 'ranked', cards[i].id); }); })()`);
+  const asParsed = (html) => { const box = d.createElement("div"); box.innerHTML = html; return box.firstElementChild.outerHTML; };
+  check("(15d) each answer card is today's card, exactly: the same HTML cityCardHtml() draws for every card (name, headline and label, true monthly cost, At a glance, the home-type rows, AI Insights, compare, View available homes)",
+    todays.length === 3 && a15.every((a, i) => a.slot.querySelector(".city").outerHTML === asParsed(todays[i]))
+      && a15.every((a) => { const el = a.slot.querySelector(".city"); return el.querySelector(".cn") && el.querySelector(".card-headline .fit-pill") && el.querySelector("[id$='-mtotal']") && /At a glance/.test(el.textContent) && el.querySelector("[id^='pt-row-']") && el.querySelector(".ai-insights-trigger") && el.querySelector(".cmp-cb") && el.querySelector(".view-btn"); }));
+  check("(15e) each label sits on top of its card, in the site's small eyebrow style",
+    a15.every((a) => a.slot.firstElementChild.className === "answer-label" && a.slot.children[1].classList.contains("city") && a.slot.children.length === 2));
+  check("(15f) HomePilot Worth Knowing has its place, empty for now: #worthKnowing between the answers and 'See all places'",
+    !!byId("worthKnowing") && byId("worthKnowing").innerHTML === "" && byId("answers").nextElementSibling === byId("worthKnowing") && byId("worthKnowing").nextElementSibling === byId("seeAll"));
+  check("(15g) the sort switch above the list is gone; the only 'Sort by' is inside 'See all places', below the answers",
+    !byId("sortBar") && !byId("sort-home") && !byId("sort-commute") && !byId("sort-cost") && byId("seeAllBody").contains(byId("seeAllSort"))
+      && (byId("answers").compareDocumentPosition(byId("seeAllSort")) & 4) !== 0 && d.querySelectorAll("[onclick*='setResultsSort']").length === 3
+      && [...d.querySelectorAll("[onclick*='setResultsSort']")].every((b) => byId("seeAllSort").contains(b)));
+
+  // "See all places": closed until opened.
+  const answerKeys = new Set(a15.map((a) => a.key));
+  const restOf = (ranked) => ranked.filter((e) => !answerKeys.has(e.key));
+  const restHome = restOf(home15);
+  check("(15h) 'See all places' is closed after a search: the button says how many more, nothing of it is drawn",
+    visible(byId("seeAllBtn")) && textOf(byId("seeAllBtn")) === `See all places (${restHome.length} more)` && byId("seeAllBtn").getAttribute("aria-expanded") === "false"
+      && !visible(byId("seeAllBody")) && d.querySelectorAll("#list .city, #listMore .city").length === 0 && restHome.length > 0 && win.eval("seeAllOpen") === false,
+    textOf(byId("seeAllBtn")) + " / " + restHome.length);
+  check("(15i) ...and the page counts every place: 'N cities' is all the places, the answers' included", Number((/(\d+)\s+cities/.exec(byId("cnt").textContent) || [])[1]) === home15.length);
+  // An answer card's breakdown, open, to show the answers are left alone below.
+  const firstAnswer = byId("answers").querySelector(".city");
+  firstAnswer.querySelector("[id^='pt-row-']:not([id$='-chevron'])").click();
+  const openPanel15 = [...firstAnswer.querySelectorAll("[id^='pt-panel-']")].find((p) => p.style.display === "block");
+  byId("seeAllBtn").click();
+  const opened = listCards();
+  check("(15j) opening it shows the rest in today's big cards, ordered by most home: rankCities()'s order without the homes the answers already show",
+    seeAllOpenNow() && textOf(byId("seeAllBtn")) === "Hide the other places" && opened.length === restHome.length && opened.every((c, i) => sameHome(c, restHome[i]))
+      && [...d.querySelectorAll("#list > .city")].length === opened.length,
+    opened.map((c) => c.city + "|" + c.type).join(", ") + " vs " + restHome.map((e) => e.key).join(", "));
+  check("(15k) ...with its 'Sort by' (Most home picked) and the rule it follows",
+    visible(byId("seeAllSort")) && textOf(byId("seeAllSort")) === "Sort by Most home Shortest commute Lowest monthly cost" && byId("seeAllSort-home").classList.contains("on")
+      && /Ranked by the most home you can comfortably afford, shortest commute first\./.test(textOf(byId("seeAllRule"))), textOf(byId("seeAllSort")));
+  byId("seeAllSort-cost").click();
+  const byCost15 = listCards(), restCost = restOf(cost15);
+  check("(15l) 'Sort by: Lowest monthly cost' reorders See all by rankCities()'s cost order (each place's cheapest comfortable home)",
+    byId("seeAllSort-cost").classList.contains("on") && !byId("seeAllSort-home").classList.contains("on") && byCost15.length === restCost.length && byCost15.every((c, i) => sameHome(c, restCost[i]))
+      && byCost15.every((c, i) => i === 0 || byCost15[i - 1].monthly <= c.monthly),
+    byCost15.map((c) => c.city + " " + c.monthly).join(", "));
+  byId("seeAllSort-commute").click();
+  const byDrive15 = listCards(), restDrive = restOf(commute15);
+  check("(15m) 'Sort by: Shortest commute' likewise, shortest drive first",
+    byDrive15.length === restDrive.length && byDrive15.every((c, i) => sameHome(c, restDrive[i])) && byDrive15.every((c, i) => i === 0 || byDrive15[i - 1].drive <= c.drive));
+  check("(15n) ...and re-sorting leaves the answer cards as they were: the same cards, the open breakdown still open",
+    byId("answers").querySelector(".city") === firstAnswer && !!openPanel15 && openPanel15.isConnected && openPanel15.style.display === "block"
+      && answersOnPage().map((a) => a.key).join("|") === a15.map((a) => a.key).join("|"));
+  // A card ticked for Compare under "See all places", then See all closed:
+  // Compare still compares the home that card showed.
+  const tickedRest = listCards()[0], tickedAnswer = a15[0];
+  [tickedAnswer.id, tickedRest.id].forEach((id) => byId("cmp-chk-" + id).click());
+  byId("seeAllBtn").click();
+  check("(15o) closing it takes the rest away again, and shownCards is the answers only",
+    !visible(byId("seeAllBody")) && byId("seeAllBtn").getAttribute("aria-expanded") === "false" && d.querySelectorAll("#list .city").length === 0
+      && win.eval("shownCards.map(function(c){ return c.section; }).join()") === "answer-home,answer-commute,answer-cost");
+  const cmpWritten = [];
+  const openBefore = win.open;
+  win.open = () => { const w = { html: "", document: { write(h) { w.html += h; }, close() {} }, focus() {}, print() {}, close() {} }; cmpWritten.push(w); return w; };
+  win.eval("buildCompare()");
+  win.open = openBefore;
+  const cmp15 = cmpWritten[0] ? new win.DOMParser().parseFromString(cmpWritten[0].html, "text/html") : null;
+  const cmp15Prices = cmp15 ? [...cmp15.querySelectorAll(".cmp-row")[0].querySelectorAll(".cmp-cell")].slice(1).map((e) => Number(e.textContent.replace(/[^0-9]/g, ""))) : [];
+  check("(15o2) ...and a card ticked for Compare under See all still compares the home it showed, after See all is closed",
+    cmp15Prices.join("|") === [tickedAnswer.price, tickedRest.price].join("|"), cmp15Prices.join("|") + " vs " + tickedAnswer.price + "|" + tickedRest.price);
+  byId("cmp-chk-" + tickedAnswer.id).click();
+  win.eval("initCompare()");
+  const noteBtn = [...byId("rankNotes").querySelectorAll("button")].find((b) => /Show them/.test(b.textContent));
+  if (noteBtn) noteBtn.click();
+  check("(15p) 'Show them' on the note about far places opens 'See all places' at its 'Past your commute limit' section",
+    !!noteBtn && seeAllOpenNow() && /Past your 60-minute commute limit/.test(byId("listMore").textContent) && moreCards(win).length > 0);
+  search(win, { ...COUPLE, income: 180000, down: 120000, work: "hybrid", maxCommute: "60" });
+  check("(15q) a new search starts with 'See all places' closed again, in the most-home order",
+    !visible(byId("seeAllBody")) && win.eval("seeAllOpen") === false && win.eval("resultsSort") === "home" && win.eval("showOverCommute") === false);
+
+  // The home-type filter applies to the answers too.
+  win.eval("filtProp('condo', document.getElementById('pt-condo'))");
+  const condoAnswers = answersOnPage();
+  check("(15r) with a home type picked, every answer is that type and still its question's winner",
+    condoAnswers.length > 0 && condoAnswers.every((a) => a.type === "Condo") && sameHome(condoAnswers[0], engineRanked("home")[0])
+      && condoAnswers.some((a) => a.answers.includes("cost") && sameHome(a, engineRanked("cost")[0])), condoAnswers.map((a) => a.label + " " + a.key).join("; "));
+  win.eval("filtProp('all', document.getElementById('pt-all'))");
+
+  // Two answers with the IDENTICAL home share one card, labelled with both,
+  // and the free slot goes to "Also worth a look": the best most-home entry
+  // not already shown. Found by search, so a price change can't hide it.
+  let merged = null;
+  for (const workCity of ["Toronto - West End", "King City", "Aurora", "Orangeville", "Acton"]) {
+    search(win, { income: 150000, down: 100000, debt: 0, family: 3, firstTime: true, work: "daily", maxCommute: "60", workCity });
+    const h = engineRanked("home"), c = engineRanked("commute"), k = engineRanked("cost");
+    if (h[0] && c[0] && k[0] && h[0].key === c[0].key && k[0].key !== h[0].key && h.length >= 3) { merged = { workCity, h, c, k }; break; }
+  }
+  const mA = merged ? answersOnPage() : [];
+  const shownKeys = mA.map((a) => a.key);
+  const alsoExpected = merged ? merged.h.find((e) => e.key !== merged.h[0].key && e.key !== merged.k[0].key) : null;
+  check("(15s) same home for 'Most home' and 'Shortest commute': one card labelled 'Most home · Shortest commute', then 'Lowest monthly cost'" + (merged ? " (work in " + merged.workCity + ")" : ""),
+    !!merged && mA.length === 3 && mA[0].label === "Most home · Shortest commute" && sameHome(mA[0], merged.h[0]) && mA[1].label === "Lowest monthly cost" && sameHome(mA[1], merged.k[0]),
+    merged ? mA.map((a) => a.label + " = " + a.key).join("; ") : "no merging buyer found");
+  check("(15t) ...and the free slot is 'Also worth a look': the best most-home place not already shown; no home is shown twice",
+    !!merged && mA[2].label === "Also worth a look" && sameHome(mA[2], alsoExpected) && new Set(shownKeys).size === shownKeys.length
+      && win.eval("shownCards.map(function(c){ return c.section + ':' + c.answers.join('+'); }).join()") === "answer-home:home+commute,answer-cost:cost,answer-also:also",
+    merged ? mA.map((a) => a.label + " = " + a.key).join("; ") + " / expected " + (alsoExpected && alsoExpected.key) : "");
+
+  // Fewer comfortable places than cards: only what exists, no empty boxes.
+  search(win, { income: 150000, down: 100000, debt: 0, family: 3, firstTime: true, work: "daily", maxCommute: "60", workCity: "Erin" });
+  const few = answersOnPage(), fewRanked = engineRanked("home");
+  check("(15u) fewer than three comfortable homes: only the cards there are, no empty box, and the grid is sized for them",
+    few.length >= 1 && few.length < 3 && d.querySelectorAll("#answers .answer-slot").length === few.length
+      && byId("answers").querySelector(".answer-grid").className === "answer-grid answer-grid-" + few.length
+      && [...d.querySelectorAll("#answers .answer-slot")].every((s) => !!s.querySelector(".city")) && fewRanked.length <= few.length,
+    few.map((a) => a.label + " = " + a.key).join("; ") + " / ranked " + fewRanked.length);
+  check("(15v) ...a single home that wins all three questions carries all three labels",
+    few.length !== 1 || few[0].label === "Most home · Shortest commute · Lowest monthly cost", few.map((a) => a.label).join("; "));
+
+  // A remote buyer has no commute to answer: Most home, Lowest monthly cost,
+  // and "Also worth a look", the runner-up for most home.
+  search(win, { income: 200000, down: 150000, debt: 0, family: 3, firstTime: true, work: "remote" });
+  const rA = answersOnPage(), rHome = engineRanked("home"), rCost = engineRanked("cost");
+  check("(15w) remote: 'Most home', 'Lowest monthly cost', then 'Also worth a look' = the runner-up for most home; no commute answer",
+    rA.length === 3 && rA.map((a) => a.label).join("|") === "Most home|Lowest monthly cost|Also worth a look" && sameHome(rA[0], rHome[0]) && sameHome(rA[1], rCost[0])
+      && sameHome(rA[2], rHome.find((e, i) => i > 0 && e.key !== rCost[0].key)) && sameHome(rA[2], rHome[1]) && !/Shortest commute/.test(byId("answers").textContent),
+    rA.map((a) => a.label + " = " + a.key).join("; ") + " / runner-up " + (rHome[1] && rHome[1].key));
+  search(win, { ...COUPLE, work: "remote" });
+  const rA2 = answersOnPage(), rHome2 = engineRanked("home"), rCost2 = engineRanked("cost");
+  check("(15x) remote, and the most home is also the cheapest: one 'Most home · Lowest monthly cost' card, then the next two most-home places",
+    rHome2[0] && rCost2[0] && rHome2[0].key === rCost2[0].key
+      ? rA2.length === 3 && rA2[0].label === "Most home · Lowest monthly cost" && sameHome(rA2[0], rHome2[0]) && rA2.slice(1).every((a, i) => a.label === "Also worth a look" && sameHome(a, rHome2[i + 1]))
+      : false,
+    rA2.map((a) => a.label + " = " + a.key).join("; "));
+
+  // Nothing comfortable: no answers and no button; the page is as it was
+  // (the next item, 2.0, replaces it).
+  search(win, { ...COUPLE, work: "hybrid", maxCommute: "60" });
+  check("(15y) nothing comfortable: no answer cards and no 'See all places' button; the message and the stretch section show, as before",
+    d.querySelectorAll("#answers .city").length === 0 && !visible(byId("seeAllBtn")) && visible(byId("seeAllBody")) && !visible(byId("seeAllSort"))
+      && /No city within a 60-minute drive has any home you can comfortably afford — the closest options are below\./.test(byId("list").textContent)
+      && /Only as a stretch/.test(byId("listMore").textContent) && moreCards(win).length > 0 && /only as a stretch — listed below\./.test(byId("rankNotes").textContent)
+      && win.eval("shownCards.every(function(c){ return c.section === 'stretch'; })"));
+
+  // Phone and computer layout, from the stylesheet (jsdom does no layout).
+  const css = require("fs").readFileSync(require("path").join(__dirname, "..", "calculator.html"), "utf8").match(/<style>([\s\S]*?)<\/style>/)[1];
+  const baseAt = css.indexOf(".answer-grid{display:grid;grid-template-columns:minmax(0,1fr)");
+  const threeAt = css.search(/@media\(min-width:1240px\)\{\s*\.answer-grid-3\{grid-template-columns:repeat\(3,minmax\(0,1fr\)\)\}/);
+  const twoAt = css.search(/@media\(min-width:1024px\)\{\s*\.answer-grid\{align-items:start;row-gap:14px\}\s*\.answer-grid-2\{grid-template-columns:repeat\(2,minmax\(0,1fr\)\)\}/);
+  const outsideMedia = (at) => { const before = css.slice(0, at); return (before.match(/\{/g) || []).length === (before.match(/\}/g) || []).length; };
+  search(win, { ...COUPLE, income: 180000, down: 120000, work: "hybrid", maxCommute: "60" });
+  check("(15z) phone: the answer cards stack at full width, one column, as the first cards always did (the base rule, outside any media query)",
+    baseAt !== -1 && outsideMedia(baseAt) && !/max-width[^{]*\{[^}]*answer-grid/.test(css));
+  check("(15aa) computer: three answers side by side, a third of the width each (1240px+, where a card gets a small phone's width), two a half each from 1024px; both after the phone rule, so they win",
+    threeAt > baseAt && twoAt > baseAt && byId("answers").querySelector(".answer-grid").classList.contains("answer-grid-3") && d.querySelectorAll("#answers .answer-grid-3 > .answer-slot").length === 3);
+  check("(15ab) 'See all places' is the listings page's outlined 'Load more' button, not a new design", /\.listings-load-more,\.see-all-btn\{/.test(css) && /\.listings-load-more:hover,\.see-all-btn:hover\{/.test(css)
+    && byId("seeAllBtn").className === "see-all-btn");
 
   check("(8) no uncaught script errors during any of this", errors.length === 0, errors.join(" | "));
 

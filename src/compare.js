@@ -5,20 +5,37 @@
 // changed. Loaded via <script src="src/compare.js"></script> before the main
 // inline script, same shared global scope as before.
 //
-// Contains: cmpSelected (up to 3 selected cities), initCompare(),
+// Contains: cmpSelected (up to 3 ticked cards, by card id) and cmpTicked
+// (the home each showed), initCompare(), shownCardFor() / cmpCardFor(),
 // toggleCmpCity(), buildCompare() (renders the side-by-side comparison table).
 
-let cmpSelected=[];
+let cmpSelected=[], cmpTicked={};
 // The compare bar (#cmpSticky, fixed at the bottom) and the WhatsApp button
 // share the bottom-right corner. While the bar is up, body.cmp-bar-open moves
 // the WhatsApp button above it (CSS in calculator.html), so it no longer
 // covers the bar's Compare button (IMPROVEMENT_PLAN.md 2.10).
 function setCmpBarOpen(open){if(document.body)document.body.classList.toggle('cmp-bar-open',!!open);}
-function initCompare(){cmpSelected=[];const table=document.getElementById('cmpTable'),btn=document.getElementById('cmpBtn');if(table)table.innerHTML='';if(btn)btn.style.display='none';const sticky=document.getElementById('cmpSticky');if(sticky)sticky.style.display='none';setCmpBarOpen(false);}
+function initCompare(){cmpSelected=[];cmpTicked={};const table=document.getElementById('cmpTable'),btn=document.getElementById('cmpBtn');if(table)table.innerHTML='';if(btn)btn.style.display='none';const sticky=document.getElementById('cmpSticky');if(sticky)sticky.style.display='none';setCmpBarOpen(false);}
+// A place can have two cards since 2026-09-24 (the three answers can show the
+// same place with different homes, IMPROVEMENT_PLAN.md 2.2), so a tick is
+// kept as the ticked card's id, with the card's line in shownCards as it was
+// when ticked (cmpTicked): buildCompare() compares the home that card showed,
+// even once "See all places" is closed or re-sorted and the card is gone. A
+// plain place name still works: its first card on the page.
+function shownCardFor(sel){
+  const cards=Array.isArray(shownCards)?shownCards:[];
+  return cards.find(c=>c.cardId===sel)||cards.find(c=>c.city===sel)||null;
+}
+function cmpCardFor(sel){ return cmpTicked[sel]||shownCardFor(sel); }
 function toggleCmpCity(cityName,checkbox){
-  const id='c-'+cityName.replace(/[^a-zA-Z0-9]/g,'-'),cityEl=document.getElementById(id);
-  if(checkbox.checked){if(cmpSelected.length>=3){checkbox.checked=false;return;}cmpSelected.push(cityName);if(cityEl)cityEl.classList.add('cmp-on');}
-  else{cmpSelected=cmpSelected.filter(c=>c!==cityName);if(cityEl)cityEl.classList.remove('cmp-on');}
+  const cityEl=(checkbox&&checkbox.closest&&checkbox.closest('.city'))||document.getElementById('c-'+cityName.replace(/[^a-zA-Z0-9]/g,'-'));
+  const key=cityEl&&cityEl.id?cityEl.id:cityName;
+  if(checkbox.checked){
+    if(!cmpSelected.includes(key)){if(cmpSelected.length>=3){checkbox.checked=false;return;}cmpSelected.push(key);}
+    const card=shownCardFor(key);if(card)cmpTicked[key]=card;
+    if(cityEl)cityEl.classList.add('cmp-on');
+  }
+  else{cmpSelected=cmpSelected.filter(c=>c!==key);delete cmpTicked[key];if(cityEl)cityEl.classList.remove('cmp-on');}
   const btn=document.getElementById('cmpBtn');btn.style.display=cmpSelected.length>=2?'block':'none';
   const sticky=document.getElementById('cmpSticky'),stickyLabel=document.getElementById('cmpStickyLabel');
   if(sticky){sticky.style.display=cmpSelected.length>=2?'flex':'none';setCmpBarOpen(cmpSelected.length>=2);if(stickyLabel)stickyLabel.textContent=cmpSelected.length+' cit'+(cmpSelected.length===1?'y':'ies')+' selected';}
@@ -33,13 +50,14 @@ function buildCompare(){
   // null, fell back to a stale homePrice). Now picks each city's best qualifying tier,
   // same approach the main results view uses.
   const TIERS=['detached','semi','town','condo'];
-  const data=cmpSelected.map(cityName=>{
-    const r=results.find(x=>x.n===cityName);
-    let type=activeProp, price=null;
+  const data=cmpSelected.map(sel=>{
     // The home the card showed (shownCards, 2026-09-23), so the comparison
     // compares what the buyer ticked -- not the most expensive type the bank
     // would allow, which is what this picked before.
-    const card=(Array.isArray(shownCards)?shownCards:[]).find(c=>c.city===cityName);
+    const card=cmpCardFor(sel);
+    const cityName=card?card.city:sel;
+    const r=results.find(x=>x.n===cityName);
+    let type=activeProp, price=null;
     if(card){
       type=card.type;price=card.price;
     } else if(activeProp==='all'){

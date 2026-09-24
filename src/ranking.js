@@ -28,7 +28,8 @@
 //
 // Contains: getPriceForTypeStrict() (unchanged), HOME_ORDER, HOME_RANK,
 // RESULT_SORTS, DEFAULT_MAX_COMMUTE, MAX_COMMUTE_CHOICES, commuteEstimateMin(),
-// qualifyingOption(), isComfortable(), rankCities(), rankRuleSentence().
+// qualifyingOption(), isComfortable(), rankCities(), answerPicks() (the three
+// answer cards at the top of the results, 2026-09-24), rankRuleSentence().
 
 function getPriceForTypeStrict(cityName,type,bp){
   const t=PT[cityName];if(!t)return type==='all'?bp:null;
@@ -172,7 +173,49 @@ function rankCities(cities, opts) {
   return { ranked, stretchOnly, overCommute, sort, commuteKnown, limit };
 }
 
-// The rule in force, in one sentence, for the line above the results.
+// ── The three answers at the top of the results (2026-09-24) ──────────────
+// IMPROVEMENT_PLAN.md 2.2, "Three answers, not tabs": the first cards answer
+// one question each -- Most home, Shortest commute, Lowest monthly cost -- and
+// each shows that question's winner: the #1 of rankCities() under that sort,
+// with the same commute limit and home-type filter as the rest of the page.
+//   - The same place can win twice with a different home (a Brampton detached
+//     for most home, a Brampton condo for lowest cost). Both are shown.
+//   - Two answers with the IDENTICAL home (same place, same home type) share
+//     one card, labelled with both ("Most home · Shortest commute"). Its place
+//     is the first of its answers.
+//   - A free slot, from that merge or because there is no commute to answer
+//     (remote work, or a work location the app could not place), goes to
+//     "Also worth a look": the best most-home entry not already shown. For a
+//     remote buyer that is the runner-up for most home.
+//   - Fewer comfortable places than cards: only what exists, never an empty box.
+// Returns { picks: [{ entry, answers }], byHome, byCommute, byCost, commuteKnown }.
+// Each pick's entry is a rankCities() entry; answers lists the questions it
+// answers, in order ('home', 'commute', 'cost', or 'also').
+const ANSWER_LABELS = { home: 'Most home', commute: 'Shortest commute', cost: 'Lowest monthly cost', also: 'Also worth a look' };
+const ANSWER_CARDS = 3;
+// One home: a place and a home type.
+function homeKey(e) { return e.n + '|' + e.type; }
+function answerPicks(cities, opts) {
+  const o = opts || {};
+  const rank = (sort) => rankCities(cities, { sort, maxCommute: o.maxCommute, onlyType: o.onlyType });
+  const byHome = rank('home'), byCost = rank('cost');
+  const byCommute = byHome.commuteKnown ? rank('commute') : null;
+  const picks = [];
+  const shown = (e) => picks.find((p) => homeKey(p.entry) === homeKey(e));
+  [['home', byHome.ranked[0]], ['commute', byCommute && byCommute.ranked[0]], ['cost', byCost.ranked[0]]].forEach(([q, e]) => {
+    if (!e) return;
+    const same = shown(e);
+    if (same) same.answers.push(q);
+    else picks.push({ entry: e, answers: [q] });
+  });
+  for (const e of byHome.ranked) {
+    if (picks.length >= ANSWER_CARDS) break;
+    if (!shown(e)) picks.push({ entry: e, answers: ['also'] });
+  }
+  return { picks, byHome, byCommute, byCost, commuteKnown: byHome.commuteKnown };
+}
+
+// The rule in force, in one sentence: the order of "See all places" (render.js).
 function rankRuleSentence(sort, commuteKnown) {
   if (sort === 'commute') return 'Ranked by shortest estimated drive to work, then the most home you can comfortably afford.';
   if (sort === 'cost') return 'Ranked by lowest monthly cost: each place shows the cheapest home you can comfortably afford there.';

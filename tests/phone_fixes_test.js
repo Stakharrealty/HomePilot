@@ -256,13 +256,16 @@ async function openPage(file, width) {
   d.getElementById("workCity").value = "Toronto";
   w.eval("go()");
   await new Promise((r) => setTimeout(r, 300));
-  const cities = [...d.querySelectorAll("#list .city")].slice(0, 2).map((c) => c.querySelector(".cn").textContent.trim());
+  // The first cards are the three answer cards (2026-09-24, IMPROVEMENT_PLAN.md
+  // 2.2). A place can have two of them, so each card is ticked by its own id.
+  const cards = [...d.querySelectorAll("#answers .city")].slice(0, 2);
+  const cities = cards.map((c) => c.id);
   check("calculator: a search gives at least two cards to compare", cities.length === 2, cities.length);
   const wa = d.getElementById("waWrap");
-  const tick = (city, on) => {
-    const cb = d.getElementById("cmp-chk-c-" + city.replace(/[^a-zA-Z0-9]/g, "-"));
+  const tick = (cardId, on) => {
+    const cb = d.getElementById("cmp-chk-" + cardId);
     cb.checked = on;
-    w.toggleCmpCity(city, cb);
+    w.toggleCmpCity(d.getElementById(cardId).querySelector(".cn").textContent.trim(), cb);
   };
   check("calculator: before any ticks the WhatsApp button is 20px up", styleAt(wa, "bottom", PHONE) === "20px", styleAt(wa, "bottom", PHONE));
   tick(cities[0], true);
