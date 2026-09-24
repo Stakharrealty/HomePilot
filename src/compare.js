@@ -40,7 +40,7 @@ function toggleCmpCity(cityName,checkbox){
   else{cmpSelected=cmpSelected.filter(c=>c!==key);delete cmpTicked[key];if(cityEl)cityEl.classList.remove('cmp-on');}
   const btn=document.getElementById('cmpBtn');btn.style.display=cmpSelected.length>=2?'block':'none';
   const sticky=document.getElementById('cmpSticky'),stickyLabel=document.getElementById('cmpStickyLabel');
-  if(sticky){sticky.style.display=cmpSelected.length>=2?'flex':'none';setCmpBarOpen(cmpSelected.length>=2);if(stickyLabel)stickyLabel.textContent=cmpSelected.length+' cit'+(cmpSelected.length===1?'y':'ies')+' selected';}
+  if(sticky){sticky.style.display=cmpSelected.length>=2?'flex':'none';setCmpBarOpen(cmpSelected.length>=2);if(stickyLabel)stickyLabel.textContent=cmpSelected.length+' selected';}
   if(document.getElementById('cmpTable').innerHTML&&cmpSelected.length>=2)buildCompare();
 }
 function buildCompare(){
@@ -75,7 +75,7 @@ function buildCompare(){
     const fit=getFit(c.total,grossMonthlyIncome);
     // Same rounded estimate the card shows (commuteEstimateMin, ranking.js).
     const drive=workArrangement!=='remote'?commuteEstimateMin(cityName):(DRIVE_TO_TORONTO[cityName]||null);
-    return{name:cityName,price,total:c.total,
+    return{name:cityName,type,price,total:c.total,
       fitCls:fit?fit.cls:'',fitLbl:fit?fit.lbl:'—',fitScore:fit?fit.score:null,drive};
   });
   const minTotal=Math.min(...data.map(d=>d.total)),maxTotal=Math.max(...data.map(d=>d.total));
@@ -83,11 +83,16 @@ function buildCompare(){
   const minDrive=Math.min(...data.map(d=>d.drive||999)),maxDrive=Math.max(...data.map(d=>d.drive||0));
   const rankCls=(val,min,max)=>val===min?'best':val===max?'worst':data.length>2?'mid':'';
   const gridTpl='130px '+data.map(()=>'1fr').join(' ');
-  const headCells='<div class="cmp-head-cell" style="text-align:left;color:#999">Area</div>'+data.map(d=>'<div class="cmp-head-cell">'+d.name+'</div>').join('');
+  // Each column names the place and the home type (2026-09-24): two cards of
+  // one place compare two homes, and the place's name alone gave both columns
+  // the same heading. The bar above says "N selected" for the same reason, and
+  // the line under the title leads with the HomePilot comfort range, as the
+  // results do; it said "your budget" and gave the bank's figure.
+  const headCells='<div class="cmp-head-cell" style="text-align:left;color:#999">Area</div>'+data.map(d=>'<div class="cmp-head-cell"><div class="cmp-head-name">'+d.name+'</div><div class="cmp-head-type" style="font-size:11px;font-weight:600;color:#999;margin-top:2px">'+(PROP_LABELS[d.type]||d.type)+'</div></div>').join('');
   const driveLabel = workArrangement!=='remote' ? '🚗 Est. Commute<br>to Work' : '🚗 Drive to<br>Toronto';
   const rows=[{label:'Home Price',cells:data.map(d=>({val:fc(d.price),cls:rankCls(d.price,minPrice,maxPrice)}))},{label:'💰 Monthly Cost',cells:data.map(d=>({val:fc(d.total)+'/mo',cls:rankCls(d.total,minTotal,maxTotal)}))},{label:'📊 Comfort Score',cells:data.map(d=>({val:'<span class="cmp-fit '+d.fitCls+'">'+d.fitLbl+'</span><div style="font-size:11px;color:#999;margin-top:3px">'+d.fitScore+' / 100</div>',cls:''}))},{label:driveLabel,cells:data.map(d=>({val:d.drive?d.drive+' min':'—',cls:rankCls(d.drive,minDrive,maxDrive)}))}];
   const rowsHtml=rows.map(row=>'<div class="cmp-row" style="grid-template-columns:'+gridTpl+'"><div class="cmp-cell" style="justify-content:flex-start;color:#555;font-size:12px;font-weight:600">'+row.label+'</div>'+row.cells.map(c=>'<div class="cmp-cell '+c.cls+'">'+c.val+'</div>').join('')+'</div>').join('');
-  const tableHtml='<div style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;padding:24px;max-width:600px;margin:0 auto"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px"><span style="font-size:18px;font-weight:700;color:#1a1a1a">Area Comparison</span><button onclick="window.close()" style="font-size:13px;padding:6px 14px;border-radius:8px;border:1px solid #e0e0e0;background:#fff;cursor:pointer;color:#666">✕ Close</button></div><div style="font-size:13px;color:#888;margin-bottom:16px">Comparing '+data.length+' areas · Based on your budget of '+fc(buyPower)+'</div><div class="cmp-table"><div class="cmp-head" style="grid-template-columns:'+gridTpl+'">'+headCells+'</div>'+rowsHtml+'</div><div style="font-size:11px;color:#bbb;margin-top:12px;text-align:center">🟢 Best &nbsp;·&nbsp; 🟡 Middle &nbsp;·&nbsp; 🔴 Highest &nbsp;·&nbsp; Drive times are highway estimates</div></div>';
+  const tableHtml='<div style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;padding:24px;max-width:600px;margin:0 auto"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px"><span style="font-size:18px;font-weight:700;color:#1a1a1a">Area Comparison</span><button onclick="window.close()" style="font-size:13px;padding:6px 14px;border-radius:8px;border:1px solid #e0e0e0;background:#fff;cursor:pointer;color:#666">✕ Close</button></div><div style="font-size:13px;color:#888;margin-bottom:16px">Comparing '+data.length+' homes · Your HomePilot comfort range: '+fc(comfortBuyPower)+'</div><div class="cmp-table"><div class="cmp-head" style="grid-template-columns:'+gridTpl+'">'+headCells+'</div>'+rowsHtml+'</div><div style="font-size:11px;color:#bbb;margin-top:12px;text-align:center">🟢 Best &nbsp;·&nbsp; 🟡 Middle &nbsp;·&nbsp; 🔴 Highest &nbsp;·&nbsp; Drive times are highway estimates</div></div>';
   const w=window.open('','_blank','width=640,height=520,scrollbars=yes,resizable=yes');
   w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Compare Areas — HomePilot</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;background:#f5f5f5;color:#1a1a1a;padding:0}.cmp-table{width:100%;border-radius:12px;overflow:hidden;border:1px solid #e8e8e8;background:#fff}.cmp-head{display:grid;background:#f7f7f7;border-bottom:1px solid #e8e8e8}.cmp-head-cell{font-size:12px;font-weight:700;color:#1a1a1a;padding:12px;text-align:center}.cmp-row{display:grid;border-bottom:1px solid #f5f5f5}.cmp-row:last-child{border-bottom:none}.cmp-cell{font-size:13px;color:#1a1a1a;padding:12px;text-align:center;display:flex;align-items:center;justify-content:center;flex-direction:column}.cmp-fit{display:inline-block;font-size:11px;padding:3px 9px;border-radius:20px;font-weight:600}.fg{background:#E1F5EE;color:#085041}.fo{background:#E6F1FB;color:#0C447C}.fs{background:#FAEEDA;color:#633806}.best{color:#1D9E75;font-weight:700}.mid{color:#b8860b;font-weight:600}.worst{color:#c0392b;font-weight:600}</style></head><body>'+tableHtml+'</body></html>');
   w.document.close();

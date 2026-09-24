@@ -31,7 +31,12 @@ function _downloadReportInner() {
     '<div class="pr-profile-item"><div class="pr-profile-lbl">Mortgage Rate</div><div class="pr-profile-val">'+(customMortgageRate*100).toFixed(2)+'%</div></div>' +
     '<div class="pr-profile-item"><div class="pr-profile-lbl">Family Size</div><div class="pr-profile-val">'+fam_selected+' '+(fam_selected==1?'person':'people')+'</div></div>' +
     '<div class="pr-profile-item"><div class="pr-profile-lbl">Work Style</div><div class="pr-profile-val">'+(waLabels[workArrangement]||workArrangement)+'</div></div>' +
-    '<div class="pr-profile-item"><div class="pr-profile-lbl">Buying Power</div><div class="pr-profile-val">'+fc(buyPower)+'</div></div>' +
+    // The page's one number, the HomePilot comfort range, then the bank's
+    // figure, as the top of the results puts them (2026-09-24,
+    // IMPROVEMENT_PLAN.md 2.2). This said "Buying Power" and printed the
+    // bank's figure alone, which the page calls stretch territory.
+    '<div class="pr-profile-item"><div class="pr-profile-lbl">HomePilot comfort range</div><div class="pr-profile-val">'+fc(comfortBuyPower)+'</div></div>' +
+    '<div class="pr-profile-item"><div class="pr-profile-lbl">A bank might lend up to</div><div class="pr-profile-val">'+fc(buyPower)+'</div></div>' +
     // The take-home every "% of take-home" below is measured against: the
     // estimate, or the buyer's own figure from the results page (2026-09-24,
     // IMPROVEMENT_PLAN.md 2.2).
@@ -64,6 +69,14 @@ function _downloadReportInner() {
 
     var commuteStr = workArrangement === 'remote' ? 'Remote / Work from home'
       : (card.commuteMin !== null ? 'About ' + card.commuteMin + ' min drive each way (estimate)' : '');
+    // The home this card is about, and the answer it gives (2026-09-24): a
+    // place can have two cards now (IMPROVEMENT_PLAN.md 2.2, "show it both
+    // times"), and with the place's name alone the two looked like one place
+    // printed twice with two different badges.
+    var answerLbl = (card.answers || []).map(function(q){
+      return q === 'closest' ? 'Closest to fitting' : (typeof ANSWER_LABELS !== 'undefined' && ANSWER_LABELS[q]) || '';
+    }).filter(Boolean).join(' · ');
+    var homeStr = (PLBL[card.type] || card.type) + ' · ' + fc(card.price) + (answerLbl ? ' · ' + answerLbl : '');
 
     var bullets = buildWhyRankedBullets(x, headline.costs, net, card.commuteMin, headline.type, headline.price);
     var BULLET_ICON = { good:'\u2713', neutral:'\u00b7', bad:'!' };
@@ -85,6 +98,7 @@ function _downloadReportInner() {
       '<div class="pr-city-header">' +
         '<div>' +
           '<div class="pr-city-name">'+x.n+'</div>' +
+          '<div class="pr-city-sub pr-city-home">'+homeStr+'</div>' +
           '<div class="pr-city-sub">'+commuteStr+'</div>' +
         '</div>' +
         '<span class="pr-city-badge '+badgeClass+'">'+fitLabel+'</span>' +

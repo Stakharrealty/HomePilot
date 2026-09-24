@@ -268,6 +268,18 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
   const reportClosed = reportCities();
   check("(3e2) ...and the PDF report lists those cards, in the same order",
     !reportClosed.alert && reportClosed.cities.join("|") === cityOrder(closedScreen), (reportClosed.alert || reportClosed.cities.join("|")) + "  vs  " + cityOrder(closedScreen));
+  // The report leads with the page's one number, then the bank's (2.2), and
+  // names the home each card is about: this buyer has two cards of one place.
+  const repHtml = written[0] ? written[0].html : "";
+  const repHomes = [...repHtml.matchAll(/class="pr-city-sub pr-city-home">([^<]*)</g)].map((x) => x[1]);
+  const LBL_OF = { home: "Most home", commute: "Shortest commute", cost: "Lowest monthly cost", also: "Also worth a look" };
+  check("(3e2b) ...its profile gives the HomePilot comfort range, then 'A bank might lend up to', and no 'Buying Power'",
+    repHtml.includes('HomePilot comfort range</div><div class="pr-profile-val">' + win.eval("fc(comfortBuyPower)") + "<")
+      && repHtml.includes('A bank might lend up to</div><div class="pr-profile-val">' + win.eval("fc(buyPower)") + "<") && !/Buying Power/.test(repHtml),
+    repHtml.slice(repHtml.indexOf("pr-profile"), repHtml.indexOf("pr-profile") + 600));
+  check("(3e2c) ...and each card in it names its home and its answer, so two cards of one place read as two homes",
+    repHomes.length === closedScreen.length && repHomes.every((h, i) => h === closedScreen[i].type + " · " + win.eval("fc(" + closedScreen[i].price + ")") + " · " + recClosed[i].answers.map((q) => LBL_OF[q]).join(" · ")),
+    JSON.stringify(repHomes));
 
   openSeeAll(win);
   const onScreen = cardsOnScreen();
@@ -303,7 +315,8 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
   written.length = 0;
   win.eval("buildCompare()");
   const cmpDoc = written[0] && written[0].html ? new win.DOMParser().parseFromString(written[0].html, "text/html") : null;
-  const cmpHeads = cmpDoc ? [...cmpDoc.querySelectorAll(".cmp-head-cell")].slice(1).map((e) => e.textContent.trim()) : [];
+  const cmpHeads = cmpDoc ? [...cmpDoc.querySelectorAll(".cmp-head-name")].map((e) => e.textContent.trim()) : [];
+  const cmpTypes = cmpDoc ? [...cmpDoc.querySelectorAll(".cmp-head-type")].map((e) => e.textContent.trim()) : [];
   const cmpRow = (i) => { const row = cmpDoc ? cmpDoc.querySelectorAll(".cmp-row")[i] : null; return row ? [...row.querySelectorAll(".cmp-cell")].slice(1).map((e) => Number(e.textContent.replace(/[^0-9]/g, ""))) : []; };
   check("(3j) Compare shows the home each ticked card showed: same places, price and monthly cost" + (twoOfAPlace ? " (two cards of " + twoOfAPlace.city + ", two different homes)" : ""),
     selected.join("|") === ticked.map((c) => c.id).join("|")
@@ -312,6 +325,15 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
     JSON.stringify({ selected, cmpHeads, prices: cmpRow(0), monthly: cmpRow(1) }) + " vs " + JSON.stringify(ticked.map(({ id, city, price, monthly }) => ({ id, city, price, monthly }))));
   check("(3j2) ...this buyer does have a place with two cards and two different homes (Most home and Lowest monthly cost)",
     !!twoOfAPlace && ticked[0].type !== ticked[1].type && ticked[0].price !== ticked[1].price, twoOfAPlace ? JSON.stringify(ticked.map((c) => c.id + " " + c.type)) : "none");
+  // Two columns of one place: each names its home type, so the buyer can tell
+  // the townhouse from the condo; the bar counts what was ticked without
+  // calling it cities; the line under the title leads with the page's number.
+  const cmpSub = cmpDoc ? [...cmpDoc.querySelectorAll("div")].map((e) => e.textContent).find((x) => /^Comparing \d+ /.test(x)) || "" : "";
+  check("(3j2b) ...each Compare column names its home type, the bar says '2 selected', and the line under the title gives the HomePilot comfort range, not the bank's figure",
+    cmpTypes.join("|") === ticked.map((c) => c.type).join("|") && new Set(cmpHeads.map((h, i) => h + " " + cmpTypes[i])).size === ticked.length
+      && win.document.getElementById("cmpStickyLabel").textContent === "2 selected"
+      && cmpSub === "Comparing 2 homes · Your HomePilot comfort range: " + win.eval("fc(comfortBuyPower)") && win.eval("buyPower") !== win.eval("comfortBuyPower"),
+    JSON.stringify({ cmpHeads, cmpTypes, bar: win.document.getElementById("cmpStickyLabel").textContent, cmpSub }));
   ticked.forEach((c) => win.document.getElementById("cmp-chk-" + c.id).click());
   check("(3j3) unticking both empties the selection", win.eval("cmpSelected.length") === 0);
   // A new search starts Compare afresh. A tick keeps the home its card showed,
