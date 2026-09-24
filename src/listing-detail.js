@@ -49,6 +49,7 @@ function buildHomePilotView(listing, profile, budget) {
     isCondo: type === "condo",
     costs: null,
     net: null,
+    netIsOwn: false,       // net is the take-home the buyer typed (2026-09-24, IMPROVEMENT_PLAN.md 2.2), not the estimate
     remaining: null,
     pctOfIncome: null,     // housing cost as % of take-home income (Section 3)
     mortgageAssumptions: null, // { ratePct, amortMonths, downPayment } (Section 2)
@@ -64,6 +65,7 @@ function buildHomePilotView(listing, profile, budget) {
   if (!computed) return view;
   view.costs = computed.costs;
   view.net = computed.net;
+  view.netIsOwn = profile.takeHomeIsOwn === true && profile.netMonthlyIncome > 0;
   view.remaining = computed.net - computed.costs.total;
   view.pctOfIncome = computed.net > 0 ? (computed.costs.total / computed.net) * 100 : null;
   view.mortgageAssumptions = {
@@ -242,7 +244,7 @@ function renderHomePilotSection(view) {
     // with exactly the same confidence as a real municipal rate. Say so.
     + (view.marketKnown ? "" : `<p class="ld-muted">HomePilot doesn't have a cost profile for this municipality yet, so the property tax and insurance figures above use Ontario-wide averages rather than local rates. Treat them as rough.</p>`)
     + `<div class="ld-income">`
-    + ldRow("Estimated take-home income", `${fmtPrice(view.net)}/mo`)
+    + ldRow(view.netIsOwn ? "Your take-home income" : "Estimated take-home income", `${fmtPrice(view.net)}/mo`)
     + (view.pctOfIncome !== null ? ldRow("Housing cost as % of take-home income", `${Math.round(view.pctOfIncome)}%`) : "")
     + ldRow("Remaining after this home", `${fmtPrice(view.remaining)}/mo`, "ld-remaining")
     + `</div>`

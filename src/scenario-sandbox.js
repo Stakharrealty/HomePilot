@@ -70,8 +70,10 @@ function _getAngleSnapshot(income, dn, wa, zone) {
     workArrangement = wa;
     workZone = wa === 'remote' ? null : zone;
     grossMonthlyIncome = income/12;
-    // Same split between the two earners as the buyer entered (2026-09-23).
-    netMonthlyIncome = householdNetAnnual(income)/12;
+    // Same split between the two earners as the buyer entered (2026-09-23),
+    // and the buyer's own take-home when they gave one (2026-09-24,
+    // IMPROVEMENT_PLAN.md 2.2; takeHomeMonthlyFor() in main.js).
+    netMonthlyIncome = takeHomeMonthlyFor(income);
     dn_selected = dn;
     bp = calcBP(income, dn, existingDebt);
     buyPower = bp.bp;

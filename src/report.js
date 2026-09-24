@@ -31,7 +31,11 @@ function _downloadReportInner() {
     '<div class="pr-profile-item"><div class="pr-profile-lbl">Mortgage Rate</div><div class="pr-profile-val">'+(customMortgageRate*100).toFixed(2)+'%</div></div>' +
     '<div class="pr-profile-item"><div class="pr-profile-lbl">Family Size</div><div class="pr-profile-val">'+fam_selected+' '+(fam_selected==1?'person':'people')+'</div></div>' +
     '<div class="pr-profile-item"><div class="pr-profile-lbl">Work Style</div><div class="pr-profile-val">'+(waLabels[workArrangement]||workArrangement)+'</div></div>' +
-    '<div class="pr-profile-item"><div class="pr-profile-lbl">Buying Power</div><div class="pr-profile-val">'+fc(buyPower)+'</div></div>';
+    '<div class="pr-profile-item"><div class="pr-profile-lbl">Buying Power</div><div class="pr-profile-val">'+fc(buyPower)+'</div></div>' +
+    // The take-home every "% of take-home" below is measured against: the
+    // estimate, or the buyer's own figure from the results page (2026-09-24,
+    // IMPROVEMENT_PLAN.md 2.2).
+    '<div class="pr-profile-item"><div class="pr-profile-lbl">'+(typeof takeHomeIsBuyersOwn === 'function' && takeHomeIsBuyersOwn() ? 'Your Take-home' : 'Est. Take-home')+'</div><div class="pr-profile-val">'+fc(Math.round(net))+'/mo</div></div>';
 
   // The first five cards the buyer was shown, in the same order (shownCards,
   // kept by render()). CHANGED 2026-09-23: this used to take the top of

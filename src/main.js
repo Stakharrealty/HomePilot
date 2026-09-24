@@ -17,8 +17,9 @@
 // no pre-selected answer), setWorkArrangement(), setMaxCommute(),
 // syncFormLines() / openFormField() / openWorkPostalIfSet() (the one-line
 // settings of the shorter form, 2.3a), setResultsSort(), toggleOverCommute(),
-// amortizationNote(), and go() — the main calculation orchestrator that runs
-// when the buyer submits the form.
+// amortizationNote(), the top section of the results (renderTopSection(), the
+// take-home the buyer can replace, "How we calculated this"; 2.2), and go() —
+// the main calculation orchestrator that runs when the buyer submits the form.
 
 const RF={all:null,gta:["gta"],west:["west"],east:["east"],north:["north"],duff:["duff"],niag:["niag"],wloo:["wloo"],east2:["east2"]};
 let results=[],buyPower=0,comfortBuyPower=0,fam_selected="3",dn_selected=0,grossMonthlyIncome=0,netMonthlyIncome=0,customMortgageRate=DEFAULT_MORTGAGE_RATE_PCT/100,firstTimeBuyer=null,existingDebt=0;
@@ -77,6 +78,47 @@ function buyerLttRebateApplies(){ return lttRebateApplies(firstTimeBuyer, lttReb
 // so a what-if household income (scenario-sandbox.js) keeps the same split.
 let partnerIncomeShare = 0;
 function householdNetAnnual(total){ return estimateHouseholdNetAnnual(total*(1-partnerIncomeShare), total*partnerIncomeShare); }
+
+// Take-home: the estimate, or the buyer's own figure (2026-09-24,
+// IMPROVEMENT_PLAN.md 2.2, "Estimated take-home"). The estimate subtracts only
+// income tax, CPP, EI and the health premium, so it can't know about a
+// workplace pension, benefit premiums or union dues (real pay lower) or the
+// Canada Child Benefit (higher). "Change it" in the top section lets the buyer
+// type their actual monthly take-home, both people together.
+//   estimatedNetMonthlyIncome -- householdNetAnnual(income) / 12 for the last search.
+//   takeHomeOverride          -- null, or { monthly, own, partner }: the buyer's
+//                                figure and the two incomes it was given for.
+//   netMonthlyIncome          -- the one figure in force: the buyer's own when
+//                                given, else the estimate. Every "% of
+//                                take-home" and every Great / Good / Stretch
+//                                label reads it (getFit(), rankCities(), the
+//                                cards, the breakdowns, the report, Compare,
+//                                Scenarios, and the listing pages through the
+//                                handover in buyer-profile.js). calcBP() never
+//                                does: buying power is on income before tax, as
+//                                a bank's is, so the HomePilot comfort range and
+//                                the bank's figure do not move.
+// A new search keeps the buyer's figure while both incomes are the same, and
+// goes back to the estimate when either changes.
+let estimatedNetMonthlyIncome = 0, takeHomeOverride = null;
+function takeHomeIsBuyersOwn(){ return !!takeHomeOverride; }
+// The take-home to use for a household income of `total` a year. The What-If
+// scenarios try other incomes: there the buyer's own figure is scaled by how
+// the estimate changes, so a buyer whose real pay is 10% under the estimate
+// stays 10% under it. For their own income it is exactly their figure.
+function takeHomeMonthlyFor(total){
+  const est = householdNetAnnual(total) / 12;
+  if(!takeHomeOverride || !(estimatedNetMonthlyIncome > 0)) return est;
+  return takeHomeOverride.monthly * est / estimatedNetMonthlyIncome;
+}
+// Checks a typed monthly take-home: positive, and not more than income before
+// tax. Returns { value } or { error }.
+function checkTakeHome(raw, grossMonthly){
+  const v = parseFloat(String(raw === null || raw === undefined ? '' : raw).replace(/[$,\s]/g, ''));
+  if(!Number.isFinite(v) || v <= 0) return { error: 'Enter your monthly take-home pay: what reaches your bank account each month.' };
+  if(v > grossMonthly) return { error: "That's more than your income before tax (" + fc(grossMonthly) + '/mo). Enter what reaches your bank account each month.' };
+  return { value: v };
+}
 // The two income boxes, read the same way by go(), the share link and the
 // debt warning. The partner box is optional: blank means 0.
 function readIncomes(){
@@ -235,6 +277,174 @@ function amortizationNote(isFirstTimeBuyer) {
     : '25-year amortization, or 30-year on homes where your down payment is 20% or more';
 }
 
+// ── The top section (2026-09-24, IMPROVEMENT_PLAN.md 2.2) ──────────────────
+// One number, the HomePilot comfort range, then one small line each, as the
+// user decided:
+//   Your HomePilot comfort range / $520,000 / Stay here to breathe financially
+//   A bank might lend up to $630,000, but above your HomePilot comfort range is stretch territory.
+//   Based on $130,000/yr ($65,000 + $65,000) · $70,000 down · $450/mo debt
+//   Estimated take-home: $8,097/mo · Know your actual pay? Change it
+//   Estimate only, not a pre-approval · How we calculated this
+// It showed buying power, the bank's maximum and the comfort range, often all
+// the same figure. Every figure is calcBP()'s, householdNetAnnual()'s or the
+// buyer's own, so none is worked out a second way.
+//
+// lastSearch: the last search's answers and its calcBP() result, so the top
+// section can be drawn again when the take-home changes (and, later, so
+// HomePilot Worth Knowing can read the savings tip below).
+let lastSearch = null, takeHomeEditOpen = false;
+
+// The bank's figure and the HomePilot comfort range are both rounded to the
+// nearest $10,000, so within $10,000 they are the same figure.
+const SAME_FIGURE_WITHIN = 10000;
+
+// The one small line under the number. When the down payment is what caps
+// the buyer and the bank's figure is the same, that is the news; otherwise it
+// names the bank's figure, once.
+function comfortBankLine(calc){
+  const gap = calc.bp - calc.comfortBP;
+  if(calc.downPaymentLimited && gap <= SAME_FIGURE_WITHIN) return 'Your savings are the limit, not your income. A bank would lend the same.';
+  // Heavy debt can hold both figures down to the down payment alone.
+  if(gap <= 0) return 'A bank would lend about the same.';
+  return 'A bank might lend up to ' + fc(calc.bp) + ', but above your HomePilot comfort range is stretch territory.';
+}
+
+// "Based on $130,000/yr ($65,000 + $65,000) · $70,000 down · no debt". One
+// income: no brackets.
+function basedOnLine(s){
+  return 'Based on ' + fc(s.total) + '/yr' + (s.partner > 0 ? ' (' + fc(s.own) + ' + ' + fc(s.partner) + ')' : '') +
+    ' · ' + fc(s.dn) + ' down · ' + (s.dbt > 0 ? fc(s.dbt) + '/mo debt' : 'no debt');
+}
+
+// "Your savings are the limit… $X more saved would get you there": what income
+// alone would let a bank lend, and how much more down payment that price needs
+// (calcBP()'s incomeCapBP and downPaymentShortfall). null when savings are not
+// what holds the buyer back. It is to become the first HomePilot Worth Knowing
+// tip; until that section exists the top section shows it, as it did before.
+function savingsLimitTip(calc){
+  if(!calc || !calc.downPaymentLimited || !(calc.downPaymentShortfall > 0) || !(calc.incomeCapBP > calc.bp)) return null;
+  return { incomeCapBP: calc.incomeCapBP, moreSaved: calc.downPaymentShortfall };
+}
+
+function renderTopSection(){
+  const s = lastSearch;
+  if(!s) return;
+  const calc = s.calc;
+  const bpv = document.getElementById('bpV');
+  if(bpv) bpv.textContent = fc(calc.comfortBP);
+  const sub = document.getElementById('bpSub');
+  if(!sub) return;
+  const both = s.partner > 0;
+  const takeHome = takeHomeIsBuyersOwn()
+    ? 'Your take-home: ' + fc(netMonthlyIncome) + '/mo · <button type="button" class="link-btn" id="takeHomeReset" onclick="resetTakeHome()">reset to estimate</button>'
+    : 'Estimated take-home: ' + fc(estimatedNetMonthlyIncome) + '/mo · Know your actual pay? <button type="button" class="link-btn" id="takeHomeChange" onclick="openTakeHomeEdit()" aria-expanded="' + takeHomeEditOpen + '" aria-controls="takeHomeEdit">Change it</button>';
+  const tip = savingsLimitTip(calc);
+  sub.innerHTML =
+    '<div class="bp-line" id="bpBankLine">' + comfortBankLine(calc) + '</div>' +
+    '<div class="bp-line" id="bpBasedOn">' + basedOnLine(s) + '</div>' +
+    '<div class="bp-line" id="takeHomeLine">' + takeHome + '</div>' +
+    // "Change it": the buyer's actual monthly take-home, inline.
+    '<div class="bp-inner" id="takeHomeEdit" style="display:' + (takeHomeEditOpen ? 'block' : 'none') + '">' +
+      '<label for="takeHomeInput">Your actual monthly take-home' + (both ? ', both of you together' : '') + '</label>' +
+      '<div class="bp-takehome-row">' +
+        '<input type="number" id="takeHomeInput" min="1" step="1" inputmode="numeric" placeholder="' + Math.round(estimatedNetMonthlyIncome) + '"' +
+          ' onkeydown="if(event.key===\'Enter\'){event.preventDefault();applyTakeHome();}else if(event.key===\'Escape\'){closeTakeHomeEdit();}">' +
+        '<button type="button" class="bp-apply-btn" onclick="applyTakeHome()">Use this</button>' +
+        '<button type="button" class="link-btn" onclick="closeTakeHomeEdit()">Cancel</button>' +
+      '</div>' +
+      '<div class="err" id="takeHomeErr" role="alert"></div>' +
+    '</div>' +
+    // Savings-gap note (added 2026-09-22). Its heading ("Your savings are the
+    // limit here, not your income") went with the 2026-09-24 top section: the
+    // line above says so when the bank would lend the same, and the note
+    // reads on its own when it doesn't.
+    (tip
+      ? '<div class="bp-inner" id="savingsTip" style="border-left:3px solid rgba(255,255,255,0.55)">' +
+          '<div style="font-size:12px;opacity:0.9;line-height:1.5">On your income you could qualify for up to <b>' + fc(tip.incomeCapBP) + '</b>. ' +
+          'A home at that price needs a larger down payment than you have — about <b>' + fc(tip.moreSaved) + ' more saved</b> would get you there.</div>' +
+        '</div>'
+      : '') +
+    // Non-residents (added 2026-09-23, IMPROVEMENT_PLAN.md 1.7). The federal
+    // ban on non-Canadians buying homes runs until January 1, 2027, with
+    // exceptions (e.g. work-permit holders with 183+ days left; CMHC,
+    // checked 2026-09-23). Ontario's 25% NRST and Toronto's 10% MNRST are
+    // added to cash to close in each city's breakdown.
+    (canadianResident === false
+      ? '<div class="bp-inner" id="nonResidentNote" style="border-left:3px solid rgba(255,255,255,0.55)">' +
+          '<div style="font-size:12px;font-weight:700;margin-bottom:3px">If you\'re not a Canadian citizen or permanent resident</div>' +
+          '<div style="font-size:12px;opacity:0.9;line-height:1.5">Most non-Canadians can\'t buy a home in Canada until at least January 1, 2027 (a federal ban). Some are exempt — for example, many work-permit holders with at least 183 days left on their permit. ' +
+          'If you can buy, Ontario charges a 25% non-resident speculation tax on the price, plus 10% in Toronto; it\'s included in each city\'s cash to close below, though some buyers are exempt or can get it back. ' +
+          'Lenders also treat non-residents differently, so the figures above may be too high. Speak to a real estate lawyer before you make an offer.</div>' +
+        '</div>'
+      : '');
+}
+
+// "Change it" / "Cancel" on the take-home line.
+function openTakeHomeEdit(){
+  takeHomeEditOpen = true;
+  const box = document.getElementById('takeHomeEdit');
+  if(box) box.style.display = 'block';
+  const btn = document.getElementById('takeHomeChange');
+  if(btn) btn.setAttribute('aria-expanded', 'true');
+  const input = document.getElementById('takeHomeInput');
+  if(input && typeof input.focus === 'function') input.focus();
+}
+function closeTakeHomeEdit(){
+  takeHomeEditOpen = false;
+  const box = document.getElementById('takeHomeEdit');
+  if(box) box.style.display = 'none';
+  const err = document.getElementById('takeHomeErr');
+  if(err) err.style.display = 'none';
+  const btn = document.getElementById('takeHomeChange');
+  if(btn) btn.setAttribute('aria-expanded', 'false');
+}
+// Uses the typed take-home for everything that reads netMonthlyIncome.
+function applyTakeHome(){
+  if(!lastSearch) return;
+  const input = document.getElementById('takeHomeInput');
+  const r = checkTakeHome(input ? input.value : '', grossMonthlyIncome);
+  if(r.error){
+    const err = document.getElementById('takeHomeErr');
+    if(err){ err.textContent = r.error; err.style.display = 'block'; }
+    if(input && typeof input.focus === 'function') input.focus();
+    return;
+  }
+  takeHomeOverride = { monthly: r.value, own: lastSearch.own, partner: lastSearch.partner };
+  netMonthlyIncome = r.value;
+  takeHomeEditOpen = false;
+  takeHomeChanged();
+}
+// "reset to estimate".
+function resetTakeHome(){
+  takeHomeOverride = null;
+  netMonthlyIncome = estimatedNetMonthlyIncome;
+  takeHomeEditOpen = false;
+  takeHomeChanged();
+}
+// Draws again everything that shows a share of take-home or a fit label. The
+// PDF report, Compare and the listings handover read netMonthlyIncome when
+// they are used, so they follow on their own.
+function takeHomeChanged(){
+  renderTopSection();
+  if(results.length) render();
+  // An open What-If: its "Now" column was worked out on the old take-home.
+  const panel = document.getElementById('scenarioPanel');
+  if(panel && panel.style.display === 'block' && typeof _getAngleSnapshot === 'function'){
+    _beforeSnapshot = _getAngleSnapshot(grossMonthlyIncome*12, dn_selected, workArrangement, workZone);
+    const sr = document.getElementById('scenarioResults');
+    if(sr) sr.innerHTML = '';
+  }
+}
+
+// "How we calculated this": opens and closes the small print under the line.
+function toggleCalcDetails(){
+  const box = document.getElementById('calcDetails'), btn = document.getElementById('calcDetailsBtn');
+  if(!box) return;
+  const open = box.style.display === 'none';
+  box.style.display = open ? 'block' : 'none';
+  if(btn) btn.setAttribute('aria-expanded', String(open));
+}
+
 function go(){
   // `inc` is the household total: the buyer's income plus the optional
   // partner's income (2026-09-23; see readIncomes()).
@@ -309,11 +519,16 @@ function go(){
   if(!choicesOk){ showFirstUnansweredChoice(); return void fail(); }
   const btn=document.getElementById("goBtn");btn.disabled=true;btn.innerHTML='<div class="spin"></div>';
   try{
-    const{bp:b,comfortBP:cBP,mo,comfortMo,downPaymentLimited,incomeCapBP,downPaymentShortfall}=calcBP(inc,dn,dbt);
+    const calc=calcBP(inc,dn,dbt);
+    const{bp:b,comfortBP:cBP}=calc;
     buyPower=b;comfortBuyPower=cBP;fam_selected=fam;dn_selected=dn;grossMonthlyIncome=inc/12;
     // Take-home is taxed person by person (2026-09-23): it was
     // estimateOntarioNetAnnual(inc), one earner on the whole household income.
-    partnerIncomeShare=inc>0?incomes.partner/inc:0;netMonthlyIncome=householdNetAnnual(inc)/12;
+    partnerIncomeShare=inc>0?incomes.partner/inc:0;estimatedNetMonthlyIncome=householdNetAnnual(inc)/12;
+    // The buyer's own take-home (2.2) holds while both incomes are the ones it
+    // was given for; a search with a different income goes back to the estimate.
+    if(takeHomeOverride&&(takeHomeOverride.own!==incomes.own||takeHomeOverride.partner!==incomes.partner||!(takeHomeOverride.monthly<=grossMonthlyIncome))) takeHomeOverride=null;
+    netMonthlyIncome=takeHomeOverride?takeHomeOverride.monthly:estimatedNetMonthlyIncome;
     window._allMarkets=M;
     const cands=candidateCities(area,b);
     // The candidate cities, deliberately UNORDERED. They used to be sorted
@@ -324,50 +539,11 @@ function go(){
     results=cands.map(m=>({...m,displayMax:Math.min(m.max,b),homePrice:Math.min(m.max,b)}));
     shownCards=[];showOverCommute=false;
 
-    // ── BUYING POWER BOX: show both bank ceiling and HomePilot comfort range ──
-    document.getElementById("bpV").textContent=fc(b);
+    // ── THE TOP SECTION: the HomePilot comfort range (renderTopSection()) ──
+    lastSearch={own:incomes.own,partner:incomes.partner,total:inc,dn,dbt,calc};
+    takeHomeEditOpen=false;
+    renderTopSection();
     const rateDisplay=(customMortgageRate*100).toFixed(2).replace(/\.?0+$/,'')+'%';
-    document.getElementById("bpSub").innerHTML=
-      `<div style="margin-bottom:10px">Based on ${incomes.partner>0?`household income ${fc(inc)}/yr (${fc(incomes.own)} + ${fc(incomes.partner)})`:`income ${fc(inc)}/yr`} · Down payment ${fc(dn)} · Debt ${fc(dbt)}/mo</div>`+
-      `<div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">`+
-        `<div style="flex:1;min-width:120px;background:rgba(255,255,255,0.18);border-radius:10px;padding:10px 12px">`+
-          `<div style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;opacity:0.8;font-weight:600;margin-bottom:4px">Bank qualifies you for</div>`+
-          `<div style="font-size:20px;font-weight:800">${fc(b)}</div>`+
-          `<div style="font-size:11px;opacity:0.7;margin-top:3px">${downPaymentLimited?'Limited by your down payment, not your income':'Estimated ceiling — not a pre-approval'}</div>`+
-        `</div>`+
-        `<div style="flex:1;min-width:120px;background:rgba(255,255,255,0.28);border-radius:10px;padding:10px 12px;border:1.5px solid rgba(255,255,255,0.4)">`+
-          `<div style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;opacity:0.9;font-weight:700;margin-bottom:4px">✓ HomePilot comfort range</div>`+
-          `<div style="font-size:20px;font-weight:800">${fc(cBP)}</div>`+
-          `<div style="font-size:11px;opacity:0.75;margin-top:3px">Stay here to breathe financially</div>`+
-        `</div>`+
-      `</div>`+
-      // Savings-gap note (added 2026-09-22). When the down payment is what
-      // caps the buyer rather than their income, calcBP() now reports the
-      // ceiling income ALONE would support and how much more they would need
-      // saved to reach it. Without this the buyer just sees a smaller number
-      // and no reason for it — and the reason is the single most actionable
-      // thing HomePilot can tell someone at this stage: a savings target.
-      // Only ever shown when the gap is real (both figures present).
-      (downPaymentLimited && downPaymentShortfall>0 && incomeCapBP>b
-        ? `<div style="margin-top:12px;background:rgba(255,255,255,0.18);border-radius:10px;padding:10px 12px;border-left:3px solid rgba(255,255,255,0.55)">`+
-            `<div style="font-size:12px;font-weight:700;margin-bottom:3px">Your savings are the limit here, not your income</div>`+
-            `<div style="font-size:12px;opacity:0.9;line-height:1.5">On your income you could qualify for up to <b>${fc(incomeCapBP)}</b>. `+
-            `A home at that price needs a larger down payment than you have — about <b>${fc(downPaymentShortfall)} more saved</b> would get you there.</div>`+
-          `</div>`
-        : ``)+
-      // Non-residents (added 2026-09-23, IMPROVEMENT_PLAN.md 1.7). The federal
-      // ban on non-Canadians buying homes runs until January 1, 2027, with
-      // exceptions (e.g. work-permit holders with 183+ days left; CMHC,
-      // checked 2026-09-23). Ontario's 25% NRST and Toronto's 10% MNRST are
-      // added to cash to close in each city's breakdown.
-      (canadianResident===false
-        ? `<div id="nonResidentNote" style="margin-top:12px;background:rgba(255,255,255,0.18);border-radius:10px;padding:10px 12px;border-left:3px solid rgba(255,255,255,0.55)">`+
-            `<div style="font-size:12px;font-weight:700;margin-bottom:3px">If you're not a Canadian citizen or permanent resident</div>`+
-            `<div style="font-size:12px;opacity:0.9;line-height:1.5">Most non-Canadians can't buy a home in Canada until at least January 1, 2027 (a federal ban). Some are exempt — for example, many work-permit holders with at least 183 days left on their permit. `+
-            `If you can buy, Ontario charges a 25% non-resident speculation tax on the price, plus 10% in Toronto; it's included in each city's cash to close below, though some buyers are exempt or can get it back. `+
-            `Lenders also treat non-residents differently, so the figures above may be too high. Speak to a real estate lawyer before you make an offer.</div>`+
-          `</div>`
-        : ``);
     const stressRateDisplay=(getStressRate(customMortgageRate)*100).toFixed(2)+'%';
     const rn=document.getElementById('rateNote');if(rn)rn.innerHTML=`Based on ${rateDisplay} mortgage rate · ${amortizationNote(firstTimeBuyer===true)} · Stress tested at ${stressRateDisplay} · <span style="color:rgba(255,255,255,0.6);font-style:italic">Educational estimate only — not a mortgage pre-approval. Actual qualification depends on lender underwriting, credit, and full application details.</span>`;
     const frn=document.getElementById('footerRateNote');

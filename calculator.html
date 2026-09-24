@@ -500,7 +500,25 @@ select{
 }
 .bp-stat-lbl{font-size:10px;text-transform:uppercase;letter-spacing:0.07em;opacity:0.75;margin-bottom:5px;font-weight:700}
 .bp-stat-val{font-size:18px;font-weight:800;letter-spacing:-0.2px}
-.bp-sub{font-size:12.5px;opacity:0.8;line-height:1.55;margin-top:10px}
+/* The top section (2026-09-24, IMPROVEMENT_PLAN.md 2.2): one number, the
+   HomePilot comfort range, then one small line each. Built from what the box
+   already used: the white-on-green text at 80-90%, the translucent white inner
+   boxes, the form's .link-btn (white here), .err and the white-and-green
+   buttons of the Share row. */
+.bp-breathe{font-size:13px;font-weight:600;opacity:0.9}
+.bp-lines{margin-top:12px}
+.bp-line{font-size:12.5px;opacity:0.85;line-height:1.55;margin-top:5px}
+.bp-box .link-btn{color:#fff}
+.bp-fine{font-size:11.5px;opacity:0.75;line-height:1.5;margin-top:12px}
+.bp-inner{margin-top:10px;background:rgba(255,255,255,0.18);border-radius:10px;padding:10px 12px}
+.bp-inner label{display:block;font-size:12px;font-weight:700;margin-bottom:6px}
+.bp-takehome-row{display:flex;gap:8px;align-items:center}
+.bp-takehome-row input[type=number]{width:auto;flex:0 1 160px;min-width:0;padding:8px 12px;font-size:14px}
+.bp-takehome-row .link-btn{font-size:12.5px;white-space:nowrap}
+.bp-apply-btn{flex-shrink:0;white-space:nowrap;background:#fff;color:#1D9E75;border:1.5px solid #fff;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font)}
+.bp-inner .err{margin-top:8px}
+.bp-details{font-size:11.5px;line-height:1.55}
+.bp-details p{margin:0 0 6px;opacity:0.9}
 
 /* ── SECTION TITLE ──────────────────────────────────────────── */
 .sec-title{
@@ -1407,12 +1425,25 @@ body.cmp-bar-open #waWrap{bottom:80px!important}
     <h3>Your results will appear here</h3>
     <p>Fill in your details on the left and click "Show Me What I Can Afford" to see your buying power and ranked Ontario cities.</p>
   </div>
+  <!-- The top section (2026-09-24, IMPROVEMENT_PLAN.md 2.2): one number, the HomePilot comfort
+       range; one small line for the bank; what it is based on; the estimated take-home the buyer
+       can replace with their own; and one line of small print whose details open below it. It
+       showed buying power, the bank's maximum and the comfort range, often all the same figure.
+       #bpSub is written by renderTopSection() in src/main.js. -->
   <div class="bp-box" id="bpBox">
-    <div class="bp-lbl">Your estimated buying power</div>
+    <div class="bp-lbl">Your HomePilot comfort range</div>
     <div class="bp-val" id="bpV"></div>
-    <div class="bp-sub" id="bpSub" style="font-size:13px;line-height:1.5"></div>
-    <div class="bp-sub" style="margin-top:6px;opacity:0.7">This is an estimate of the most a lender might approve — not a pre-approval. Tap any city below to see the full monthly cost breakdown.</div>
-    <div id="rateNote" style="font-size:11px;color:rgba(255,255,255,0.6);margin-top:6px;line-height:1.5">Based on 4.19% mortgage rate · Stress tested at 6.19% · Educational estimate only — not a mortgage pre-approval.</div>
+    <div class="bp-breathe">Stay here to breathe financially</div>
+    <div class="bp-lines" id="bpSub"></div>
+    <div class="bp-fine" id="bpFine">Estimate only, not a pre-approval · <button type="button" class="link-btn" id="calcDetailsBtn" onclick="toggleCalcDetails()" aria-expanded="false" aria-controls="calcDetails">How we calculated this</button></div>
+    <!-- The small print that was two paragraphs, all of it kept. 32% / 38% and 39% / 44% are
+         calcBP()'s ratios in src/mortgage.js (tests/results_outcomes_test.js checks they match). -->
+    <div class="bp-inner bp-details" id="calcDetails" style="display:none">
+      <p>Your HomePilot comfort range is the most a home can cost while its housing costs (the mortgage at the stress-test rate, property tax and heating) stay within 32% of your before-tax income, and those plus your other debt payments within 38%. A bank goes up to 39% and 44%, so it may lend more. Both are also held to the price your down payment can legally buy.</p>
+      <p>Estimated take-home is your pay after income tax, CPP, EI and the Ontario Health Premium, worked out for each person. It doesn't know about workplace pension contributions, benefit premiums or union dues, which lower it, or the Canada Child Benefit and tax refunds, which raise it. If you know your actual monthly pay, "Change it" uses it for every % of take-home and every Great / Good / Stretch label. Your HomePilot comfort range and the bank's figure stay the same, because banks go by income before tax.</p>
+      <p>This is an estimate of what a lender might approve — not a pre-approval. Tap any city below to see the full monthly cost breakdown.</p>
+      <div id="rateNote" style="font-size:11px;color:rgba(255,255,255,0.75);line-height:1.5">Based on 4.19% mortgage rate · Stress tested at 6.19% · Educational estimate only — not a mortgage pre-approval.</div>
+    </div>
   </div>
 
   <div class="results-section" id="res">

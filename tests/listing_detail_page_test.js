@@ -158,6 +158,15 @@ async function openPage({ listing, status = 200, profile, budget, search, fetchT
     [["Mortgage", exp.mort], ["Property tax", exp.tax], ["Insurance", exp.ins], ["Utilities", exp.util], ["Maintenance", exp.maint], ["Total per month", exp.total]].every(([l, v]) => has(t1, l + fmt(v))), t1);
   check("(A) real tax is NOT labelled estimated; detached shows no condo fee", !has(t1, "Property tax (estimated)") && !has(t1, "Condo fee"));
   check("(A) take-home and remaining income = net income minus total", has(t1, "Estimated take-home income" + fmt(9800) + "/mo") && has(t1, "Remaining after this home" + fmt(9800 - exp.total) + "/mo"), t1);
+  // The buyer can replace the estimate with their own take-home on the results
+  // page (2026-09-24, IMPROVEMENT_PLAN.md 2.2); the handover marks it, and this
+  // page then says whose figure it is.
+  const own = await openPage({ listing: BASE, profile: { ...PROFILE, netMonthlyIncome: 7000, takeHomeIsOwn: true }, budget: 900000 });
+  const ownText = own.doc.getElementById("ldHomePilot").textContent;
+  check("(A) a take-home the buyer typed is labelled theirs, and the % and remaining use it",
+    has(ownText, "Your take-home income" + fmt(7000) + "/mo") && !has(ownText, "Estimated take-home income")
+      && has(ownText, "Housing cost as % of take-home income" + Math.round(exp.total / 7000 * 100) + "%") && has(ownText, "Remaining after this home" + fmt(7000 - exp.total) + "/mo"), ownText.slice(0, 600));
+  check("(A) ...and a profile without the mark (saved before 2026-09-24) still says 'Estimated'", !has(t1, "Your take-home income"));
   const LBL = { fg: A.w.eval("T.en.fit_great_lbl"), fo: A.w.eval("T.en.fit_good_lbl"), fs: A.w.eval("T.en.fit_stretch_lbl") };
   const tierFor = (ratio) => (ratio < 0.35 ? "fg" : ratio < 0.45 ? "fo" : "fs");
   const badge = sec1.querySelector(".listing-affordability-badge");

@@ -36,6 +36,10 @@ function readLiveBuyerProfile() {
     return {
       grossMonthlyIncome: grossMonthlyIncome,
       netMonthlyIncome: typeof netMonthlyIncome !== "undefined" ? netMonthlyIncome : 0,
+      // True when netMonthlyIncome is the take-home the buyer typed in the
+      // results' top section rather than the estimate (2026-09-24,
+      // IMPROVEMENT_PLAN.md 2.2), so the listing page can say whose it is.
+      takeHomeIsOwn: typeof takeHomeIsBuyersOwn === "function" ? takeHomeIsBuyersOwn() === true : false,
       downPayment: dn_selected,
       familySize: typeof fam_selected !== "undefined" ? fam_selected : "3",
       existingDebt: typeof existingDebt !== "undefined" ? existingDebt : 0,
@@ -79,6 +83,8 @@ function validBuyerProfile(p) {
   return {
     grossMonthlyIncome: p.grossMonthlyIncome,
     netMonthlyIncome: num(p.netMonthlyIncome, 0, 5e6) ? p.netMonthlyIncome : 0,
+    // Missing on a profile saved before 2026-09-24: the estimate.
+    takeHomeIsOwn: p.takeHomeIsOwn === true && num(p.netMonthlyIncome, 1, 5e6),
     downPayment: p.downPayment,
     familySize: String(fam),
     existingDebt: num(p.existingDebt, 0, 1e8) ? p.existingDebt : 0,
