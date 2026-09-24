@@ -112,6 +112,13 @@ jobs:
       - name: Phone fixes test
         run: npm run test:phone-fixes
 
+      # Phone length (IMPROVEMENT_PLAN.md 2.10): the results fit in about three
+      # phone screens. Measured in the runner's headless Chrome at 375x812 for
+      # the plan's three buyers; says SKIP with a warning, rather than failing,
+      # when no Chrome can be started. Needs the static server above.
+      - name: Phone length test
+        run: npm run test:phone-length
+
       # Everything above must exit 0 or the workflow stops here —
       # GitHub Actions fails the whole run on the first non-zero exit,
       # so this step is unreachable unless all 4 suites passed.

@@ -20,6 +20,7 @@
     "test:homepage-claims": "node --no-warnings tests/homepage_claims_test.js",
     "test:english-only": "node --no-warnings tests/english_only_test.js",
     "test:phone-fixes": "node --no-warnings tests/phone_fixes_test.js",
+    "test:phone-length": "node --no-warnings tests/phone_length_test.js",
     "test:listings-frontend": "node tests/listings_frontend_display_test.js",
     "test:listings-grid-width": "node tests/listings_grid_width_test.js",
     "test:listings-card-carousel": "node tests/listings_card_photo_carousel_test.js",
