@@ -1230,7 +1230,7 @@ body.cmp-bar-open #waWrap{bottom:80px!important}
   </button>
   <div class="card">
     <label class="lbl" style="display:flex;align-items:center;gap:6px;">
-      <span id="l1">Your income (before tax)</span>
+      <span>Your income (before tax)</span>
       <button type="button" class="info-btn" onclick="toggleTooltip(event,'inc-tooltip')" aria-label="Income info">ⓘ</button>
     </label>
     <!-- Two boxes, not one combined figure (2026-09-23, IMPROVEMENT_PLAN.md 3.3):
@@ -1242,13 +1242,13 @@ body.cmp-bar-open #waWrap{bottom:80px!important}
     </div>
     <input type="number" id="inc" placeholder="e.g. 120000" min="0" oninput="checkDebtSanity()">
     <div style="margin-top:10px;">
-      <label class="lbl" for="inc2" style="margin-bottom:5px;"><span id="l1b">Partner's income (before tax)</span> <span id="l1b_opt" style="color:#bbb;font-weight:400">(optional)</span></label>
+      <label class="lbl" for="inc2" style="margin-bottom:5px;"><span id="l1b">Partner's income (before tax)</span> <span style="color:#bbb;font-weight:400">(optional)</span></label>
       <input type="number" id="inc2" placeholder="Leave blank if buying alone" min="0" oninput="checkDebtSanity()">
     </div>
   </div>
   <div class="card">
     <label class="lbl" style="display:flex;align-items:center;gap:6px;">
-      <span id="l2">Down payment saved</span>
+      <span>Down payment saved</span>
       <button type="button" class="info-btn" onclick="toggleTooltip(event,'dwn-tooltip')" aria-label="Down payment info">ⓘ</button>
     </label>
     <div class="tooltip-box" id="dwn-tooltip">
@@ -1260,13 +1260,13 @@ body.cmp-bar-open #waWrap{bottom:80px!important}
   </div>
   <div class="card">
     <label class="lbl" style="display:flex;align-items:center;gap:6px;">
-      <span id="l3">Existing monthly debt payments</span>
+      <span>Existing monthly debt payments</span>
       <button type="button" class="info-btn" onclick="toggleTooltip(event,'debt-tooltip')" aria-label="Debt info">ⓘ</button>
     </label>
     <div class="tooltip-box" id="debt-tooltip">
-      <div id="l3_inc">Include: car loan, student loan, credit card minimums, personal loans</div>
-      <div style="margin-top:4px" id="l3_exc">Do NOT include: rent, groceries, phone, utilities — only debts on your credit report</div>
-      <div style="margin-top:6px;color:#1D9E75;font-weight:600" id="l3_zero">No existing debts? Leave it as Zero</div>
+      <div>Include: car loan, student loan, credit card minimums, personal loans</div>
+      <div style="margin-top:4px">Do NOT include: rent, groceries, phone, utilities — only debts on your credit report</div>
+      <div style="margin-top:6px;color:#1D9E75;font-weight:600">No existing debts? Leave it as Zero</div>
     </div>
     <input type="number" id="dbt" placeholder="0" min="0" value="0" oninput="checkDebtSanity()">
     <div id="dbt-warning" style="display:none;margin-top:6px;font-size:12px;color:#92400E;background:#FFFBEB;border:1px solid #FDE68A;border-radius:6px;padding:8px 10px;line-height:1.4">
@@ -1275,7 +1275,7 @@ body.cmp-bar-open #waWrap{bottom:80px!important}
   </div>
 
   <div class="card" id="workArrangementCard">
-    <label class="lbl" id="wa_lbl" for="waSelect">Work arrangement</label>
+    <label class="lbl" for="waSelect">Work arrangement</label>
     <!-- No answer is pre-selected (2026-09-24, IMPROVEMENT_PLAN.md 2.5): the buyer must pick one,
          and go() stops with wa_err until they do. autocomplete="off" stops the browser refilling
          an old answer on reload that the page never received. -->
@@ -1288,17 +1288,17 @@ body.cmp-bar-open #waWrap{bottom:80px!important}
     <div class="err" id="wa_err" role="alert">Please choose one: remote, hybrid or daily.</div>
     <div id="workLocationFields" style="display:none;" class="work-location-fields">
       <div style="margin-top:12px;">
-        <label class="lbl" id="wc_lbl" style="margin-bottom:5px;">Work city</label>
+        <label class="lbl" style="margin-bottom:5px;">Work city</label>
         <input type="text" id="workCity" placeholder="e.g. Brampton">
       </div>
       <div style="margin-top:10px;">
-        <label class="lbl" id="wp_lbl" style="margin-bottom:5px;">Work postal code <span style="color:#bbb;font-weight:400">(optional)</span></label>
+        <label class="lbl" style="margin-bottom:5px;">Work postal code <span style="color:#bbb;font-weight:400">(optional)</span></label>
         <input type="text" id="workPostal" placeholder="e.g. L6Y 0A1" maxlength="7" style="text-transform:uppercase;">
       </div>
       <!-- A hard limit, not a weight (2026-09-23, IMPROVEMENT_PLAN.md 1.4): places past it are set
            aside before ranking. Defaults to 60 for daily and hybrid alike (setWorkArrangement; 2.2a). -->
       <div style="margin-top:10px;">
-        <label class="lbl" id="mc_lbl" for="maxCommute" style="margin-bottom:5px;">Longest commute you'd accept (one way)</label>
+        <label class="lbl" for="maxCommute" style="margin-bottom:5px;">Longest commute you'd accept (one way)</label>
         <select id="maxCommute" onchange="setMaxCommute(this.value)">
           <option value="30">30 minutes</option>
           <option value="45">45 minutes</option>
@@ -1314,7 +1314,7 @@ body.cmp-bar-open #waWrap{bottom:80px!important}
   </div>
   <div class="card">
     <label class="lbl" style="display:flex;align-items:center;gap:6px;">
-      <span id="l4">Preferred area</span>
+      <span>Preferred area</span>
       <button type="button" class="info-btn" onclick="toggleTooltip(event,'area-tooltip')" aria-label="Area info">ⓘ</button>
     </label>
     <div class="tooltip-box" id="area-tooltip">
@@ -1334,32 +1334,32 @@ body.cmp-bar-open #waWrap{bottom:80px!important}
     </select>
   </div>
   <div class="card" id="ftbCard">
-    <div class="lbl" id="ftb_lbl">Are you a first-time home buyer?</div>
+    <div class="lbl">Are you a first-time home buyer?</div>
     <!-- Neither Yes nor No starts selected (2026-09-24, IMPROVEMENT_PLAN.md 2.5); go() stops with ftb_err until one is picked. -->
     <div style="display:flex;gap:10px;margin-top:8px">
       <button id="ftb-yes" onclick="setFTB(true)" style="flex:1;padding:10px;border-radius:999px;border:1.5px solid #E4E7EC;background:#fff;color:#3D4555;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;font-family:var(--font)">Yes</button>
       <button id="ftb-no" onclick="setFTB(false)" style="flex:1;padding:10px;border-radius:999px;border:1.5px solid #E4E7EC;background:#fff;color:#3D4555;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;font-family:var(--font)">No</button>
     </div>
     <div class="err" id="ftb_err" role="alert">Please choose Yes or No.</div>
-    <div style="font-size:11px;color:#9CA3AF;margin-top:6px" id="ftb_hint">First-time buyers may qualify for a 30-year mortgage and land transfer tax rebates</div>
+    <div style="font-size:11px;color:#9CA3AF;margin-top:6px">First-time buyers may qualify for a 30-year mortgage and land transfer tax rebates</div>
     <!-- The rebates have a stricter rule than the 30-year mortgage (2026-09-23, IMPROVEMENT_PLAN.md 1.7;
          see closingcosts.js). Unticked by default, so no rebate is shown to someone who owned a home abroad. -->
     <label id="ltt_rebate_row" style="display:none;align-items:flex-start;gap:8px;margin-top:10px;font-size:12.5px;color:#3D4555;line-height:1.45;cursor:pointer">
       <input type="checkbox" id="lttRebate" onchange="setLttRebateConfirmed(this.checked)" style="margin-top:2px;flex-shrink:0">
-      <span id="ltt_lbl">Neither I nor my spouse has ever owned a home, anywhere in the world (including outside Canada)</span>
+      <span>Neither I nor my spouse has ever owned a home, anywhere in the world (including outside Canada)</span>
     </label>
   </div>
   <div class="card" id="residencyCard">
-    <div class="lbl" id="res_lbl">Are you a Canadian citizen or permanent resident?</div>
+    <div class="lbl">Are you a Canadian citizen or permanent resident?</div>
     <div style="display:flex;gap:10px;margin-top:8px">
       <button id="res-yes" onclick="setResident(true)" style="flex:1;padding:10px;border-radius:999px;border:1.5px solid #1D9E75;background:#1D9E75;color:#fff;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;font-family:var(--font)">Yes</button>
       <button id="res-no" onclick="setResident(false)" style="flex:1;padding:10px;border-radius:999px;border:1.5px solid #E4E7EC;background:#fff;color:#3D4555;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;font-family:var(--font)">No</button>
     </div>
-    <div style="font-size:11px;color:#9CA3AF;margin-top:6px" id="res_hint">If not: extra taxes apply, and most non-Canadians can't buy a home here until 2027.</div>
+    <div style="font-size:11px;color:#9CA3AF;margin-top:6px">If not: extra taxes apply, and most non-Canadians can't buy a home here until 2027.</div>
   </div>
   <div class="card">
     <label class="lbl" style="display:flex;align-items:center;gap:6px;">
-      <span id="l5">Family size</span>
+      <span>Family size</span>
       <button type="button" class="info-btn" onclick="toggleTooltip(event,'fam-tooltip')" aria-label="Family size info">ⓘ</button>
     </label>
     <div class="tooltip-box" id="fam-tooltip">
@@ -1389,15 +1389,15 @@ body.cmp-bar-open #waWrap{bottom:80px!important}
     <p>Fill in your details on the left and click "Show Me What I Can Afford" to see your buying power and ranked Ontario cities.</p>
   </div>
   <div class="bp-box" id="bpBox">
-    <div class="bp-lbl" id="bp_lbl">Your estimated buying power</div>
+    <div class="bp-lbl">Your estimated buying power</div>
     <div class="bp-val" id="bpV"></div>
     <div class="bp-sub" id="bpSub" style="font-size:13px;line-height:1.5"></div>
-    <div class="bp-sub" id="bp_sub_txt" style="margin-top:6px;opacity:0.7">This is an estimate of the most a lender might approve — not a pre-approval. Tap any city below to see the full monthly cost breakdown.</div>
+    <div class="bp-sub" style="margin-top:6px;opacity:0.7">This is an estimate of the most a lender might approve — not a pre-approval. Tap any city below to see the full monthly cost breakdown.</div>
     <div id="rateNote" style="font-size:11px;color:rgba(255,255,255,0.6);margin-top:6px;line-height:1.5">Based on 4.19% mortgage rate · Stress tested at 6.19% · Educational estimate only — not a mortgage pre-approval.</div>
   </div>
 
   <div class="results-section" id="res">
-    <div class="sec-title" id="cities_title_el">Cities you can afford</div>
+    <div class="sec-title">Cities you can afford</div>
     <div class="count" id="cnt"></div>
     <div class="rank-notes" id="rankNotes"></div>
     </div>
