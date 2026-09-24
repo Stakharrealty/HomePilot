@@ -419,7 +419,10 @@ function cityCardHtml(e, section, cardId, answer){
     // user has seen the concrete price/cost breakdown, rather than before
     // it at the top of the card).
     sec('ac-ai','<div class="ai-insights-trigger" id="ai-trigger-'+id+'" onclick="event.stopPropagation();toggleAiInsights(\''+id+'\',\''+x.n+'\')" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:10px 12px;margin:10px 0;background:linear-gradient(135deg,#F3EEFB,#EEF7F3);border:1px solid #E3DAF5;border-radius:10px">'+
-    '<span style="font-size:13px;font-weight:700;color:#5B3A7E">✨ AI Insights for '+x.n+'</span>'+
+    // Answer cards: "AI Insights", then the place under it, both centred (the
+    // user, 2026-09-24). Every other card: one line, as before.
+    (answer?'<span class="ac-ai-title"><span>✨ AI Insights</span><span class="ac-ai-city">'+x.n+'</span></span>'
+      :'<span style="font-size:13px;font-weight:700;color:#5B3A7E">✨ AI Insights for '+x.n+'</span>')+
     '<span id="ai-trigger-chevron-'+id+'" style="font-size:13px;color:#5B3A7E;transition:transform 0.2s">›</span>'+
     '</div>'+
     '<div class="ai-insights" id="ai-'+id+'" style="display:none;margin-bottom:6px"></div>')+

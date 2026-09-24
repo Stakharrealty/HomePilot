@@ -568,6 +568,13 @@ select{
    the Compare line's top margin instead of overlapping it (10px + 10px).
    Dropping it keeps the gap at today's 10px, open or closed. */
 .ac-ai .ai-insights-trigger,.ac-ai .ai-insights{margin-bottom:0!important}
+/* The answer cards' AI Insights tab: "AI Insights" with the place under it,
+   both centred in the tab (the user, 2026-09-24). The arrow keeps its place
+   at the right edge, out of the flow, so the text centres on the tab itself. */
+.ac-ai .ai-insights-trigger{position:relative;justify-content:center!important}
+.ac-ai-title{display:flex;flex-direction:column;align-items:center;text-align:center;font-size:13px;font-weight:700;color:#5B3A7E;padding:0 14px}
+.ac-ai-city{margin-top:2px}
+.ac-ai [id^="ai-trigger-chevron-"]{position:absolute;right:12px;top:50%;margin-top:-9px}
 @media(min-width:1024px){
   .answer-grid{align-items:start;row-gap:14px}
   .answer-grid-2{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(7,auto);row-gap:0}

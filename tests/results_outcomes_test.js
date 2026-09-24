@@ -1085,7 +1085,12 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
   const asParsed = (html) => { const box = d.createElement("div"); box.innerHTML = html; return box.firstElementChild.outerHTML; };
   // Since 2026-09-24 the three answer cards have their own top (the user's
   // layout); everything below it is today's card, part for part.
+  // The AI Insights tab's words differ too (answer cards: "AI Insights" with
+  // the place under it, centred): the rest of the tab must match, and the
+  // words must say the same thing.
   const belowTop = (html) => { const box = d.createElement("div"); box.innerHTML = html; const c = box.firstElementChild;
+    const tab = c.querySelector(".ai-insights-trigger > span:first-child");
+    if (tab) { const words = tab.classList.contains("ac-ai-title") ? [...tab.children].map((s) => s.textContent).join(" for ") : tab.textContent; tab.replaceWith(words); }
     return [...c.querySelector(".city-body").children].filter((k) => !k.matches(".ct, .ac-head")).map((k) => k.matches(".ac-sec") ? k.innerHTML : k.outerHTML).join("") + c.querySelector(":scope > .view-btn").outerHTML; };
   check("(15d) each answer card is cityCardHtml()'s answer card, and below its new top it is today's card, part for part (At a glance, the home-type rows, AI Insights, compare, View available homes)",
     todays.length === 3 && a15.every((a, i) => a.slot.querySelector(".city").outerHTML === asParsed(todays[i][0]) && belowTop(todays[i][0]) === belowTop(todays[i][1]))
