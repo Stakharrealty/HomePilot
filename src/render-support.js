@@ -58,14 +58,18 @@ const WHY_ICON = {
   bad:     '<span style="color:#B45309;font-weight:700;flex-shrink:0">!</span>',
 };
 
-function buildWhyRanked(x, c, net, commuteMin, displayPropType, displayPrice) {
+// `lead` (optional, the answer cards only; IMPROVEMENT_PLAN.md 2.2b,
+// 2026-09-24): one line shown first -- why a card carries two or three labels
+// ("Why two labels: ..."), or the "Also worth a look" card's trade. HTML.
+function buildWhyRanked(x, c, net, commuteMin, displayPropType, displayPrice, lead) {
   // Renders bullets as HTML. Logic lives in buildWhyRankedBullets().
   const bullets = buildWhyRankedBullets(x, c, net, commuteMin, displayPropType, displayPrice);
+  if(lead) bullets.unshift({ key: 'lead', tone: 'neutral', text: lead });
   if(!bullets.length) return '';
   return '<div style="margin-top:10px;padding:10px 12px;background:#FAFAFA;border:1px solid #EEEEEE;border-radius:10px">' +
     '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#555;margin-bottom:7px">At a glance</div>' +
     bullets.map(b =>
-      '<div style="font-size:12px;color:#1a1a1a;padding:2px 0;display:flex;align-items:flex-start;gap:6px">' +
+      '<div data-key="' + b.key + '" style="font-size:12px;color:#1a1a1a;padding:2px 0;display:flex;align-items:flex-start;gap:6px">' +
       (WHY_ICON[b.tone] || WHY_ICON.neutral) + '<span>' + b.text + '</span></div>'
     ).join('') +
     '</div>';

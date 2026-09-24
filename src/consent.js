@@ -5,9 +5,9 @@
 // Disclaimer before any affordability result is produced.
 //
 // Deliberately NOT wired inside go() itself:
-//   - go() is called directly by tests/smoke_test.js and by
-//     scenario-share.js (restoring a shared scenario link). Gating go()
-//     would break both.
+//   - go() is called directly by tests/smoke_test.js (and, until Share was
+//     taken off the page on 2026-09-24, by a shared scenario link). Gating
+//     go() would break that.
 //   - The gate belongs at the point of user intent (the button click), not
 //     inside the calculation engine.
 //

@@ -56,7 +56,7 @@
     <p>Nothing produced by HomePilot is a mortgage approval, pre-approval, or commitment to lend. Estimates are based on the information you enter and general assumptions — they do not reflect any lender's actual underwriting process, credit check, or program-specific requirements.</p>
 
     <h2>Rate and Cost Assumptions</h2>
-    <p>Estimates are based on the default mortgage rate shown in the calculator (currently <span id="dlRate">4.19%</span>), stress tested at the higher of 5.25% or that rate plus 2% (currently <span id="dlStress">6.19%</span>). If you adjust the rate slider, your results use the rate you chose, not the one shown here. Qualification estimates are educational only and do not represent mortgage approval — final qualification depends on lender underwriting, credit, property taxes, condo fees, heating costs, and program eligibility. Rates, property taxes, and utility cost estimates change over time and may not reflect current market conditions at the time you use the tool.</p>
+    <p>Estimates are based on the default mortgage rate shown in the calculator (currently <span id="dlRate">4.39%</span>), stress tested at the higher of 5.25% or that rate plus 2% (currently <span id="dlStress">6.39%</span>). If you adjust the rate slider, your results use the rate you chose, not the one shown here. Qualification estimates are educational only and do not represent mortgage approval — final qualification depends on lender underwriting, credit, property taxes, condo fees, heating costs, and program eligibility. Rates, property taxes, and utility cost estimates change over time and may not reflect current market conditions at the time you use the tool.</p>
 
     <h2>Real Estate Listing Accuracy</h2>
     <p>Listing information displayed on HomePilot is supplied through the PropTx IDX feed and is deemed reliable but is not guaranteed accurate by PROPTX. Listings may be sold, expired, or updated after this site last refreshed its data, and HomePilot may continue to display a listing for a short period after it leaves the feed. Always verify listing details directly with a licensed real estate professional before making any decisions.</p>
@@ -82,7 +82,9 @@
       if (typeof DEFAULT_MORTGAGE_RATE_PCT !== "number") return;
       var rate = DEFAULT_MORTGAGE_RATE_PCT;
       var stress = Math.max(5.25, rate + 2);
-      var fmt = function (n) { return n.toFixed(2).replace(/.?0+$/, "") + "%"; };
+      // The dot is escaped (fixed 2026-09-24): unescaped, "." matched any
+      // character, so a rate such as 4.10 printed as "4.%".
+      var fmt = function (n) { return n.toFixed(2).replace(/\.?0+$/, "") + "%"; };
       var r = document.getElementById("dlRate"); if (r) r.textContent = fmt(rate);
       var t = document.getElementById("dlStress"); if (t) t.textContent = fmt(stress);
     } catch (e) { /* leave the shipped values in place */ }

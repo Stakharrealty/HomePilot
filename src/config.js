@@ -9,9 +9,12 @@
 
 // Single source of truth for the default/market mortgage rate — every other
 // reference in the app (slider default, reset behavior, "current market rate"
-// hint, share/scenario comparisons, footer disclaimer, DATA_FRESHNESS entry)
+// hint, the rate line under the top section, the disclaimer page, DATA_FRESHNESS entry)
 // reads from this constant. Update ONLY here when refreshing the rate.
-const DEFAULT_MORTGAGE_RATE_PCT = 4.19;
+// 4.39% since 2026-09-24 (IMPROVEMENT_PLAN.md 3.5a): the cheapest advertised
+// insured 5-year fixed that day. A weekly automatic update (3.5) waits until
+// after beta.
+const DEFAULT_MORTGAGE_RATE_PCT = 4.39;
 
 // ── DATA FRESHNESS TRACKER — updated whenever a hardcoded estimate is re-verified ──
 // Purpose: every number in this file that isn't live-computed is a snapshot in time.
@@ -21,9 +24,11 @@ const DEFAULT_MORTGAGE_RATE_PCT = 4.19;
 // lastUpdated, and update this comment's date if you touch multiple items at once.
 const DATA_FRESHNESS = {
   mortgageRate: {
-    value: DEFAULT_MORTGAGE_RATE_PCT + "%", lastUpdated: "2026-07-09",
-    source: "Ratehub.ca + nesto.ca best insured 5yr fixed rates (3.94%–4.09% range July 8, 2026); " +
-            "set slightly above the rock-bottom broker teaser to reflect a realistically achievable rate.",
+    value: DEFAULT_MORTGAGE_RATE_PCT + "%", lastUpdated: "2026-09-24",
+    source: "Cheapest advertised insured 5-year fixed on Sept 24, 2026: nesto 4.39%, Ratehub 4.34%. " +
+            "Fixed rates rose with the 5-year Government of Canada bond yield (3.18% to 3.54%) since " +
+            "the last update (4.19% on July 9, 2026, against 3.94%–4.09%). Fixed, not variable: " +
+            "conservative, and the payment is locked for the term (IMPROVEMENT_PLAN.md 3.5a).",
     refreshCadence: "Monthly — fixed rates move with bond yields, can shift meaningfully in weeks."
   },
   propertyTaxRates: {

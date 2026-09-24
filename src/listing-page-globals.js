@@ -13,3 +13,6 @@
 let customMortgageRate = DEFAULT_MORTGAGE_RATE_PCT / 100;
 let firstTimeBuyer = false;
 let netMonthlyIncome = 0;
+// The buyer's monthly debt payments: getFit() counts them in the fit label
+// (explainability.js, 2026-09-24, IMPROVEMENT_PLAN.md 2.2b (a)).
+let existingDebt = 0;

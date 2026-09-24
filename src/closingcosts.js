@@ -125,6 +125,12 @@ function calcLTT(price,isToronto,ftb){
 // with lttRebateApplies() above, not with the bare first-time answer.
 // opts.foreignBuyer (added 2026-09-23): the buyer is not a Canadian citizen or
 // permanent resident, so the non-resident speculation taxes apply.
+// opts.downPayment (added 2026-09-24, IMPROVEMENT_PLAN.md 2.2b (b)): with it,
+// Ontario's 8% sales tax on the mortgage-insurance premium is part of the
+// cash to close (premiumSalesTax; mortgageInsuranceFor(), mortgage.js). Every
+// buyer with less than 20% down pays it, and it cannot go on the mortgage.
+// opts.firstTimeBuyer: the answer the premium's amortization depends on; the
+// page's own when left out. Without opts.downPayment nothing changes.
 function calcClosingCosts(cityName,price,ftb,opts){
   const torontoCities=['Toronto - Downtown','Toronto - West End','Toronto - East End','Toronto - North York','Toronto - Etobicoke','Toronto - Scarborough'];
   const foreignBuyer=!!(opts&&opts.foreignBuyer);
@@ -139,8 +145,11 @@ function calcClosingCosts(cityName,price,ftb,opts){
   const adjustments=1500;
   const nrst=foreignBuyer?Math.round(price*ONTARIO_NRST_RATE):0;
   const mnrst=foreignBuyer&&isToronto?Math.round(price*TORONTO_MNRST_RATE):0;
-  const total=ltt.total+legal+titleInsAdj+inspection+moving+adjustments+nrst+mnrst;
-  return{ltt,legal,titleIns:titleInsAdj,inspection,moving,adjustments,nrst,mnrst,foreignBuyer,total,isToronto};
+  const dnGiven=opts&&opts.downPayment!==undefined&&opts.downPayment!==null&&Number.isFinite(Number(opts.downPayment));
+  const ins=dnGiven&&typeof mortgageInsuranceFor==='function'?mortgageInsuranceFor(price,Math.min(Number(opts.downPayment),price),opts.firstTimeBuyer):{premium:0,salesTax:0};
+  const premiumSalesTax=ins.salesTax;
+  const total=ltt.total+legal+titleInsAdj+inspection+moving+adjustments+nrst+mnrst+premiumSalesTax;
+  return{ltt,legal,titleIns:titleInsAdj,inspection,moving,adjustments,nrst,mnrst,foreignBuyer,premium:ins.premium,premiumSalesTax,total,isToronto};
 }
 
 function toggleCC(id){

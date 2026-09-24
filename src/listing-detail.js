@@ -51,7 +51,8 @@ function buildHomePilotView(listing, profile, budget) {
     net: null,
     netIsOwn: false,       // net is the take-home the buyer typed (2026-09-24, IMPROVEMENT_PLAN.md 2.2), not the estimate
     remaining: null,
-    pctOfIncome: null,     // housing cost as % of take-home income (Section 3)
+    pctOfIncome: null,     // housing cost (plus monthly debt payments, 2026-09-24) as % of take-home income (Section 3)
+    debt: 0,               // the buyer's monthly debt payments, from their saved answers
     mortgageAssumptions: null, // { ratePct, amortMonths, downPayment } (Section 2)
     comfort: null,         // ldComfortPosition() result (Section 4)
     closing: null,         // ldClosingCosts() result (Section 1)
@@ -66,8 +67,12 @@ function buildHomePilotView(listing, profile, budget) {
   view.costs = computed.costs;
   view.net = computed.net;
   view.netIsOwn = profile.takeHomeIsOwn === true && profile.netMonthlyIncome > 0;
-  view.remaining = computed.net - computed.costs.total;
-  view.pctOfIncome = computed.net > 0 ? (computed.costs.total / computed.net) * 100 : null;
+  // The buyer's monthly debt payments count, as on the results (2026-09-24,
+  // IMPROVEMENT_PLAN.md 2.2b (a)): the % and what remains are after housing
+  // AND debt, and the fit label (getFit()) counts it too.
+  view.debt = profile.existingDebt > 0 ? profile.existingDebt : 0;
+  view.remaining = computed.net - computed.costs.total - view.debt;
+  view.pctOfIncome = computed.net > 0 ? ((computed.costs.total + view.debt) / computed.net) * 100 : null;
   view.mortgageAssumptions = {
     ratePct: (profile.mortgageRate || DEFAULT_MORTGAGE_RATE_PCT / 100) * 100,
     amortMonths: ldAmortizationMonths(profile, price),
@@ -110,6 +115,8 @@ function renderClosingCostsBlock(closing) {
   // Non-resident speculation taxes (2026-09-23, closingcosts.js).
   if (closing.nrst > 0) rows += ldRow("Ontario non-resident speculation tax (25%)", fmtPrice(closing.nrst));
   if (closing.mnrst > 0) rows += ldRow("Toronto non-resident speculation tax (10%)", fmtPrice(closing.mnrst));
+  // Under 20% down (2026-09-24, IMPROVEMENT_PLAN.md 2.2b (b)): it can't go on the mortgage.
+  if (closing.premiumSalesTax > 0) rows += ldRow("Sales tax on mortgage insurance (8%)", fmtPrice(closing.premiumSalesTax));
   rows += ldRow("Legal fees (estimated)", fmtPrice(closing.legal))
     + ldRow("Title insurance (estimated)", fmtPrice(closing.titleIns))
     + ldRow("Home inspection (estimated)", fmtPrice(closing.inspection))
@@ -245,8 +252,8 @@ function renderHomePilotSection(view) {
     + (view.marketKnown ? "" : `<p class="ld-muted">HomePilot doesn't have a cost profile for this municipality yet, so the property tax and insurance figures above use Ontario-wide averages rather than local rates. Treat them as rough.</p>`)
     + `<div class="ld-income">`
     + ldRow(view.netIsOwn ? "Your take-home income" : "Estimated take-home income", `${fmtPrice(view.net)}/mo`)
-    + (view.pctOfIncome !== null ? ldRow("Housing cost as % of take-home income", `${Math.round(view.pctOfIncome)}%`) : "")
-    + ldRow("Remaining after this home", `${fmtPrice(view.remaining)}/mo`, "ld-remaining")
+    + (view.pctOfIncome !== null ? ldRow(view.debt > 0 ? "Housing and debt payments as % of take-home income" : "Housing cost as % of take-home income", `${Math.round(view.pctOfIncome)}%`) : "")
+    + ldRow(view.debt > 0 ? "Remaining after this home and your debt payments" : "Remaining after this home", `${fmtPrice(view.remaining)}/mo`, "ld-remaining")
     + `</div>`
     + (view.comfort ? `<p class="ld-comfort">${ldComfortSentence(view.comfort)}</p>` : "")
     + (view.closing ? renderClosingCostsBlock(view.closing) : "");

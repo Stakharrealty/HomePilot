@@ -4,9 +4,9 @@
 // single-file app into modules) — the final piece of the split, alongside
 // render.js. Pure relocation — no logic changed, no values changed. Loaded
 // via <script src="src/main.js"></script> before the main inline script
-// (which now only contains markup, the <style> block, some intentionally
-// unused/deprecated tables kept for reference, and the final
-// loadScenarioFromURL() init call), same shared global scope as before.
+// (which now only contains markup, the <style> block and some intentionally
+// unused/deprecated tables kept for reference), same shared global scope as
+// before.
 //
 // Contains: RF (region filter mapping), the core mutable application state
 // (results, buyPower, comfortBuyPower, fam_selected, dn_selected,
@@ -18,7 +18,7 @@
 // openFormField() / openWorkPostalIfSet() (the postal-code link of the
 // shorter form, 2.3a), setResultsSort(), toggleOverCommute(), candidateCities() and searchAgain()
 // (the search run again with answers changed, for HomePilot Worth Knowing and
-// the What-If),
+// "Also worth a look"), syncRate() (the rate slider),
 // amortizationNote(), the top section of the results (renderTopSection(), the
 // take-home the buyer can replace, "How we calculated this"; 2.2), and go() —
 // the main calculation orchestrator that runs when the buyer submits the form.
@@ -51,10 +51,9 @@ const WORK_ARRANGEMENTS = ['remote', 'hybrid', 'daily'];
 //   seeAllOpen        -- the buyer opened "See all places" (render.js). Closed
 //                        by default, and again on every new search.
 //   showOverCommute   -- the buyer asked to see the cities past their limit.
-//   shownCards        -- the cards render() last drew, in screen order. The
-//                        PDF report (report.js) and Compare (compare.js) are
-//                        built from this, so they show exactly what the buyer
-//                        saw (REVIEW_BACKLOG.md P0-3).
+//   shownCards        -- the cards render() last drew, in screen order.
+//                        Compare (compare.js) is built from this, so it shows
+//                        exactly what the buyer saw (REVIEW_BACKLOG.md P0-3).
 let maxCommuteMin = null, maxCommuteTouched = false, resultsSort = 'home', seeAllOpen = false, showOverCommute = false, shownCards = [];
 
 // Two answers the land transfer tax depends on (added 2026-09-23,
@@ -72,8 +71,6 @@ let maxCommuteMin = null, maxCommuteTouched = false, resultsSort = 'home', seeAl
 //                         cannot buy yet. Since 2026-09-24 (2.3a E) it is
 //                         the form's "I'm not a Canadian citizen or
 //                         permanent resident" box, ticked = false.
-// Neither travels in a shared link: the share service keeps seven fields
-// (scenario-share.js), so whoever opens one starts from these defaults.
 let lttRebateConfirmed = false, canadianResident = true;
 function buyerLttRebateApplies(){ return lttRebateApplies(firstTimeBuyer, lttRebateConfirmed, canadianResident); }
 
@@ -81,7 +78,8 @@ function buyerLttRebateApplies(){ return lttRebateApplies(firstTimeBuyer, lttReb
 // couple on their incomes added together, so buying power uses the total.
 // Take-home pay is taxed person by person (estimateHouseholdNetAnnual() in
 // utils.js). partnerIncomeShare is the second earner's share of the total,
-// so a what-if household income (scenario-sandbox.js) keeps the same split.
+// so another household income (HomePilot Worth Knowing's "earn more") can be
+// split the same way.
 let partnerIncomeShare = 0;
 function householdNetAnnual(total){ return estimateHouseholdNetAnnual(total*(1-partnerIncomeShare), total*partnerIncomeShare); }
 
@@ -98,9 +96,9 @@ function householdNetAnnual(total){ return estimateHouseholdNetAnnual(total*(1-p
 //                                given, else the estimate. Every "% of
 //                                take-home" and every Great / Good / Stretch
 //                                label reads it (getFit(), rankCities(), the
-//                                cards, the breakdowns, the report, Compare,
-//                                Scenarios, and the listing pages through the
-//                                handover in buyer-profile.js). calcBP() never
+//                                cards, the breakdowns, Compare, and the
+//                                listing pages through the handover in
+//                                buyer-profile.js). calcBP() never
 //                                does: buying power is on income before tax, as
 //                                a bank's is, so the HomePilot comfort range and
 //                                the bank's figure do not move.
@@ -108,15 +106,6 @@ function householdNetAnnual(total){ return estimateHouseholdNetAnnual(total*(1-p
 // goes back to the estimate when either changes.
 let estimatedNetMonthlyIncome = 0, takeHomeOverride = null;
 function takeHomeIsBuyersOwn(){ return !!takeHomeOverride; }
-// The take-home to use for a household income of `total` a year. The What-If
-// scenarios try other incomes: there the buyer's own figure is scaled by how
-// the estimate changes, so a buyer whose real pay is 10% under the estimate
-// stays 10% under it. For their own income it is exactly their figure.
-function takeHomeMonthlyFor(total){
-  const est = householdNetAnnual(total) / 12;
-  if(!takeHomeOverride || !(estimatedNetMonthlyIncome > 0)) return est;
-  return takeHomeOverride.monthly * est / estimatedNetMonthlyIncome;
-}
 // Checks a typed monthly take-home: positive, and not more than income before
 // tax. Returns { value } or { error }.
 function checkTakeHome(raw, grossMonthly){
@@ -248,8 +237,8 @@ function toggleOverCommute() {
 }
 
 // The cities a search considers: those in the buyer's chosen area whose entry
-// price (M's `min`) is within the bank's ceiling. Shared by go() and the
-// What-If scenarios so both start from the same list.
+// price (M's `min`) is within the bank's ceiling. Shared by go() and
+// searchAgain(), so both start from the same list.
 function candidateCities(area, bp) {
   const rf=RF[area],seen=new Set();
   return M.filter(m=>{if(seen.has(m.n))return false;seen.add(m.n);if(rf&&!rf.includes(m.r))return false;return m.min<=bp;});
@@ -259,12 +248,10 @@ function candidateCities(area, bp) {
 // at the search's mortgage rate, candidateCities() for the area, then
 // rankCities() for each sort asked for, at the rate on screen (the rate slider
 // changes monthly costs, never buying power, as on the page). The page's
-// globals are put back afterwards, whatever happens. Shared since 2026-09-24
-// by HomePilot Worth Knowing (wkRun(), worth-knowing.js) and the What-If
-// scenarios (_getAngleSnapshot(), scenario-sandbox.js): they had two copies
-// with different rules (the What-If used the slider's rate for buying power
-// and the area select as it stood), so the What-If's "Now" could name a
-// different home from the page's own Most home answer.
+// globals are put back afterwards, whatever happens. Used by HomePilot Worth
+// Knowing and "Also worth a look" (wkRun(), worth-knowing.js). The What-If
+// scenarios used it too, until they were taken off the page (2026-09-24,
+// IMPROVEMENT_PLAN.md 2.2c).
 // o: { total, dn, dbt, area, rate, net (monthly take-home), wa, zone, limit,
 //      onlyType, sorts (default ['home']) }. Returns { calc, rankings } with
 // one rankCities() result per sort.
@@ -298,17 +285,21 @@ function amortizationNote(isFirstTimeBuyer) {
     : '25-year amortization, or 30-year on homes where your down payment is 20% or more';
 }
 
-// ── The top section (2026-09-24, IMPROVEMENT_PLAN.md 2.2) ──────────────────
-// One number, the HomePilot comfort range, then one small line each, as the
-// user decided:
-//   Your HomePilot comfort range / $520,000 / Stay here to breathe financially
-//   A bank might lend up to $630,000, but above your HomePilot comfort range is stretch territory.
+// ── The top section (2026-09-24, IMPROVEMENT_PLAN.md 2.2 and 2.2b) ─────────
+// Two boxes side by side, the bank's figure and the HomePilot comfort range
+// (the highlighted one), then one small line each, as the user decided:
+//   [A BANK MIGHT LEND UP TO / $630,000 / Banks allow up to 39% of your
+//    before-tax income / Above your HomePilot comfort range is stretch territory]
+//   [YOUR HOMEPILOT COMFORT RANGE / $520,000 / Stay here to breathe
+//    financially / We keep it to 32%, then check every home against your take-home pay]
 //   Based on $130,000/yr ($65,000 + $65,000) · $70,000 down · $450/mo debt
 //   Estimated take-home: $8,097/mo · Know your actual pay? Change it
-//   Estimate only, not a pre-approval · How we calculated this
-// It showed buying power, the bank's maximum and the comfort range, often all
-// the same figure. Every figure is calcBP()'s, householdNetAnnual()'s or the
-// buyer's own, so none is worked out a second way.
+//   Based on 4.39% rate, stress tested at 6.39% · Estimate only, not a pre-approval · How we calculated this
+// It showed one number with the bank's on a line under it until 2026-09-24,
+// and buying power, the bank's maximum and the comfort range, often all the
+// same figure, before that. Every figure is calcBP()'s, householdNetAnnual()'s
+// or the buyer's own, so none is worked out a second way. Both boxes are on
+// income before tax, so neither says "the bank uses gross, HomePilot uses net".
 //
 // lastSearch: the last search's answers, its area, the mortgage rate it was
 // worked out at and its calcBP() result, so the top section can be drawn again
@@ -316,20 +307,29 @@ function amortizationNote(isFirstTimeBuyer) {
 // can run the same search again with one answer changed.
 let lastSearch = null, takeHomeEditOpen = false;
 
-// The one small line under the number, in one of the two wordings the user
-// decided. "Your savings are the limit, not your income. A bank would lend the
-// same." only when both halves are true of the figures on screen: the down
-// payment caps the bank's figure (calcBP()'s downPaymentLimited) and the bank's
-// figure IS the HomePilot comfort range, so savings cap that too. Otherwise
-// the bank's figure, once.
-// Until 2026-09-24 a $10,000 gap counted as "the same" ($290,000 against a
-// bank's $300,000 for $80K and $15K down read "A bank would lend the same",
-// while income, not savings, capped the $290,000), and a third wording, "A
-// bank would lend about the same.", stood in when the figures matched without
-// savings being the limit.
-function comfortBankLine(calc){
-  if(calc.downPaymentLimited && calc.bp === calc.comfortBP) return 'Your savings are the limit, not your income. A bank would lend the same.';
-  return 'A bank might lend up to ' + fc(calc.bp) + ', but above your HomePilot comfort range is stretch territory.';
+// The bank box's two lines under its figure, in the wordings the user
+// decided. "Same: your savings are the limit, not your income" alone, when
+// both halves are true of the figures on screen: the down payment caps the
+// bank's figure (calcBP()'s downPaymentLimited) and the bank's figure IS the
+// HomePilot comfort range, so savings cap that too. Otherwise the bank's rule
+// and the stretch line. (Until 2026-09-24 a $10,000 gap counted as "the same":
+// $290,000 against a bank's $300,000 for $80K and $15K down read "A bank would
+// lend the same", while income, not savings, capped the $290,000.)
+// Returns { same, sub, note }.
+function bankBoxLines(calc){
+  const same = !!calc.downPaymentLimited && calc.bp === calc.comfortBP;
+  return same
+    ? { same, sub: 'Same: your savings are the limit, not your income', note: '' }
+    : { same, sub: 'Banks allow up to 39% of your before-tax income', note: 'Above your HomePilot comfort range is stretch territory' };
+}
+
+// "Based on 4.39% rate, stress tested at 6.39%": the rate the search was
+// worked out at (the rate in force; go() always searches at the market rate)
+// and its stress-test rate. The rate slider changes monthly costs, never the
+// two figures above, so it does not change this line either.
+function rateLine(rate){
+  const pct = (r) => (r * 100).toFixed(2).replace(/\.?0+$/, '');
+  return 'Based on ' + pct(rate) + '% rate, stress tested at ' + pct(getStressRate(rate)) + '%';
 }
 
 // "Based on $130,000/yr ($65,000 + $65,000) · $70,000 down · no debt". One
@@ -364,6 +364,14 @@ function renderTopSection(){
   const calc = s.calc;
   const bpv = document.getElementById('bpV');
   if(bpv) bpv.textContent = fc(calc.comfortBP);
+  const bank = bankBoxLines(calc);
+  const setText = (id, t) => { const el = document.getElementById(id); if(el) el.textContent = t; };
+  setText('bpBankV', fc(calc.bp));
+  setText('bpBankSub', bank.sub);
+  setText('bpBankNote', bank.note);
+  const bankBox = document.getElementById('bpBank');
+  if(bankBox && bankBox.classList) bankBox.classList.toggle('bp-same', bank.same);
+  setText('bpRateLine', rateLine(s.rate));
   const sub = document.getElementById('bpSub');
   if(!sub) return;
   const both = s.partner > 0;
@@ -371,7 +379,6 @@ function renderTopSection(){
     ? 'Your take-home: ' + fc(netMonthlyIncome) + '/mo · <button type="button" class="link-btn" id="takeHomeReset" onclick="resetTakeHome()">reset to estimate</button>'
     : 'Estimated take-home: ' + fc(estimatedNetMonthlyIncome) + '/mo · Know your actual pay? <button type="button" class="link-btn" id="takeHomeChange" onclick="openTakeHomeEdit()" aria-expanded="' + takeHomeEditOpen + '" aria-controls="takeHomeEdit">Change it</button>';
   sub.innerHTML =
-    '<div class="bp-line" id="bpBankLine">' + comfortBankLine(calc) + '</div>' +
     '<div class="bp-line" id="bpBasedOn">' + basedOnLine(s) + '</div>' +
     '<div class="bp-line" id="takeHomeLine">' + takeHome + '</div>' +
     // "Change it": the buyer's actual monthly take-home, inline.
@@ -446,19 +453,36 @@ function resetTakeHome(){
   takeHomeEditOpen = false;
   takeHomeChanged();
 }
-// Draws again everything that shows a share of take-home or a fit label. The
-// PDF report, Compare and the listings handover read netMonthlyIncome when
-// they are used, so they follow on their own.
+// Draws again everything that shows a share of take-home or a fit label.
+// Compare and the listings handover read netMonthlyIncome when they are used,
+// so they follow on their own.
 function takeHomeChanged(){
   renderTopSection();
   if(results.length) render();
-  // An open What-If: its "Now" column was worked out on the old take-home.
-  const panel = document.getElementById('scenarioPanel');
-  if(panel && panel.style.display === 'block' && typeof _getAngleSnapshot === 'function'){
-    _beforeSnapshot = _getAngleSnapshot(grossMonthlyIncome*12, dn_selected, workArrangement, workZone);
-    const sr = document.getElementById('scenarioResults');
-    if(sr) sr.innerHTML = '';
+}
+
+// The mortgage rate slider and its box, under the top section (moved here
+// from scenario-sandbox.js on 2026-09-24, when Scenarios, Share and Download
+// Report were taken off the page; IMPROVEMENT_PLAN.md 2.2c: the slider stays).
+// It changes monthly costs, never buying power.
+function syncRate(val, source) {
+  const v = parseFloat(val);
+  if(isNaN(v) || v < 0.5 || v > 20) return;
+  customMortgageRate = v / 100;
+  if(source === 'slider') {
+    document.getElementById('rateInput').value = v.toFixed(2);
+  } else {
+    document.getElementById('rateSlider').value = v;
   }
+  // Update hint label
+  const base = DEFAULT_MORTGAGE_RATE_PCT;
+  const diff = (v - base).toFixed(2);
+  const hint = v === base ? 'Current market rate' :
+    (v < base ? '▼ ' + Math.abs(diff) + '% below market' : '▲ ' + diff + '% above market');
+  const hintEl = document.getElementById('rateHint');
+  if(hintEl) hintEl.textContent = hint;
+  // Re-render costs live
+  if(results && results.length > 0) render();
 }
 
 // "How we calculated this": opens and closes the small print under the line.
@@ -478,10 +502,6 @@ function go(){
   const dbt=parseFloat(document.getElementById("dbt").value.trim())||0;
   existingDebt=dbt;
   customMortgageRate=DEFAULT_MORTGAGE_RATE_PCT/100;
-  const _sbr=document.getElementById('shareBar');
-  if(_sbr) _sbr.style.display='none';
-  const _scp=document.getElementById('scenarioPanel');
-  if(_scp) _scp.style.display='none';
   const _rb=document.getElementById('rateBar');
   if(_rb){
     _rb.style.display='none';
@@ -574,8 +594,8 @@ function go(){
     const rateDisplay=(customMortgageRate*100).toFixed(2).replace(/\.?0+$/,'')+'%';
     const stressRateDisplay=(getStressRate(customMortgageRate)*100).toFixed(2)+'%';
     const rn=document.getElementById('rateNote');if(rn)rn.innerHTML=`Based on ${rateDisplay} mortgage rate · ${amortizationNote(firstTimeBuyer===true)} · Stress tested at ${stressRateDisplay} · <span style="color:rgba(255,255,255,0.6);font-style:italic">Educational estimate only — not a mortgage pre-approval. Actual qualification depends on lender underwriting, credit, and full application details.</span>`;
-    const frn=document.getElementById('footerRateNote');
-    if(frn) frn.innerHTML=`Estimates based on ${rateDisplay} mortgage rate, stress tested at ${stressRateDisplay} (higher of 5.25% or contract rate + 2%). Amortization: 25-year, or 30-year where 20%+ down qualifies. Property tax rates sourced from each municipality. Utilities estimated by family size and region. Maintenance at 1% of home value annually. Qualification estimates are educational only and do not represent mortgage approval — final qualification depends on lender underwriting, credit, property taxes, condo fees, heating costs, and program eligibility. Sandeep Takhar is a RE/MAX agent covering Bolton, Caledon, Orangeville and surrounding areas. 416-725-8087`;
+    // The footer rate note that was written here had no element on any page
+    // since the calculator moved off index.html (removed 2026-09-24, plan 6.3).
     document.getElementById("bpBox").style.display="block";
     const es=document.getElementById("calcEmptyState");if(es)es.style.display="none";
     // The "N cities match your budget" line is written by render() now, which

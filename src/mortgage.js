@@ -5,8 +5,9 @@
 // changed. Loaded via <script src="src/mortgage.js"></script> before the main
 // inline script, same shared global scope as before.
 //
-// Contains: getStressRate(), calcBP(), qualifiesForProperty(), UTIL_BY_TYPE,
-// calcCosts(), meetsMinDownPayment(). These pieces were NOT contiguous in the
+// Contains: getStressRate(), mortgageInsuranceFor() (the premium and the 8%
+// sales tax on it, 2026-09-24), calcBP(), qualifiesForProperty(),
+// UTIL_BY_TYPE, calcCosts(), meetsMinDownPayment(). These pieces were NOT contiguous in the
 // original file — getFit(), PROP_LABELS, and getPriceForType()/
 // getPriceForTypeStrict() were interspersed between them and are intentionally
 // left in index.html for now (they belong to explainability.js and ranking.js,
@@ -64,6 +65,28 @@ function cmhcPremiumRate(dpRatio, amortMonths){
   let rate = dpRatio >= 0.15 ? 0.028 : dpRatio >= 0.10 ? 0.031 : 0.040;
   if(amortMonths > 300) rate += 0.0020; // CMHC 30yr amortization surcharge
   return rate;
+}
+
+// The mortgage-insurance premium on a home, and Ontario's 8% sales tax on it
+// (added 2026-09-24, IMPROVEMENT_PLAN.md 2.2b (b)). The premium is added to
+// the loan (calcCosts() below pays it off monthly), but the tax on it cannot
+// be: CMHC, "The sales tax can't be added to the loan amount", so it is cash
+// due at closing, for every buyer with less than 20% down. Same loan, rate
+// tier and amortization rule as calcCosts(). A $12,540 premium is about
+// $1,003 more cash to close.
+const ONTARIO_PREMIUM_SALES_TAX_RATE = 0.08;
+// isFirstTime: the first-time answer the amortization depends on (30 years
+// adds 0.20% to the premium); the page's own answer when left out.
+function mortgageInsuranceFor(price, dn, isFirstTime){
+  price = Number(price); dn = Number(dn);
+  if(!(price > 0)) return { premium: 0, salesTax: 0 };
+  if(!(dn >= 0)) dn = 0;
+  const ln = Math.max(0, price - dn);
+  const dpRatio = dn / price;
+  const ftb = isFirstTime === undefined ? firstTimeBuyer === true : isFirstTime === true;
+  const n = (ftb || dpRatio>=0.20) ? 360 : 300;
+  const premium = Math.round(ln * cmhcPremiumRate(dpRatio, n));
+  return { premium, salesTax: Math.round(premium * ONTARIO_PREMIUM_SALES_TAX_RATE) };
 }
 
 function calcBP(inc,dn,dbt){

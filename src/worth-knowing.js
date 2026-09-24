@@ -43,9 +43,14 @@
 // isComfortable() (ranking.js) -- inside the HomePilot comfort range and not
 // labelled Stretch.
 //
+// Since 2026-09-24 (2.2b) it also works out the "Also worth a look" answer
+// card (wkAlso()): what it takes to get more home, when the answers leave a
+// card free.
+//
 // Contains: the WK_ thresholds, wkBase(), wkRun() (the engine, run again with
-// one input changed), worthKnowing() (the tips, cached per search and
-// setting), wkEmptyHeading(), worthKnowingHtml().
+// one input changed), wkAlso(), worthKnowing() (the tips and the "Also worth a
+// look" card, cached per search and setting), wkEmptyHeading(),
+// worthKnowingHtml().
 
 // ── What makes a tip worth showing ─────────────────────────────────────────
 const WK_STEP = 5000;               // save more and earn more go up in $5,000 steps
@@ -64,8 +69,9 @@ const WK_MAX_TIPS = 2;              // the normal page shows at most two tips
 const WK_FAR_SAVE_CAP = 250000;
 const WK_FAR_EARN_CAP = 100000;
 
-// Home types in a sentence: "a condo in Whitby", "same detached home".
-const WK_TYPE = { condo: 'condo', town: 'townhouse', semi: 'semi-detached home', detached: 'detached home' };
+// Home types in a sentence: "a condo in Whitby", "same detached home"
+// (HOME_TYPE_WORDS, ranking.js).
+const WK_TYPE = HOME_TYPE_WORDS;
 // Strongest first; on a tie, save, then drive, then earn.
 const WK_LEVER_ORDER = { save: 0, drive: 1, earn: 2 };
 
@@ -101,8 +107,8 @@ function wkEarnTo(base) { return base.partner > base.own ? 'partner' : 'own'; }
 //                      drops it when an income changes, so worthKnowing() offers
 //                      no earn tip while one is in force;
 //   { maxCommute }  -- a different commute limit (null for none).
-// It is go()'s own calculation, through searchAgain() (main.js), which the
-// What-If scenarios use too: calcBP() on the changed figures, at the rate the
+// It is go()'s own calculation, through searchAgain() (main.js): calcBP() on
+// the changed figures, at the rate the
 // search used (go() always searches at the market rate; the rate slider then
 // changes monthly costs, not buying power), candidateCities() for the same
 // area, then rankCities() with the same commute limit and home-type filter as
@@ -268,6 +274,86 @@ function wkPastLimitTip(byHome) {
   };
 }
 
+// ── "Also worth a look" (IMPROVEMENT_PLAN.md 2.2b, 2026-09-24) ─────────────
+// When the answers leave a card free (two or three answers are the same home,
+// or there is no commute to answer), one card on what it takes to get more
+// home than the Most home answer. The first match wins:
+//   1. Save more: the smallest extra down payment, in WK_STEP steps up to
+//      WK_SAVE_CAP, at which a bigger home fits within the buyer's commute
+//      limit -- the page's own search run again (wkRun()); the home is the one
+//      that search would then put first for most home;
+//   2. Drive a bit further: a bigger home that fits today, at most
+//      WK_DRIVE_CAP_MIN minutes past the buyer's limit, the nearest first;
+//   3. otherwise no card. Never a home that doesn't fit, as padding.
+// The card is today's card for that home, so it says what the home costs now:
+// a home that is a Stretch today keeps its Stretch label, and only the first
+// line of its At a glance says what would change that ("Save $5,000 more
+// and..."). A save card therefore needs a home the buyer could buy today
+// (qualifyingOption()); one the bank would not lend for yet is passed over
+// rather than drawn with figures that are not true today.
+// Why: buyers trade the home before the commute (49% would buy smaller, 24%
+// would commute longer; Abacus Data for CREA, 2025), and the runner-up for
+// most home that stood here was no better than the answer above it on any
+// count in 57% of cases (_private/phase2/WORTH_A_LOOK_RESEARCH.md).
+
+// The extra drive in hours a month: minutes each way x 2 x office days a
+// week x 4.33 weeks. Daily is 5 days; hybrid is "2-4 days/week" on the form,
+// so a range. "about 22–43 more hours a month".
+const WK_OFFICE_DAYS = { daily: [5, 5], hybrid: [2, 4] };
+function wkHoursAMonth(extraMin) {
+  const d = WK_OFFICE_DAYS[workArrangement];
+  if (!d || !(extraMin > 0)) return '';
+  const h = (days) => Math.round(extraMin * 2 * days * 4.33 / 60);
+  const lo = h(d[0]), hi = h(d[1]);
+  return 'about ' + (lo === hi ? lo : lo + '–' + hi) + ' more hours a month';
+}
+
+// A home as it stands today, as a rankCities() entry (for its card), or null
+// when the buyer could not buy it today.
+function wkTodayEntry(city, type, commuteMin) {
+  const o = qualifyingOption(city, type);
+  if (!o) return null;
+  return { city, n: city.n, type: o.type, price: o.price, costs: o.costs, fit: o.fit, pct: takeHomePct(o.costs.total), commuteMin, comfortable: isComfortable(o) };
+}
+
+// `answers` is answerPicks()'s result; `base` wkBase(). Returns null, or
+// { kind: 'save' | 'drive', extra, entry (today), claim, html }.
+function wkAlso(base, answers) {
+  const byHome = answers.byHome;
+  const top = byHome.ranked[0];
+  if (!top) return null;
+  const bigger = (t) => HOME_RANK[t] > HOME_RANK[top.type];
+  const types = base.onlyType ? [base.onlyType] : HOME_ORDER;
+  if (!types.some(bigger)) return null;
+  const save = wkFirstStep(base, 'save', WK_STEP, WK_SAVE_CAP, (run) => {
+    for (const a of run.ranking.ranked) {
+      if (!bigger(a.type)) continue;
+      const today = wkTodayEntry(a.city, a.type, a.commuteMin);
+      if (today) return { after: a, today };
+    }
+    return null;
+  });
+  if (save) {
+    const { after, today } = save.h;
+    return {
+      kind: 'save', extra: save.x, entry: today,
+      claim: Object.assign(wkClaimOf(after), { lever: 'save', extra: save.x, today: wkClaimOf(today), than: homeKey(top) }),
+      html: wkLeverHtml('save', save.x, base) + wkHome(after) + ' ' + wkFits(after) +
+        (Number.isFinite(after.commuteMin) ? ', about ' + after.commuteMin + ' min.' : '.'),
+    };
+  }
+  if (!byHome.commuteKnown || byHome.limit === null) return null;
+  const e = byHome.overCommute.find((x) => x.comfortable && bigger(x.type) && Number.isFinite(x.commuteMin) && x.commuteMin - byHome.limit <= WK_DRIVE_CAP_MIN);
+  if (!e) return null;
+  const past = e.commuteMin - byHome.limit;
+  const hours = Number.isFinite(top.commuteMin) ? wkHoursAMonth(e.commuteMin - top.commuteMin) : '';
+  return {
+    kind: 'drive', extra: past, entry: e,
+    claim: Object.assign(wkClaimOf(e), { lever: 'drive', extra: past, limit: byHome.limit, than: homeKey(top), extraMin: Number.isFinite(top.commuteMin) ? e.commuteMin - top.commuteMin : null }),
+    html: 'A ' + WK_TYPE[e.type] + ' fits in ' + e.n + ': <b>' + past + ' min past your ' + byHome.limit + '-minute limit</b>' + (hours ? ', ' + hours : '') + '.',
+  };
+}
+
 // ── What render() draws ────────────────────────────────────────────────────
 // `answers` is render()'s answerPicks() result; `onlyType` the home-type
 // filter. Returns null before a search, else:
@@ -283,7 +369,10 @@ function wkPastLimitTip(byHome) {
 //   far        -- empty page, not close: what would change the answer, past
 //                 the caps; nothingFar -- not even that, within WK_FAR_*;
 //   earnTried  -- false while the buyer's own take-home is in force: no
-//                 earn tip was looked for (wkOwnTakeHome()).
+//                 earn tip was looked for (wkOwnTakeHome());
+//   also       -- normal page with a card free: the "Also worth a look" card
+//                 (wkAlso()), or null. Its trade is not repeated as a tip
+//                 below it (2.2b, "Don't say it twice").
 // The result is kept until anything it depends on changes, so opening a card
 // or re-sorting "See all places" does not run the engine again.
 let _wkCache = null;
@@ -312,7 +401,7 @@ function wkOwnTakeHome() { return typeof takeHomeIsBuyersOwn === 'function' && t
 function _wkCompute(base, answers) {
   const byHome = answers.byHome;
   const earnOk = !wkOwnTakeHome();
-  const out = { empty: !byHome.ranked.length, limit: byHome.limit, onlyType: base.onlyType, tips: [], levers: [], close: false, far: [], nothingFar: false, earnTried: earnOk };
+  const out = { empty: !byHome.ranked.length, limit: byHome.limit, onlyType: base.onlyType, tips: [], levers: [], close: false, far: [], nothingFar: false, earnTried: earnOk, also: null };
   const sl = savingsLimitTip(lastSearch.calc);
   // The plan's own words: "Your savings are the limit… $X more saved would get
   // you there", where "there" is the HomePilot comfort range the buyer's income
@@ -331,11 +420,16 @@ function _wkCompute(base, answers) {
       const today = byHome.ranked.find((x) => x.n === p.entry.n) || p.entry;
       places.push({ n: today.n, type: today.type });
     });
+    // "Also worth a look" takes a card the answers left free (2.2b).
+    out.also = answers.picks.length < ANSWER_CARDS ? wkAlso(base, answers) : null;
+    // A tip that makes the same trade for the same home as that card stays
+    // out of the box below it.
+    const sameAsAlso = (t) => !!out.also && t.kind === out.also.kind && t.claim.n === out.also.claim.n && t.claim.type === out.also.claim.type;
     const levers = [
       wkUpgradeTip(base, 'save', places, WK_SAVE_CAP),
       wkDriveTip(answers, base.onlyType),
       earnOk ? wkUpgradeTip(base, 'earn', places, WK_EARN_CAP) : null,
-    ].filter(Boolean).sort((a, b) => a.effort - b.effort || WK_LEVER_ORDER[a.kind] - WK_LEVER_ORDER[b.kind]);
+    ].filter((t) => t && !sameAsAlso(t)).sort((a, b) => a.effort - b.effort || WK_LEVER_ORDER[a.kind] - WK_LEVER_ORDER[b.kind]);
     out.levers = levers;
     out.tips = [savingsTip].concat(levers).filter(Boolean).slice(0, WK_MAX_TIPS);
     return out;

@@ -339,10 +339,10 @@ body{
 .ft-copyright{font-size:11px;color:rgba(255,255,255,0.3)}
 .ft-disclaimer{font-size:11px;color:rgba(255,255,255,0.3);line-height:1.6;max-width:560px}
 
-.ft-contact-line{font-size:13px;color:rgba(255,255,255,0.6);line-height:1.6;margin-top:10px}
-.ft-contact-reco{font-size:11px;color:rgba(255,255,255,0.3);margin-top:8px}
 @media(min-width:600px){
-  .ft-top{grid-template-columns:1fr 1fr 1fr 1fr 1fr}
+  /* Four columns: the empty "Contact" column was removed on 2026-09-24
+     (IMPROVEMENT_PLAN.md 6.3); the contact details are in .ft-tm-info. */
+  .ft-top{grid-template-columns:1fr 1fr 1fr 1fr}
   .ft-brand{grid-column:auto}
   .ft-tm-row{flex-direction:row;align-items:flex-start;justify-content:space-between;gap:32px}
   .ft-tm-info{flex-shrink:0}
@@ -758,53 +758,6 @@ select{
 }
 #rateSlider{width:100%;accent-color:var(--green);cursor:pointer;margin-top:4px}
 
-/* ── SHARE / SCENARIO BAR ────────────────────────────────────── */
-#shareBar{display:none;margin:0 0 10px 0;gap:8px}
-#scenarioBtn,#shareBtn{
-  flex:1;
-  background:var(--card);color:var(--green);
-  border:1.5px solid var(--green);
-  border-radius:var(--radius-sm);
-  padding:10px 8px;
-  font-family:var(--font);
-  font-size:12px;font-weight:700;cursor:pointer;
-  display:inline-flex;align-items:center;justify-content:center;gap:5px;
-  white-space:nowrap;
-  transition:background 0.15s,box-shadow 0.15s;
-}
-#shareBar button{
-  flex:1;
-  background:var(--card);color:var(--green);
-  border:1.5px solid var(--green);
-  border-radius:var(--radius-sm);
-  padding:10px 8px;
-  font-family:var(--font);
-  font-size:12px;font-weight:700;cursor:pointer;
-  display:inline-flex;align-items:center;justify-content:center;gap:5px;
-  white-space:nowrap;
-  transition:background 0.15s;
-}
-#shareBar button:hover{background:var(--green-light)}
-
-/* ── SCENARIO PANEL ──────────────────────────────────────────── */
-#scenarioPanel{
-  display:none;
-  margin:0 0 16px;
-  background:#FAF8FE;
-  border:1.5px solid #D9C9F0;
-  border-radius:var(--radius-lg);
-  padding:18px;
-  box-shadow:var(--shadow-sm);
-}
-.scn-wa-btn{
-  flex:1;background:#fff;color:#5B3A7E;
-  border:1.5px solid #D9C9F0;border-radius:var(--radius-sm);
-  padding:8px;font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;
-  transition:background 0.15s,border-color 0.15s;
-}
-.scn-wa-btn:hover{background:#F3EEF9;border-color:#B8A0DC}
-.scn-wa-btn.on{background:#5B3A7E;color:#fff;border-color:#5B3A7E}
-
 /* ── TOOLTIP / INFO BTN ──────────────────────────────────────── */
 .info-btn{
   display:inline-flex;align-items:center;justify-content:center;
@@ -975,166 +928,8 @@ select{
 /* ── BR TICK ─────────────────────────────────────────────────── */
 .br-tick.active{color:var(--green)!important;font-weight:700!important}
 
-/* ── PRINT STYLES ────────────────────────────────────────────── */
 </style>
 
-<style id="printStyles">
-@media print {
-  body * { visibility: hidden; }
-  #printReport, #printReport * { visibility: visible; }
-  #printReport {
-    display: block !important;
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    width: 100% !important;
-  }
-  @page {
-    margin: 15mm 12mm;
-    size: A4 portrait;
-  }
-  .pr-page-break { page-break-before: always; }
-}
-
-#printReport {
-  display: none;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  max-width: 700px;
-  margin: 0 auto;
-  color: #1a1a1a;
-}
-
-.pr-header {
-  border-bottom: 3px solid #1D9E75;
-  padding-bottom: 16px;
-  margin-bottom: 20px;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-}
-
-.pr-logo {
-  font-size: 22px;
-  font-weight: 800;
-  color: #1D9E75;
-  letter-spacing: -0.5px;
-}
-
-.pr-logo span { color: #1a1a1a; }
-
-.pr-date {
-  font-size: 11px;
-  color: #999;
-}
-
-.pr-section-title {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #999;
-  margin: 0 0 10px;
-}
-
-.pr-profile {
-  background: #f4fdf9;
-  border: 1px solid #c8edd9;
-  border-radius: 10px;
-  padding: 14px 16px;
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 12px;
-  margin-bottom: 24px;
-}
-
-.pr-profile-item {}
-.pr-profile-lbl { font-size: 10px; color: #999; text-transform: uppercase; letter-spacing: 0.06em; }
-.pr-profile-val { font-size: 14px; font-weight: 700; color: #1a1a1a; margin-top: 2px; }
-
-.pr-city-card {
-  border: 1px solid #e0e0e0;
-  border-radius: 12px;
-  margin-bottom: 16px;
-  overflow: hidden;
-}
-
-.pr-city-header {
-  background: #1D9E75;
-  padding: 12px 16px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.pr-city-name { font-size: 18px; font-weight: 800; color: #fff; }
-.pr-city-badge { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
-.pr-badge-g { background: #E1F5EE; color: #085041; }
-.pr-badge-b { background: #E6F1FB; color: #0C447C; }
-.pr-badge-a { background: #FAEEDA; color: #633806; }
-.pr-badge-r { background: #FCEBEB; color: #791F1F; }
-
-.pr-city-sub {
-  font-size: 12px;
-  color: rgba(255,255,255,0.85);
-  margin-top: 3px;
-}
-
-.pr-city-body { padding: 14px 16px; }
-
-.pr-range-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  margin-bottom: 12px;
-}
-
-.pr-range-lbl { font-size: 11px; color: #999; text-transform: uppercase; letter-spacing: 0.06em; }
-.pr-range-val { font-size: 17px; font-weight: 800; color: #1a1a1a; }
-
-.pr-bullets { margin-bottom: 12px; }
-.pr-bullet { display: flex; gap: 6px; font-size: 12px; color: #444; margin-bottom: 5px; }
-.pr-bullet-check { color: #1D9E75; font-weight: 700; flex-shrink: 0; }
-
-.pr-ladder { border-top: 1px solid #f0f0f0; padding-top: 10px; }
-.pr-ladder-title { font-size: 10px; color: #999; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; }
-.pr-ladder-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 5px 0;
-  border-bottom: 1px solid #f5f5f5;
-  font-size: 12px;
-}
-.pr-ladder-row:last-child { border-bottom: none; }
-.pr-ladder-type { color: #555; }
-.pr-ladder-right { display: flex; gap: 10px; align-items: center; }
-.pr-ladder-cost { font-weight: 700; color: #1a1a1a; }
-.pr-ladder-pct { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 10px; }
-
-.pr-disclaimer {
-  font-size: 10px;
-  color: #aaa;
-  line-height: 1.6;
-  margin-top: 24px;
-  border-top: 1px solid #f0f0f0;
-  padding-top: 12px;
-}
-
-.pr-agent {
-  margin-top: 20px;
-  background: #f4fdf9;
-  border: 1px solid #c8edd9;
-  border-radius: 10px;
-  padding: 14px 16px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.pr-agent-name { font-size: 15px; font-weight: 800; color: #1D9E75; }
-.pr-agent-sub  { font-size: 11px; color: #555; margin-top: 2px; }
-.pr-agent-contact { text-align: right; font-size: 11px; color: #555; }
-</style>
 </head>
 <body>
 <div class="w">
@@ -1421,9 +1216,6 @@ select{
           <li><a href="/disclaimer.html" target="_blank" rel="noopener">Disclaimer</a></li>
         </ul>
       </div>
-      <div class="ft-col">
-        <p class="ft-col-title">Contact</p>
-      </div>
     </div>
     <div class="ft-trademark">
       <div class="ft-trademark-logos">
@@ -1457,13 +1249,10 @@ select{
 <script src="src/explainability.js"></script>
 <script src="src/ranking.js"></script>
 <script src="src/i18n.js"></script>
-<script src="src/scenario-share.js"></script>
 <script src="src/ai.js"></script>
 <script src="src/utils.js"></script>
 <script src="src/closingcosts.js"></script>
 <script src="src/compare.js"></script>
-<script src="src/scenario-sandbox.js"></script>
-<script src="src/report.js"></script>
 <script src="src/ui-helpers.js"></script>
 <script src="src/render-support.js"></script>
 <script src="src/main.js"></script>

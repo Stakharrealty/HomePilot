@@ -51,10 +51,14 @@ function fitPill(fit) {
 // ── The results since 2026-09-24 (IMPROVEMENT_PLAN.md 2.2) ──────────────────
 // Three answers, then "See all places", in the order the user decided:
 //   1. the count and the notes (places set aside, and why);
-//   2. three answer cards, #answers: Most home, Shortest commute, Lowest
-//      monthly cost (answerPicks(), ranking.js). They are today's cards,
-//      exactly as cityCardHtml() draws them, each under a small label; side by
-//      side on a computer, stacked on a phone (CSS in calculator.html);
+//   2. the answer cards, #answers: Lowest monthly cost, Shortest commute,
+//      Most home (answerPicks(), ranking.js; this order since 2026-09-24,
+//      2.2b). A home that answers two or three questions shows once, with
+//      every label, and the first line of its At a glance says why; a card
+//      left free goes to "Also worth a look" (wkAlso(),
+//      worth-knowing.js) or to nothing. They are today's cards as
+//      cityCardHtml() draws them, each under a small label; side by side on a
+//      computer, stacked on a phone (CSS in calculator.html);
 //   3. #worthKnowing: HomePilot Worth Knowing (worth-knowing.js), one or two
 //      trade-offs worth knowing, or nothing when none is worth it;
 //   4. "See all places", closed until the buyer opens it: the rest of the
@@ -135,9 +139,10 @@ function render(){
   // "a home", or with a home type picked "a condo", "a detached home" (WK_TYPE,
   // worth-knowing.js; it read "a detached").
   const typeWord=activeProp==='all'?'a home':'a '+((typeof WK_TYPE!=='undefined'&&WK_TYPE[activeProp])||(PROP_LABELS[activeProp]||'home').toLowerCase());
-  // "Cities you can afford" heads the list; on the empty page the count line is
-  // the heading ("Nothing within 60 minutes fits ... yet"), and the title
-  // above it said the opposite, so it steps aside there (2026-09-24).
+  // "Your HomePilot results" heads the list (it read "Cities you can afford"
+  // until 2026-09-24, plan 2.2b). On the empty page the count line is the
+  // heading ("Nothing within 60 minutes fits ... yet"), so the title steps
+  // aside there, as it has since the old title said the opposite.
   const titleEl=document.getElementById('resTitle');
   if(titleEl) titleEl.style.display=noAnswers?'none':'';
   const cntEl=document.getElementById('cnt');
@@ -169,8 +174,16 @@ function render(){
   // stretch" shows), labelled Stretch or above the HomePilot comfort range.
   const nextId=cardIdMaker();
   const shown=[];
-  const slot=(answersAttr,label,e,section,id)=>'<div class="answer-slot" data-answers="'+answersAttr+'">'+
-    '<div class="answer-label">'+label+'</div>'+cityCardHtml(e,section,id,true)+'</div>';
+  // `lead`: the first line of the card's At a glance -- why a card carries two
+  // or three labels (answerMergeLine(), ranking.js), or the "Also worth a
+  // look" card's trade (wkAlso(), worth-knowing.js). IMPROVEMENT_PLAN.md 2.2b.
+  const slot=(answersAttr,label,e,section,id,lead)=>'<div class="answer-slot" data-answers="'+answersAttr+'">'+
+    '<div class="answer-label">'+label+'</div>'+cityCardHtml(e,section,id,true,lead)+'</div>';
+  // The answers, then "Also worth a look" when they left a card free and
+  // there is something worth it (2.2b): at most one, and never a home that
+  // doesn't fit as padding.
+  const also=!noAnswers&&wk&&wk.also?wk.also:null;
+  const picks=noAnswers?[]:answers.picks.concat(also?[{entry:also.entry,answers:['also'],also}]:[]);
   // A closest option is not comfortable, but not always Stretch: a home under
   // 45% of take-home is one only because its price is above the HomePilot
   // comfort range, and its own pill says Good Fit. The label says which
@@ -183,32 +196,38 @@ function render(){
       shown.push(shownCardOf(e,'answer-closest',id,{answers:['closest']}));
       return slot('closest',closestLabel(e),e,'stretch',id);
     })
-    :answers.picks.map(p=>{
+    :picks.map(p=>{
       const id=nextId(p.entry.n);
-      shown.push(shownCardOf(p.entry,'answer-'+p.answers[0],id,{answers:p.answers.slice()}));
+      shown.push(shownCardOf(p.entry,'answer-'+p.answers[0],id,Object.assign({answers:p.answers.slice()},p.also?{also:p.also.claim}:{})));
       // Each question on one line (.answer-q), so a two-question label wraps at
       // the dot, never mid-phrase ("...MONTHLY / COST").
-      return slot(p.answers.join(' '),p.answers.map(q=>'<span class="answer-q">'+ANSWER_LABELS[q]+'</span>').join(' · '),p.entry,'ranked',id);
+      const lead=p.also?p.also.html:answerMergeLine(p.answers,byHome,p.entry);
+      return slot(p.answers.join(' '),p.answers.map(q=>'<span class="answer-q">'+ANSWER_LABELS[q]+'</span>').join(' · '),p.entry,p.also?'also':'ranked',id,lead);
     });
   const answersEl=document.getElementById('answers');
   if(answersEl) answersEl.innerHTML=slots.length?'<div class="answer-grid answer-grid-'+slots.length+'">'+slots.join('')+'</div>':'';
   // HomePilot Worth Knowing, between the answers and "See all places".
   const wkEl=document.getElementById('worthKnowing');
   if(wkEl) wkEl.innerHTML=typeof worthKnowingHtml==='function'?worthKnowingHtml(wk):'';
-  const topHomes=noAnswers?closest:answers.picks.map(p=>p.entry);
-  answersView={onlyType,answerHomes:new Set(topHomes.map(homeKey)),answerPlaces:new Set(topHomes.map(e=>e.n)),shown,idCounts:nextId.counts};
+  // answerHomes: every home a card above shows, so "See all places" repeats
+  // none of them. answerPlaces: the places the answers (or the closest
+  // options) stand for, for its "N more" -- not the "Also worth a look" place,
+  // whose card shows a home that does not fit yet, or one past the limit.
+  const topHomes=noAnswers?closest:picks.map(p=>p.entry);
+  const answerHomesOnly=noAnswers?closest:answers.picks.map(p=>p.entry);
+  answersView={onlyType,answerHomes:new Set(topHomes.map(homeKey)),answerPlaces:new Set(answerHomesOnly.map(e=>e.n)),shown,idCounts:nextId.counts};
   renderSeeAll();
 
+  // The row of Scenarios, Share and Download Report that stood under the rate
+  // bar is gone (IMPROVEMENT_PLAN.md 2.2c, 2026-09-24: "we will fix that
+  // later"); the rate slider stays.
   const rateBarEl=document.getElementById('rateBar');
-  const shareBarEl=document.getElementById('shareBar');
   const anyCards=ranked.length+stretchOnly.length+visibleOver.length>0;
   if(!anyCards){
     if(rateBarEl) rateBarEl.style.display='none';
-    if(shareBarEl) shareBarEl.style.display='none';
     return;
   }
   // Show rate bar and sync its inputs to current rate
-  if(shareBarEl){ shareBarEl.style.display='flex'; }
   if(rateBarEl) {
     rateBarEl.style.display='block';
     const currentPct = (customMortgageRate * 100).toFixed(2);
@@ -224,16 +243,16 @@ function render(){
 // "See all places": its button, and when open its sort control, the rule in
 // force, the rest of the places (#list) and the two sections below them
 // (#listMore). Cards are drawn only while it is open, so shownCards -- the
-// record the PDF report and Compare are built from -- is always exactly the
+// record Compare is built from -- is always exactly the
 // cards on screen.
 function renderSeeAll(){
   const v=answersView;
   if(!v) return;
   const ranking=rankCities(results,{sort:resultsSort,maxCommute:maxCommuteMin,onlyType:v.onlyType});
   const {ranked,overCommute}=ranking;
-  const visibleOver=showOverCommute?overCommute:[];
-  // The cards above (the answers, or on the empty page the closest options)
-  // are left out, so no card shows twice.
+  // The cards above (the answers, "Also worth a look", or on the empty page the
+  // closest options) are left out, so no card shows twice.
+  const visibleOver=showOverCommute?overCommute.filter(e=>!v.answerHomes.has(homeKey(e))):[];
   const rest=ranked.filter(e=>!v.answerHomes.has(homeKey(e)));
   const stretchOnly=ranking.stretchOnly.filter(e=>!v.answerHomes.has(homeKey(e)));
   const noAnswers=!ranked.length;
@@ -252,7 +271,9 @@ function renderSeeAll(){
   const btn=document.getElementById('seeAllBtn');
   if(btn){
     btn.style.display=hasMore?'':'none';
-    btn.textContent=open?'Hide the other places':'Show All Cities'+(moreCount?' ('+moreCount+' more)':'');
+    // "Hide the other cities" (the user, 2026-09-24, 2.2e; it read "Hide the
+    // other places" under a button that says "Show All Cities").
+    btn.textContent=open?'Hide the other cities':'Show All Cities'+(moreCount?' ('+moreCount+' more)':'');
     btn.setAttribute('aria-expanded',String(open));
   }
   const body=document.getElementById('seeAllBody');
@@ -300,17 +321,18 @@ function renderSeeAll(){
     more.innerHTML=h;
   }
 
-  // The on-screen record the PDF report (report.js) and Compare (compare.js)
-  // are built from (IMPROVEMENT_PLAN.md 1.2): every card on the page, in
+  // The on-screen record Compare (compare.js) is built from
+  // (IMPROVEMENT_PLAN.md 1.2): every card on the page, in
   // screen order, with the exact figures on it and the part of the page it is
-  // in: 'answer-home', 'answer-commute', 'answer-cost' or 'answer-also' (a card
-  // answering two questions is under its first, and lists both in `answers`),
+  // in: 'answer-cost', 'answer-commute', 'answer-home' or 'answer-also' (a card
+  // answering two questions is under its first, and lists both in `answers`;
+  // the "Also worth a look" card carries its trade in `also`),
   // or on the empty page 'answer-closest' (2.0), then 'ranked', 'stretch' and 'over'
   // from "See all places".
   shownCards=[...v.shown,...drawn];
 }
 
-// "See all places" / "Hide the other places".
+// "Show All Cities" / "Hide the other cities".
 function toggleSeeAll(){
   seeAllOpen=!seeAllOpen;
   if(!results.length) return;
@@ -327,8 +349,11 @@ function toggleSeeAll(){
 // page); without it, the plain 'c-' + place. `answer` is true for the three
 // answer cards at the top (and the empty page's three closest options): the
 // user's layout for those three only, 2026-09-24 -- see answerHead below.
-// Every other card is drawn exactly as before.
-function cityCardHtml(e, section, cardId, answer){
+// Every other card is drawn exactly as before. `lead` (answer cards only,
+// 2.2b): a first line for its At a glance -- why the card has two or three
+// labels, or the "Also worth a look" card's trade. `section` 'also' is that
+// card: no warning line under its head (its trade line says what it is).
+function cityCardHtml(e, section, cardId, answer, lead){
   const t=T.en;
   const x=e.city;
   const id=cardId||('c-'+x.n.replace(/[^a-zA-Z0-9]/g,'-'));
@@ -382,7 +407,7 @@ function cityCardHtml(e, section, cardId, answer){
       '<div style="font-size:11px;color:#777;margin-top:2px" id="'+id+'-mmort">'+(e.pct!==null?e.pct+'% of take-home':t.mortgage+': '+fc(c.mort)+'/mo')+'</div>'+
     '</div></div>')+
     sec('',unlockNote+
-    buildWhyRanked(x, c, net, e.commuteMin, e.type, displayPrice)+
+    buildWhyRanked(x, c, net, e.commuteMin, e.type, displayPrice, lead)+
     (devMode?buildDevPanel(e,section):''))+
     sec('',(function(){
       // PROPERTY LIST — every type the buyer can actually buy in this city,
@@ -394,7 +419,8 @@ function cityCardHtml(e, section, cardId, answer){
       options.forEach((r,i)=>{
         const rowId='pt-row-'+id+'-'+r.type;
         const panelId='pt-panel-'+id+'-'+r.type;
-        const pct=net>0?Math.round(r.costs.total/net*100):0;
+        // Debt included, as everywhere (takeHomePct(), explainability.js).
+        const pct=takeHomePct(r.costs.total)||0;
         const s=FIT_STYLE[r.fit.cls]||FIT_STYLE.fo;
         // On an answer card the row of the card's own home carries its verdict
         // (.fit-pill): the top no longer repeats it (the user, 2026-09-24).
@@ -441,7 +467,10 @@ function cityCardHtml(e, section, cardId, answer){
     sec('ac-ai','<div class="ai-insights-trigger" id="ai-trigger-'+id+'" onclick="event.stopPropagation();toggleAiInsights(\''+id+'\',\''+x.n+'\')" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:10px 12px;margin:10px 0;background:linear-gradient(135deg,#F3EEFB,#EEF7F3);border:1px solid #E3DAF5;border-radius:10px">'+
     // Answer cards: "AI Insights", then the place under it, both centred (the
     // user, 2026-09-24). Every other card: one line, as before.
-    (answer?'<span class="ac-ai-title"><span>✨ AI Insights</span><span class="ac-ai-city">'+x.n+'</span></span>'
+    // The words "AI Insights" are centred over the place, and the ✨ hangs to
+    // their left, outside the centred text (.ac-ai-spark; the user, 2026-09-24:
+    // with the ✨ inside it the words sat right of centre).
+    (answer?'<span class="ac-ai-title"><span class="ac-ai-words"><span class="ac-ai-spark" aria-hidden="true">✨</span>AI Insights</span><span class="ac-ai-city">'+x.n+'</span></span>'
       :'<span style="font-size:13px;font-weight:700;color:#5B3A7E">✨ AI Insights for '+x.n+'</span>')+
     '<span id="ai-trigger-chevron-'+id+'" style="font-size:13px;color:#5B3A7E;transition:transform 0.2s">›</span>'+
     '</div>'+
@@ -531,12 +560,19 @@ function costPanelHtml(cityName, tp) {
 
   const c     = calcCosts(cityObj, price, fam_selected, dn_selected, tp);
   const net   = (netMonthlyIncome || grossMonthlyIncome * 0.72) || 1; // guard: never zero
-  const remaining = net - c.total;
-  const burdenPct = net > 0 ? Math.round(c.total / net * 100) : 0;
+  // Debt counts (2026-09-24, IMPROVEMENT_PLAN.md 2.2b (a)): the % is housing
+  // plus the buyer's monthly debt payments over take-home, as on the card, and
+  // what remains is after both. With debt, the housing line below shows the
+  // two together, so the rows still add up; no line is added.
+  const debt  = monthlyDebt();
+  const remaining = net - c.total - debt;
+  const burdenPct = takeHomePct(c.total) || 0;
   // Rebate only when the buyer confirmed they qualify, and non-resident taxes
   // when they are not a citizen or PR (2026-09-23, closingcosts.js).
-  const cc    = calcClosingCosts(cityName, price, buyerLttRebateApplies(), { foreignBuyer: canadianResident === false });
   const effectiveDn = Math.min(dn_selected, price); // cash-rich buyer: can't put more down than the price
+  // With the down payment, cc also holds the 8% sales tax on the mortgage
+  // insurance premium (under 20% down; 2026-09-24, 2.2b (b)).
+  const cc    = calcClosingCosts(cityName, price, buyerLttRebateApplies(), { foreignBuyer: canadianResident === false, downPayment: effectiveDn });
   const cashToClose = effectiveDn + cc.total;
   const PLBL  = {condo:'Condo',town:'Townhouse',semi:'Semi-Detached',detached:'Detached'};
 
@@ -594,7 +630,7 @@ function costPanelHtml(cityName, tp) {
   // SECTION 2 — Financial Impact
   html += sectionHeadHighlight('Financial Impact');
   html += row('Net Monthly Income', fc(Math.round(net)) + '/mo');
-  html += row('Housing Cost', fc(Math.round(c.total)) + '/mo', burdenPct >= 45 ? '#C05A00' : '#1a1a1a');
+  html += row(debt > 0 ? 'Housing + Debt Payments' : 'Housing Cost', fc(Math.round(c.total + debt)) + '/mo', burdenPct >= 45 ? '#C05A00' : '#1a1a1a');
   html += row('Income Remaining', fc(Math.round(remaining)) + '/mo', remaining < 2000 ? '#DC2626' : '#1D9E75');
   html += totalRow('% of Income Consumed', burdenPct + '%', burdenPct >= 45 ? '#C05A00' : '#085041');
 
@@ -617,6 +653,9 @@ function costPanelHtml(cityName, tp) {
   }
   if(cc.nrst > 0) html += row('Ontario Non-Resident Speculation Tax (25%)', fc(cc.nrst), '#C05A00');
   if(cc.mnrst > 0) html += row('Toronto Non-Resident Speculation Tax (10%)', fc(cc.mnrst), '#C05A00');
+  // Its own line (the user, 2026-09-24): the premium is on the mortgage, the
+  // tax on it is cash.
+  if(cc.premiumSalesTax > 0) html += row('Sales Tax on Mortgage Insurance (8%)', fc(cc.premiumSalesTax));
   html += row('Legal Fees', '~' + fc(cc.legal));
   html += row('Title Insurance', '~' + fc(cc.titleIns));
   html += row('Home Inspection', '~' + fc(cc.inspection));

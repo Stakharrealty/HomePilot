@@ -26,8 +26,7 @@ const HP_HANDOFF_PARAM = "hp";
 const HP_HANDOFF_PREFIX = "hp_profile_handoff_v1:";
 const HP_HANDOFF_MAX_AGE_MS = 10 * 60 * 1000;
 
-// Reads the main app's live globals (set by go() / the scenario sandbox /
-// the rate slider). Returns null when there are no real results yet, so a
+// Reads the main app's live globals (set by go() and the rate slider). Returns null when there are no real results yet, so a
 // half-initialised app never writes a misleading profile.
 function readLiveBuyerProfile() {
   try {

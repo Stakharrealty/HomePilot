@@ -324,10 +324,10 @@ body{
 .ft-copyright{font-size:11px;color:rgba(255,255,255,0.3)}
 .ft-disclaimer{font-size:11px;color:rgba(255,255,255,0.3);line-height:1.6;max-width:560px}
 
-.ft-contact-line{font-size:13px;color:rgba(255,255,255,0.6);line-height:1.6;margin-top:10px}
-.ft-contact-reco{font-size:11px;color:rgba(255,255,255,0.3);margin-top:8px}
 @media(min-width:600px){
-  .ft-top{grid-template-columns:1fr 1fr 1fr 1fr 1fr}
+  /* Four columns: the empty "Contact" column was removed on 2026-09-24
+     (IMPROVEMENT_PLAN.md 6.3); the contact details are in .ft-tm-info. */
+  .ft-top{grid-template-columns:1fr 1fr 1fr 1fr}
   .ft-brand{grid-column:auto}
   .ft-tm-row{flex-direction:row;align-items:flex-start;justify-content:space-between;gap:32px}
   .ft-tm-info{flex-shrink:0}
@@ -488,6 +488,26 @@ select{
   opacity:0.8;margin-bottom:6px;font-weight:700;
 }
 .bp-val{font-size:32px;font-weight:800;margin-bottom:4px;letter-spacing:-0.5px}
+/* The two boxes (2026-09-24, IMPROVEMENT_PLAN.md 2.2b), as in the mockup the
+   user approved: the bank's figure, and the HomePilot comfort range beside it,
+   highlighted (a lighter box with a white edge, a bigger figure). Side by side
+   down to a 375px phone; on a smaller one they stack. */
+.bp-pair{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px}
+.bp-cell{flex:1 1 140px;min-width:0;background:rgba(255,255,255,0.12);border:1.5px solid transparent;border-radius:12px;padding:12px 14px}
+.bp-comfort{background:rgba(255,255,255,0.24);border-color:rgba(255,255,255,0.45)}
+.bp-cell-lbl{font-size:10px;text-transform:uppercase;letter-spacing:0.07em;font-weight:700;opacity:0.8}
+.bp-comfort .bp-cell-lbl{opacity:0.95}
+.bp-cell-val{font-size:26px;font-weight:800;margin-top:4px;letter-spacing:-0.3px}
+.bp-comfort .bp-cell-val{font-size:30px}
+.bp-cell-sub{font-size:12px;font-weight:500;margin-top:4px;opacity:0.9;line-height:1.4}
+.bp-comfort .bp-cell-sub{font-weight:700}
+.bp-cell-note{font-size:11px;margin-top:3px;opacity:0.75;line-height:1.4}
+.bp-cell-note:empty{display:none}
+@media(max-width:599px){
+  .bp-cell{padding:10px 11px}
+  .bp-cell-val{font-size:21px}
+  .bp-comfort .bp-cell-val{font-size:23px}
+}
 /* The top section (2026-09-24, IMPROVEMENT_PLAN.md 2.2): one number, the
    HomePilot comfort range, then one small line each. Built from what the box
    already used: the white-on-green text at 80-90%, the translucent white inner
@@ -590,6 +610,11 @@ select{
 .ac-ai .ai-insights-trigger{position:relative;justify-content:center!important}
 .ac-ai-title{display:flex;flex-direction:column;align-items:center;text-align:center;font-size:13px;font-weight:700;color:#5B3A7E;padding:0 14px}
 .ac-ai-city{margin-top:2px}
+/* The words "AI Insights" are what is centred over the place (the user,
+   2026-09-24): the ✨ hangs just left of them, out of the flow, so its width
+   no longer pushes the words right of centre. */
+.ac-ai-words{position:relative}
+.ac-ai-spark{position:absolute;right:100%;margin-right:4px}
 .ac-ai [id^="ai-trigger-chevron-"]{position:absolute;right:12px;top:50%;margin-top:-9px}
 @media(min-width:1024px){
   .answer-grid{align-items:start;row-gap:14px}
@@ -605,8 +630,13 @@ select{
    top, At a glance, the home-type list, AI Insights, Compare and "View
    Available Homes" are seven rows every slot shares (nested subgrids), so
    each part starts at the same height on every card. Open a breakdown in one
-   card and the parts below it move down on all three. */
-@media(min-width:1240px){
+   card and the parts below it move down on all three.
+   From 1024px (the user, 2026-09-24, IMPROVEMENT_PLAN.md 2.2b "laptop
+   widths", option b): three across wherever the form sits beside the
+   results. From 1024 to 1239px the form column narrows instead (the
+   .calc-layout rule further down), so each card keeps about 222px, the
+   narrowest that works at 1240. They stacked below 1240px until then. */
+@media(min-width:1024px){
   .answer-grid-3{grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(7,auto);row-gap:0}
   .answer-grid-3 > .answer-slot{display:grid;grid-row:span 7;grid-template-rows:subgrid}
   .answer-grid-3 > .answer-slot > .answer-label{align-self:end}
@@ -878,53 +908,6 @@ body.cmp-bar-open #waWrap{bottom:80px!important}
 }
 #rateSlider{width:100%;accent-color:var(--green);cursor:pointer;margin-top:4px}
 
-/* ── SHARE / SCENARIO BAR ────────────────────────────────────── */
-#shareBar{display:none;margin:0 0 10px 0;gap:8px}
-#scenarioBtn,#shareBtn{
-  flex:1;
-  background:var(--card);color:var(--green);
-  border:1.5px solid var(--green);
-  border-radius:var(--radius-sm);
-  padding:10px 8px;
-  font-family:var(--font);
-  font-size:12px;font-weight:700;cursor:pointer;
-  display:inline-flex;align-items:center;justify-content:center;gap:5px;
-  white-space:nowrap;
-  transition:background 0.15s,box-shadow 0.15s;
-}
-#shareBar button{
-  flex:1;
-  background:var(--card);color:var(--green);
-  border:1.5px solid var(--green);
-  border-radius:var(--radius-sm);
-  padding:10px 8px;
-  font-family:var(--font);
-  font-size:12px;font-weight:700;cursor:pointer;
-  display:inline-flex;align-items:center;justify-content:center;gap:5px;
-  white-space:nowrap;
-  transition:background 0.15s;
-}
-#shareBar button:hover{background:var(--green-light)}
-
-/* ── SCENARIO PANEL ──────────────────────────────────────────── */
-#scenarioPanel{
-  display:none;
-  margin:0 0 16px;
-  background:#FAF8FE;
-  border:1.5px solid #D9C9F0;
-  border-radius:var(--radius-lg);
-  padding:18px;
-  box-shadow:var(--shadow-sm);
-}
-.scn-wa-btn{
-  flex:1;background:#fff;color:#5B3A7E;
-  border:1.5px solid #D9C9F0;border-radius:var(--radius-sm);
-  padding:8px;font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;
-  transition:background 0.15s,border-color 0.15s;
-}
-.scn-wa-btn:hover{background:#F3EEF9;border-color:#B8A0DC}
-.scn-wa-btn.on{background:#5B3A7E;color:#fff;border-color:#5B3A7E}
-
 /* ── TOOLTIP / INFO BTN ──────────────────────────────────────── */
 .info-btn{
   display:inline-flex;align-items:center;justify-content:center;
@@ -1100,166 +1083,8 @@ body.cmp-bar-open #waWrap{bottom:80px!important}
 /* ── BR TICK ─────────────────────────────────────────────────── */
 .br-tick.active{color:var(--green)!important;font-weight:700!important}
 
-/* ── PRINT STYLES ────────────────────────────────────────────── */
 </style>
 
-<style id="printStyles">
-@media print {
-  body * { visibility: hidden; }
-  #printReport, #printReport * { visibility: visible; }
-  #printReport {
-    display: block !important;
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    width: 100% !important;
-  }
-  @page {
-    margin: 15mm 12mm;
-    size: A4 portrait;
-  }
-  .pr-page-break { page-break-before: always; }
-}
-
-#printReport {
-  display: none;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  max-width: 700px;
-  margin: 0 auto;
-  color: #1a1a1a;
-}
-
-.pr-header {
-  border-bottom: 3px solid #1D9E75;
-  padding-bottom: 16px;
-  margin-bottom: 20px;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-}
-
-.pr-logo {
-  font-size: 22px;
-  font-weight: 800;
-  color: #1D9E75;
-  letter-spacing: -0.5px;
-}
-
-.pr-logo span { color: #1a1a1a; }
-
-.pr-date {
-  font-size: 11px;
-  color: #999;
-}
-
-.pr-section-title {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #999;
-  margin: 0 0 10px;
-}
-
-.pr-profile {
-  background: #f4fdf9;
-  border: 1px solid #c8edd9;
-  border-radius: 10px;
-  padding: 14px 16px;
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 12px;
-  margin-bottom: 24px;
-}
-
-.pr-profile-item {}
-.pr-profile-lbl { font-size: 10px; color: #999; text-transform: uppercase; letter-spacing: 0.06em; }
-.pr-profile-val { font-size: 14px; font-weight: 700; color: #1a1a1a; margin-top: 2px; }
-
-.pr-city-card {
-  border: 1px solid #e0e0e0;
-  border-radius: 12px;
-  margin-bottom: 16px;
-  overflow: hidden;
-}
-
-.pr-city-header {
-  background: #1D9E75;
-  padding: 12px 16px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.pr-city-name { font-size: 18px; font-weight: 800; color: #fff; }
-.pr-city-badge { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
-.pr-badge-g { background: #E1F5EE; color: #085041; }
-.pr-badge-b { background: #E6F1FB; color: #0C447C; }
-.pr-badge-a { background: #FAEEDA; color: #633806; }
-.pr-badge-r { background: #FCEBEB; color: #791F1F; }
-
-.pr-city-sub {
-  font-size: 12px;
-  color: rgba(255,255,255,0.85);
-  margin-top: 3px;
-}
-
-.pr-city-body { padding: 14px 16px; }
-
-.pr-range-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  margin-bottom: 12px;
-}
-
-.pr-range-lbl { font-size: 11px; color: #999; text-transform: uppercase; letter-spacing: 0.06em; }
-.pr-range-val { font-size: 17px; font-weight: 800; color: #1a1a1a; }
-
-.pr-bullets { margin-bottom: 12px; }
-.pr-bullet { display: flex; gap: 6px; font-size: 12px; color: #444; margin-bottom: 5px; }
-.pr-bullet-check { color: #1D9E75; font-weight: 700; flex-shrink: 0; }
-
-.pr-ladder { border-top: 1px solid #f0f0f0; padding-top: 10px; }
-.pr-ladder-title { font-size: 10px; color: #999; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; }
-.pr-ladder-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 5px 0;
-  border-bottom: 1px solid #f5f5f5;
-  font-size: 12px;
-}
-.pr-ladder-row:last-child { border-bottom: none; }
-.pr-ladder-type { color: #555; }
-.pr-ladder-right { display: flex; gap: 10px; align-items: center; }
-.pr-ladder-cost { font-weight: 700; color: #1a1a1a; }
-.pr-ladder-pct { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 10px; }
-
-.pr-disclaimer {
-  font-size: 10px;
-  color: #aaa;
-  line-height: 1.6;
-  margin-top: 24px;
-  border-top: 1px solid #f0f0f0;
-  padding-top: 12px;
-}
-
-.pr-agent {
-  margin-top: 20px;
-  background: #f4fdf9;
-  border: 1px solid #c8edd9;
-  border-radius: 10px;
-  padding: 14px 16px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.pr-agent-name { font-size: 15px; font-weight: 800; color: #1D9E75; }
-.pr-agent-sub  { font-size: 11px; color: #555; margin-top: 2px; }
-.pr-agent-contact { text-align: right; font-size: 11px; color: #555; }
-</style>
 </head>
 <style>
   /* This page has no marketing hero above it — the calculator is the whole
@@ -1275,6 +1100,18 @@ body.cmp-bar-open #waWrap{bottom:80px!important}
     .calc-layout{display:grid;grid-template-columns:420px 1fr;gap:28px;align-items:start}
     #calculatorSection{position:sticky;top:24px;max-height:calc(100vh - 48px);overflow-y:auto;padding-right:4px}
     #calculatorSection .card{margin-bottom:12px}
+  }
+  /* Laptop widths, 1024-1239px (2026-09-24, IMPROVEMENT_PLAN.md 2.2b, option
+     b): the three answer cards sit side by side, so the results column keeps
+     686px (three cards of about 222px and two 10px gaps), the gap beside it
+     is 20px, and the form takes what is left, up to its usual 420px: about
+     270px at 1024, 346px at 1100, 420px from 1174 (less a scrollbar where
+     the browser shows one). The page's side margins go from 40px to 24px at
+     these widths to leave the form more room. */
+  @media(min-width:1024px) and (max-width:1239px){
+    .w{padding-left:24px;padding-right:24px}
+    .calc-layout{grid-template-columns:min(420px, calc(100% - 706px)) minmax(0,1fr);gap:20px}
+    .answer-grid{column-gap:10px}
   }
 
   /* Empty state for the results column — shown until the user submits the
@@ -1362,11 +1199,11 @@ body.cmp-bar-open #waWrap{bottom:80px!important}
   </div>
   <div class="card">
     <label class="lbl" style="display:flex;align-items:center;gap:6px;">
-      <span>Down payment saved</span>
+      <span>Down payment (closing costs are extra)</span>
       <button type="button" class="info-btn" onclick="toggleTooltip(event,'dwn-tooltip')" aria-label="Down payment info">ⓘ</button>
     </label>
     <div class="tooltip-box" id="dwn-tooltip">
-      <div>The amount of cash you have saved and ready to put toward a home purchase.</div>
+      <div>The amount you'll put down on the home itself. Closing costs (land transfer tax, legal fees, moving and so on) come on top of it: each city's cost breakdown shows the cash you'd need in total.</div>
       <div style="margin-top:4px">Minimum in Canada: 5% of the first $500K, 10% of the portion from $500K to $1.5M, and 20% of the whole price at $1.5M or more</div>
       <div style="margin-top:4px;color:#1D9E75;font-weight:600">More down payment = lower mortgage = lower monthly costs</div>
     </div>
@@ -1507,29 +1344,43 @@ body.cmp-bar-open #waWrap{bottom:80px!important}
     <h3>Your results will appear here</h3>
     <p>Fill in your details on the left and click "Show Me What I Can Afford" to see your HomePilot comfort range and the Ontario places that fit it.</p>
   </div>
-  <!-- The top section (2026-09-24, IMPROVEMENT_PLAN.md 2.2): one number, the HomePilot comfort
-       range; one small line for the bank; what it is based on; the estimated take-home the buyer
-       can replace with their own; and one line of small print whose details open below it. It
-       showed buying power, the bank's maximum and the comfort range, often all the same figure.
-       #bpSub is written by renderTopSection() in src/main.js. -->
+  <!-- The top section (2026-09-24, IMPROVEMENT_PLAN.md 2.2 and 2.2b): two boxes side by side,
+       the bank's figure and the HomePilot comfort range, which is the one highlighted, in the
+       wording of the mockup the user approved (_private/mockup-full-page-*.png); what it is based
+       on; the estimated take-home the buyer can replace with their own; and one visible line of
+       small print ("Based on 4.39% rate, stress tested at 6.39% · Estimate only, not a
+       pre-approval · How we calculated this") whose details open below it. #bpBankV, #bpBankSub,
+       #bpBankNote, #bpV, #bpSub and #bpRateLine are written by renderTopSection() in src/main.js. -->
   <div class="bp-box" id="bpBox">
-    <div class="bp-lbl">Your HomePilot comfort range</div>
-    <div class="bp-val" id="bpV"></div>
-    <div class="bp-breathe">Stay here to breathe financially</div>
+    <div class="bp-pair">
+      <div class="bp-cell bp-bank" id="bpBank">
+        <div class="bp-cell-lbl">A bank might lend up to</div>
+        <div class="bp-cell-val" id="bpBankV"></div>
+        <div class="bp-cell-sub" id="bpBankSub"></div>
+        <div class="bp-cell-note" id="bpBankNote"></div>
+      </div>
+      <div class="bp-cell bp-comfort" id="bpComfort">
+        <div class="bp-cell-lbl">Your HomePilot comfort range</div>
+        <div class="bp-cell-val" id="bpV"></div>
+        <div class="bp-cell-sub bp-breathe">Stay here to breathe financially</div>
+        <div class="bp-cell-note">We keep it to 32%, then check every home against your take-home pay</div>
+      </div>
+    </div>
     <div class="bp-lines" id="bpSub"></div>
-    <div class="bp-fine" id="bpFine">Estimate only, not a pre-approval · <button type="button" class="link-btn" id="calcDetailsBtn" onclick="toggleCalcDetails()" aria-expanded="false" aria-controls="calcDetails">How we calculated this</button></div>
+    <div class="bp-fine" id="bpFine"><span id="bpRateLine"></span> · Estimate only, not a pre-approval · <button type="button" class="link-btn" id="calcDetailsBtn" onclick="toggleCalcDetails()" aria-expanded="false" aria-controls="calcDetails">How we calculated this</button></div>
     <!-- The small print that was two paragraphs, all of it kept. 32% / 38% and 39% / 44% are
          calcBP()'s ratios in src/mortgage.js (tests/results_outcomes_test.js checks they match). -->
     <div class="bp-inner bp-details" id="calcDetails" style="display:none">
       <p>Your HomePilot comfort range is the most a home can cost while its housing costs (the mortgage at the stress-test rate, property tax and heating) stay within 32% of your before-tax income, and those plus your other debt payments within 38%. A bank goes up to 39% and 44%, so it may lend more. Both are also held to the price your down payment can legally buy.</p>
       <p>Estimated take-home is your pay after income tax, CPP, EI and the Ontario Health Premium, worked out for each person. It doesn't know about workplace pension contributions, benefit premiums or union dues, which lower it, or the Canada Child Benefit and tax refunds, which raise it. If you know your actual monthly pay, "Change it" uses it for every % of take-home and every Great / Good / Stretch label. Your HomePilot comfort range and the bank's figure stay the same, because banks go by income before tax.</p>
+      <p id="calcDebtNote">Every % of take-home, and every Great / Good / Stretch label, includes your monthly debt payments: it is the home's monthly cost plus your debt payments, as a share of your take-home pay.</p>
       <p>Both figures are estimates, not a pre-approval. Tap any city below to see the full monthly cost breakdown.</p>
-      <div id="rateNote" style="font-size:11px;color:rgba(255,255,255,0.75);line-height:1.5">Based on 4.19% mortgage rate · Stress tested at 6.19% · Educational estimate only — not a mortgage pre-approval.</div>
+      <div id="rateNote" style="font-size:11px;color:rgba(255,255,255,0.75);line-height:1.5">Based on 4.39% mortgage rate · Stress tested at 6.39% · Educational estimate only — not a mortgage pre-approval.</div>
     </div>
   </div>
 
   <div class="results-section" id="res">
-    <div class="sec-title" id="resTitle">Cities you can afford</div>
+    <div class="sec-title" id="resTitle">Your HomePilot results</div>
     <div class="count" id="cnt"></div>
     <div class="rank-notes" id="rankNotes"></div>
     </div>
@@ -1548,7 +1399,6 @@ body.cmp-bar-open #waWrap{bottom:80px!important}
          The empty #topPicks box that stood here too, cleared on every search and never
          filled, is gone. -->
 
-    <div id="printReport"></div>
 
     <div id="rateBar" style="display:none;margin:0 0 14px 0;background:#fff;border:1px solid #E4E7EC;border-radius:12px;padding:16px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
@@ -1561,7 +1411,7 @@ body.cmp-bar-open #waWrap{bottom:80px!important}
         </div>
       </div>
       <div class="tooltip-box" id="rate-tooltip">This estimate assumes a fixed rate. Variable rates may start lower but can rise over your term — your HomePilot comfort range above is already stress-tested for that possibility (qualified at the higher of 5.25% or your rate + 2%), so it won't change based on which you eventually choose.</div>
-      <input id="rateSlider" type="range" min="1" max="15" step="0.05" value="4.19"
+      <input id="rateSlider" type="range" min="1" max="15" step="0.05" value="4.39"
         style="width:100%;accent-color:#1D9E75;cursor:pointer"
         oninput="syncRate(this.value,'slider')" />
       <div style="display:flex;justify-content:space-between;margin-top:4px">
@@ -1570,53 +1420,10 @@ body.cmp-bar-open #waWrap{bottom:80px!important}
         <span style="font-size:10px;color:#9CA3AF">15%</span>
       </div>
     </div>
-    <div id="shareBar" style="display:none;margin:0 0 10px 0;gap:8px">
-      <button id="scenarioBtn" onclick="openScenarioSandbox()"
-        style="flex:1;background:#fff;color:#1D9E75;border:1.5px solid #1D9E75;border-radius:8px;padding:10px 8px;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap;font-family:var(--font)">
-        <span>Scenarios</span>
-      </button>
-      <button id="shareBtn" onclick="shareScenario()"
-        style="flex:1;background:#fff;color:#1D9E75;border:1.5px solid #1D9E75;border-radius:8px;padding:10px 8px;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap;font-family:var(--font)">
-        <span id="shareBtnLbl">Share</span>
-      </button>
-      <button onclick="downloadReport()"
-        style="flex:1;background:#fff;color:#1D9E75;border:1.5px solid #1D9E75;border-radius:8px;padding:10px 8px;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap;font-family:var(--font)">
-        <span>Download Report</span>
-      </button>
-    </div>
-    <div id="scenarioPanel" style="display:none;margin:0 0 16px 0;background:#FAF8FE;border:1.5px solid #D9C9F0;border-radius:14px;padding:18px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-        <div style="font-size:13px;font-weight:800;color:#5B3A7E">🔮 What If...</div>
-        <button onclick="closeScenarioSandbox()" style="background:none;border:none;color:#8B6CA8;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font)">Close</button>
-      </div>
-
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
-        <div>
-          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#8B6CA8;margin-bottom:4px">Income</div>
-          <input id="scnInc" type="number" style="width:100%;font-size:14px;font-weight:700;color:#5B3A7E;border:1.5px solid #D9C9F0;border-radius:8px;padding:7px 10px;outline:none;font-family:var(--font)" oninput="scenarioPreview()" />
-        </div>
-        <div>
-          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#8B6CA8;margin-bottom:4px">Down Payment</div>
-          <input id="scnDn" type="number" style="width:100%;font-size:14px;font-weight:700;color:#5B3A7E;border:1.5px solid #D9C9F0;border-radius:8px;padding:7px 10px;outline:none;font-family:var(--font)" oninput="scenarioPreview()" />
-        </div>
-      </div>
-
-      <div style="margin-bottom:14px">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#8B6CA8;margin-bottom:6px">Work Style</div>
-        <div style="display:flex;gap:6px">
-          <button id="scnWaDaily"  onclick="setScenarioWA('daily')"  class="scn-wa-btn">Daily</button>
-          <button id="scnWaHybrid" onclick="setScenarioWA('hybrid')" class="scn-wa-btn">Hybrid</button>
-          <button id="scnWaRemote" onclick="setScenarioWA('remote')" class="scn-wa-btn">Remote</button>
-        </div>
-      </div>
-
-      <button onclick="runScenarioComparison()" style="width:100%;background:#5B3A7E;color:#fff;border:none;border-radius:10px;padding:11px;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--font)">Compare</button>
-
-      <div id="scenarioResults" style="margin-top:16px"></div>
-    </div>
     <!-- Three answers, then "See all places" (2026-09-24, IMPROVEMENT_PLAN.md 2.2; drawn by
          render() and renderSeeAll() in src/render.js). #answers: today's cards, one per question
-         (Most home, Shortest commute, Lowest monthly cost), each under its label; when nothing
+         (Lowest monthly cost, Shortest commute, Most home; one card for a home that answers
+         several, and "Also worth a look" in a card left free), each under its label; when nothing
          within the commute limit fits, the three closest options, labelled Stretch or above the
          HomePilot comfort range (IMPROVEMENT_PLAN.md
          2.0). #worthKnowing: HomePilot Worth Knowing (src/worth-knowing.js), between the answers and
@@ -1694,9 +1501,6 @@ body.cmp-bar-open #waWrap{bottom:80px!important}
           <li><a href="/disclaimer.html" target="_blank" rel="noopener">Disclaimer</a></li>
         </ul>
       </div>
-      <div class="ft-col">
-        <p class="ft-col-title">Contact</p>
-      </div>
     </div>
     <div class="ft-trademark">
       <div class="ft-trademark-logos">
@@ -1745,13 +1549,10 @@ body.cmp-bar-open #waWrap{bottom:80px!important}
 <script src="src/explainability.js"></script>
 <script src="src/ranking.js"></script>
 <script src="src/i18n.js"></script>
-<script src="src/scenario-share.js"></script>
 <script src="src/ai.js"></script>
 <script src="src/utils.js"></script>
 <script src="src/closingcosts.js"></script>
 <script src="src/compare.js"></script>
-<script src="src/scenario-sandbox.js"></script>
-<script src="src/report.js"></script>
 <script src="src/ui-helpers.js"></script>
 <script src="src/consent.js"></script>
 <script src="src/render-support.js"></script>
@@ -1796,11 +1597,6 @@ document.addEventListener('keydown',function(e){
   }
 });
 
-// Restores a shared scenario from ?s=<id> (scenario-share.js). This call was
-// lost when the calculator moved off index.html, which silently broke every
-// share link the product had ever generated (audit, 2026-09-22). It must run
-// last, after every module has loaded.
-loadScenarioFromURL();
 </script>
 <!-- How this works info modal. z-index 10000 (was 9500, under the WhatsApp
      button's 9999): on a phone the WhatsApp note sat over the modal's "Got it"
@@ -1811,7 +1607,7 @@ loadScenarioFromURL();
     <div style="font-size:15px;font-weight:700;color:#111318;margin-bottom:14px">How this works</div>
     <ul style="margin:0 0 20px;padding:0;list-style:none;display:flex;flex-direction:column;gap:12px">
       <li><strong style="font-size:13px;color:#111318">Income</strong><div style="font-size:13px;color:#3D4555;line-height:1.55">Your household income before taxes, one box per person: yours, and your partner's if you're buying together. Lenders add the two together; take-home pay is worked out for each person separately, because that is how Canada taxes income.</div></li>
-      <li><strong style="font-size:13px;color:#111318">Down payment</strong><div style="font-size:13px;color:#3D4555;line-height:1.55">How much you've saved toward a down payment. This affects your mortgage insurance and monthly costs.</div></li>
+      <li><strong style="font-size:13px;color:#111318">Down payment</strong><div style="font-size:13px;color:#3D4555;line-height:1.55">The amount you'll put down on the home. Closing costs are extra, on top of it; each city's breakdown shows them. The down payment affects your mortgage insurance and monthly costs.</div></li>
       <li><strong style="font-size:13px;color:#111318">Existing debt</strong><div style="font-size:13px;color:#3D4555;line-height:1.55">Car loans, credit cards, other monthly payments. Leave at 0 if none — this affects how much a lender would qualify you for.</div></li>
       <li><strong style="font-size:13px;color:#111318">How you work</strong><div style="font-size:13px;color:#3D4555;line-height:1.55">Remote workers get ranked purely by affordability. Hybrid or daily commuters get cities filtered by the longest commute they'll accept, using estimated drive times.</div></li>
       <li><strong style="font-size:13px;color:#111318">Area</strong><div style="font-size:13px;color:#3D4555;line-height:1.55">Narrow results to a specific part of Ontario, or leave it broad to see everything you can afford.</div></li>

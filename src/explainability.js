@@ -5,8 +5,34 @@
 // changed. Loaded via <script src="src/explainability.js"></script> before the
 // main inline script, same shared global scope as before.
 //
-// Contains: getFit() (burden % -> Great/Good/Stretch label) and
-// buildWhyRankedBullets() (the explainability bullets shown on each city card).
+// Contains: monthlyDebt(), takeHomePct(), getFit() (burden % ->
+// Great/Good/Stretch label) and buildWhyRankedBullets() (the explainability
+// bullets shown on each city card).
+
+// Debt counts (2026-09-24, IMPROVEMENT_PLAN.md 2.2b (a)). Every "% of
+// take-home" and every Great / Good / Stretch label is the home's monthly cost
+// PLUS the buyer's other monthly debt payments, over take-home pay. A home's
+// monthly cost stays the home's own cost: the debt is the same for every home,
+// so it changes no order, only how much of the pay is left. Before this, a
+// buyer paying $1,500 a month on loans saw an Oshawa condo at 36%, a Good Fit,
+// while 55% of their take-home went to housing and debt; the HomePilot comfort
+// range already counted the debt, as a bank does.
+// existingDebt is main.js's (the form's "Household monthly debt payments"); on
+// the listing pages listing-page-globals.js declares it and listing-fit.js
+// sets it from the buyer's saved answers for one computation at a time.
+function monthlyDebt(){
+  const d = typeof existingDebt !== 'undefined' ? Number(existingDebt) : 0;
+  return Number.isFinite(d) && d > 0 ? d : 0;
+}
+// The % of take-home a home's monthly cost stands for, debt included, as the
+// cards show it (rounded). null when there is no usable income.
+function takeHomePct(monthlyCost){
+  const gross = typeof grossMonthlyIncome !== 'undefined' ? grossMonthlyIncome : 0;
+  const net = netMonthlyIncome || gross * 0.72;
+  const cost = Number(monthlyCost);
+  if(!Number.isFinite(net) || net <= 0 || !Number.isFinite(cost)) return null;
+  return Math.round((cost + monthlyDebt()) / net * 100);
+}
 
 function getFit(monthlyCost,_grossMonthlyIncome){
   // Always use net take-home. If netMonthlyIncome not set, estimate from gross.
@@ -23,7 +49,9 @@ function getFit(monthlyCost,_grossMonthlyIncome){
   if(!Number.isFinite(cost)||cost<=0)return null;
   const netIncome=netMonthlyIncome||(Number(_grossMonthlyIncome)*0.72);
   if(!Number.isFinite(netIncome)||netIncome<=0)return null;
-  const ratio=monthlyCost/netIncome;
+  // The home's cost plus the buyer's monthly debt payments (monthlyDebt()
+  // above, 2026-09-24). The 35% and 45% lines are unchanged.
+  const ratio=(cost+monthlyDebt())/netIncome;
   let score;
   if(ratio<0.35){score=Math.round(100-(ratio/0.35)*20);}
   else if(ratio<0.45){score=Math.round(79-((ratio-0.35)/0.10)*19);score=Math.max(60,score);}
@@ -66,7 +94,8 @@ function buildWhyRankedBullets(x, c, net, commuteMin, displayPropType, displayPr
 
   // BULLET 2 — Share of take-home across those types
   if(safenet && options.length) {
-    const pct = (o) => Math.round(o.costs.total / safenet * 100);
+    // Debt included, as on the card (monthlyDebt(), 2026-09-24).
+    const pct = (o) => Math.round((o.costs.total + monthlyDebt()) / safenet * 100);
     if(options.length >= 2) {
       bullets.push({ key:'affordability', tone:'neutral', text: 'Homes here from ' + pct(options[0]) + '% to ' + pct(options[options.length - 1]) + '% of take-home pay' });
     } else {
