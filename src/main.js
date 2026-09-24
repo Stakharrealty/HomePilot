@@ -297,9 +297,10 @@ function amortizationNote(isFirstTimeBuyer) {
 // the same figure. Every figure is calcBP()'s, householdNetAnnual()'s or the
 // buyer's own, so none is worked out a second way.
 //
-// lastSearch: the last search's answers and its calcBP() result, so the top
-// section can be drawn again when the take-home changes (and, later, so
-// HomePilot Worth Knowing can read the savings tip below).
+// lastSearch: the last search's answers, its area, the mortgage rate it was
+// worked out at and its calcBP() result, so the top section can be drawn again
+// when the take-home changes, and HomePilot Worth Knowing (worth-knowing.js)
+// can run the same search again with one answer changed.
 let lastSearch = null, takeHomeEditOpen = false;
 
 // The bank's figure and the HomePilot comfort range are both rounded to the
@@ -327,8 +328,9 @@ function basedOnLine(s){
 // "Your savings are the limit… $X more saved would get you there": what income
 // alone would let a bank lend, and how much more down payment that price needs
 // (calcBP()'s incomeCapBP and downPaymentShortfall). null when savings are not
-// what holds the buyer back. It is to become the first HomePilot Worth Knowing
-// tip; until that section exists the top section shows it, as it did before.
+// what holds the buyer back. Since 2026-09-24 it is the first HomePilot Worth
+// Knowing tip (worth-knowing.js), below the answer cards; it was a note in the
+// top section.
 function savingsLimitTip(calc){
   if(!calc || !calc.downPaymentLimited || !(calc.downPaymentShortfall > 0) || !(calc.incomeCapBP > calc.bp)) return null;
   return { incomeCapBP: calc.incomeCapBP, moreSaved: calc.downPaymentShortfall };
@@ -346,7 +348,6 @@ function renderTopSection(){
   const takeHome = takeHomeIsBuyersOwn()
     ? 'Your take-home: ' + fc(netMonthlyIncome) + '/mo · <button type="button" class="link-btn" id="takeHomeReset" onclick="resetTakeHome()">reset to estimate</button>'
     : 'Estimated take-home: ' + fc(estimatedNetMonthlyIncome) + '/mo · Know your actual pay? <button type="button" class="link-btn" id="takeHomeChange" onclick="openTakeHomeEdit()" aria-expanded="' + takeHomeEditOpen + '" aria-controls="takeHomeEdit">Change it</button>';
-  const tip = savingsLimitTip(calc);
   sub.innerHTML =
     '<div class="bp-line" id="bpBankLine">' + comfortBankLine(calc) + '</div>' +
     '<div class="bp-line" id="bpBasedOn">' + basedOnLine(s) + '</div>' +
@@ -362,16 +363,10 @@ function renderTopSection(){
       '</div>' +
       '<div class="err" id="takeHomeErr" role="alert"></div>' +
     '</div>' +
-    // Savings-gap note (added 2026-09-22). Its heading ("Your savings are the
-    // limit here, not your income") went with the 2026-09-24 top section: the
-    // line above says so when the bank would lend the same, and the note
-    // reads on its own when it doesn't.
-    (tip
-      ? '<div class="bp-inner" id="savingsTip" style="border-left:3px solid rgba(255,255,255,0.55)">' +
-          '<div style="font-size:12px;opacity:0.9;line-height:1.5">On your income you could qualify for up to <b>' + fc(tip.incomeCapBP) + '</b>. ' +
-          'A home at that price needs a larger down payment than you have — about <b>' + fc(tip.moreSaved) + ' more saved</b> would get you there.</div>' +
-        '</div>'
-      : '') +
+    // The savings-gap note (added 2026-09-22, "about $X more saved would get
+    // you there") moved out of here on 2026-09-24: it is the first HomePilot
+    // Worth Knowing tip now (worth-knowing.js). The line above still says
+    // "Your savings are the limit" when the bank would lend the same.
     // Non-residents (added 2026-09-23, IMPROVEMENT_PLAN.md 1.7). The federal
     // ban on non-Canadians buying homes runs until January 1, 2027, with
     // exceptions (e.g. work-permit holders with 183+ days left; CMHC,
@@ -549,7 +544,7 @@ function go(){
     shownCards=[];showOverCommute=false;seeAllOpen=false;resultsSort='home';
 
     // ── THE TOP SECTION: the HomePilot comfort range (renderTopSection()) ──
-    lastSearch={own:incomes.own,partner:incomes.partner,total:inc,dn,dbt,calc};
+    lastSearch={own:incomes.own,partner:incomes.partner,total:inc,dn,dbt,area,rate:customMortgageRate,calc};
     takeHomeEditOpen=false;
     renderTopSection();
     const rateDisplay=(customMortgageRate*100).toFixed(2).replace(/\.?0+$/,'')+'%';

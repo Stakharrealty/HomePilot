@@ -40,6 +40,13 @@
 //      buyer's third card; "See all places" closed until opened, with the
 //      rest of the places and its own sort; side by side on a computer,
 //      stacked on a phone.
+//  16. HomePilot Worth Knowing and the "you're close" empty page
+//      (IMPROVEMENT_PLAN.md 2.2, 2.0): the box between the answers and "See
+//      all places", each tip checked against the page by searching again with
+//      the answer it changes; the empty page's heading, its three closest
+//      options (today's stretch cards, labelled Stretch), "you're close" only
+//      when a tip gets there, the plan's worked example at 60 and 90 minutes,
+//      and no drive tip for remote buyers.
 //
 // Since 2026-09-24 (2.2) the results are three answer cards (#answers), then
 // "See all places" (#list, #listMore inside #seeAllBody), drawn only while it
@@ -122,9 +129,13 @@ function readCard(el) {
 // below open it first, as a buyer would.
 const openSeeAll = (win) => { if (!win.eval("seeAllOpen")) win.eval("toggleSeeAll()"); };
 // The answer cards, then the rest of the comfortable places, in screen order.
-const answerCards = (win) => [...win.document.querySelectorAll("#answers .city")].map(readCard);
+// On the empty page (2.0) #answers holds the three closest options instead,
+// labelled Stretch (data-answers="closest"); they are not answers.
+const ANSWER_CARDS = "#answers .answer-slot:not([data-answers='closest']) .city";
+const answerCards = (win) => [...win.document.querySelectorAll(ANSWER_CARDS)].map(readCard);
+const closestCards = (win) => [...win.document.querySelectorAll("#answers .answer-slot[data-answers='closest'] .city")].map(readCard);
 const seeAllCards = (win) => { openSeeAll(win); return [...win.document.querySelectorAll("#list .city")].map(readCard); };
-const mainCards = (win) => { openSeeAll(win); return [...win.document.querySelectorAll("#answers .city, #list .city")].map(readCard); };
+const mainCards = (win) => { openSeeAll(win); return [...win.document.querySelectorAll(ANSWER_CARDS + ", #list .city")].map(readCard); };
 const moreCards = (win) => { openSeeAll(win); return [...win.document.querySelectorAll("#listMore .city")].map(readCard); };
 // Every card element on the page, See all opened.
 const cardEls = (win) => { openSeeAll(win); return [...win.document.querySelectorAll("#answers .city, #list .city, #listMore .city")]; };
@@ -198,7 +209,7 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
     const n = (/(\d+)\s+(?:city|cities)/.exec(cnt) || [])[1];
     // 2.2: a place can have two cards (an answer and its card under "See all
     // places" with a different home), so the count is of places.
-    check(`(5a) "N cities" equals the places the comfortable cards show (${tag})`, cards.length === 0 ? /No cities/.test(cnt) : Number(n) === placesOf(cards), `${cnt} vs ${placesOf(cards)}`);
+    check(`(5a) "N cities" equals the places the comfortable cards show (${tag})`, cards.length === 0 ? /fits your HomePilot comfort range yet/.test(cnt) : Number(n) === placesOf(cards), `${cnt} vs ${placesOf(cards)}`);
     const stretchCards = [...win.document.querySelectorAll("#listMore .more-section")].filter((s) => /Only as a stretch/.test(s.textContent));
     check(`(5b) stretch-only cities sit in their own section, below (${tag})`, stretchCards.every((s) => [...s.querySelectorAll(".city")].every((el) => /beyond comfortable/.test(el.textContent))));
   }
@@ -463,8 +474,9 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
   win.eval("setResultsSort('home')");
   // The limit is still the 30 minutes section 10 picked, and this couple has no
   // comfortable place within it (nor within the 60-minute default) even on two
-  // incomes, so their cards are the stretch ones; those show % of take-home too.
-  const pairCards = [...mainCards(win), ...moreCards(win)];
+  // incomes, so their cards are the stretch ones: the closest options at the
+  // top (2.0) and the rest under "See all places"; those show % of take-home too.
+  const pairCards = [...mainCards(win), ...closestCards(win), ...moreCards(win)];
   check("(11c) each card's % of take-home is worked out on the two-earner take-home",
     pairCards.length > 0 && pairCards.every((c) => { const m = /(\d+)% of take-home/.exec(c.text); return !!m && Math.abs(Number(m[1]) - (c.monthly / pairNet) * 100) <= 1; }),
     pairCards.slice(0, 3).map((c) => c.city + " " + c.monthly + " " + (/(\d+)% of take-home/.exec(c.text) || [])[1] + "%").join("; "));
@@ -821,8 +833,9 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
   check("(14j) one income: no brackets; no debt: 'no debt'", textOf(byId("bpBasedOn")) === "Based on $130,000/yr · $75,000 down · no debt", textOf(byId("bpBasedOn")));
 
   // When savings are the limit: the bank would lend the same, so it says so
-  // instead of naming a figure again. The "$X more saved" tip stays (it is to
-  // become the first HomePilot Worth Knowing tip) and savingsLimitTip() gives it.
+  // instead of naming a figure again. The "$X more saved" tip stays, worked
+  // out by savingsLimitTip(); since 2026-09-24 it is the first HomePilot Worth
+  // Knowing tip, under the answer cards, not a note in the top section.
   const SAVER = { income: 200000, down: 20000, debt: 0, family: 3, firstTime: false, work: "remote" };
   search(win, SAVER);
   const saverCalc = win.eval("calcBP(200000, 20000, 0)"), saverTop = shownText(byId("bpBox"));
@@ -830,9 +843,11 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
     saverCalc.downPaymentLimited && saverCalc.bp === saverCalc.comfortBP && textOf(byId("bpBankLine")) === "Your savings are the limit, not your income. A bank would lend the same."
       && money(saverTop).filter((m) => m === fcw(saverCalc.comfortBP)).length === 1 && !/A bank might lend/.test(saverTop), saverTop.slice(0, 260));
   const tip = win.eval("savingsLimitTip(lastSearch.calc)");
-  check("(14l) the savings tip is still worked out (savingsLimitTip(), calcBP()'s figures) and still shown, without repeating the line's words",
+  check("(14l) the savings tip is still worked out (savingsLimitTip(), calcBP()'s figures) and shown as the first HomePilot Worth Knowing tip, not in the top section",
     !!tip && tip.incomeCapBP === saverCalc.incomeCapBP && tip.moreSaved === saverCalc.downPaymentShortfall && tip.moreSaved > 0
-      && textOf(byId("savingsTip")).includes(`about ${fcw(tip.moreSaved)} more saved would get you there`) && !/limit here, not your income/.test(saverTop), JSON.stringify(tip));
+      && textOf(byId("savingsTip")).includes(`about ${fcw(tip.moreSaved)} more saved would get you there`) && !/limit here, not your income/.test(saverTop)
+      && byId("worthKnowing").contains(byId("savingsTip")) && byId("worthKnowing").querySelector(".wk-tip") === byId("savingsTip")
+      && !byId("bpBox").contains(byId("savingsTip")) && !/more saved would get you there/.test(byId("bpBox").textContent), JSON.stringify(tip));
   const capped = win.eval("calcBP(200000, 60000, 0)");
   search(win, { ...SAVER, down: 60000 });
   check("(14m) savings cap the bank but the HomePilot comfort range sits well under it: the bank line, not the savings line",
@@ -882,7 +897,7 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
       && rowsBefore.some((r) => r.label !== fitLabelFor(r.monthly / OWN)) && cardsBefore.some((c) => pctOf(c) !== Math.round(c.monthly / OWN * 100)));
   const cnt14 = byId("cnt").textContent, n14 = Number((/(\d+)\s+(?:city|cities)/.exec(cnt14) || [])[1] || 0);
   check("(14u) the count of places still matches the cards (the stricter labels can move places to 'Only as a stretch')",
-    mainCards(win).length === 0 ? /No cities/.test(cnt14) : n14 === placesOf(mainCards(win)) && mainCards(win).every((c) => c.fit !== LBL[2]), cnt14);
+    mainCards(win).length === 0 ? /fits your HomePilot comfort range yet/.test(cnt14) : n14 === placesOf(mainCards(win)) && mainCards(win).every((c) => c.fit !== LBL[2]), cnt14);
   // A breakdown, the PDF report, Compare, Scenarios and the listings handover.
   const anyCard = cardEls(win)[0];
   const anyRow = anyCard.querySelector("[id^='pt-row-']:not([id$='-chevron'])");
@@ -977,8 +992,9 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
       && a15.every((a) => { const el = a.slot.querySelector(".city"); return el.querySelector(".cn") && el.querySelector(".card-headline .fit-pill") && el.querySelector("[id$='-mtotal']") && /At a glance/.test(el.textContent) && el.querySelector("[id^='pt-row-']") && el.querySelector(".ai-insights-trigger") && el.querySelector(".cmp-cb") && el.querySelector(".view-btn"); }));
   check("(15e) each label sits on top of its card, in the site's small eyebrow style",
     a15.every((a) => a.slot.firstElementChild.className === "answer-label" && a.slot.children[1].classList.contains("city") && a.slot.children.length === 2));
-  check("(15f) HomePilot Worth Knowing has its place, empty for now: #worthKnowing between the answers and 'See all places'",
-    !!byId("worthKnowing") && byId("worthKnowing").innerHTML === "" && byId("answers").nextElementSibling === byId("worthKnowing") && byId("worthKnowing").nextElementSibling === byId("seeAll"));
+  check("(15f) HomePilot Worth Knowing has its place: #worthKnowing between the answers and 'See all places', holding exactly what worthKnowingHtml() gives (section 16 checks what it says)",
+    !!byId("worthKnowing") && byId("answers").nextElementSibling === byId("worthKnowing") && byId("worthKnowing").nextElementSibling === byId("seeAll")
+      && byId("worthKnowing").innerHTML === win.eval("worthKnowingHtml(worthKnowing(answerPicks(results,{maxCommute:maxCommuteMin,onlyType:null}),null))"));
   check("(15g) the sort switch above the list is gone; the only 'Sort by' is inside 'See all places', below the answers",
     !byId("sortBar") && !byId("sort-home") && !byId("sort-commute") && !byId("sort-cost") && byId("seeAllBody").contains(byId("seeAllSort"))
       && (byId("answers").compareDocumentPosition(byId("seeAllSort")) & 4) !== 0 && d.querySelectorAll("[onclick*='setResultsSort']").length === 3
@@ -1101,14 +1117,11 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
       : false,
     rA2.map((a) => a.label + " = " + a.key).join("; "));
 
-  // Nothing comfortable: no answers and no button; the page is as it was
-  // (the next item, 2.0, replaces it).
+  // Nothing comfortable: no answer cards. Since 2026-09-24 that is the
+  // "you're close" page (IMPROVEMENT_PLAN.md 2.0), which section 16 checks.
   search(win, { ...COUPLE, work: "hybrid", maxCommute: "60" });
-  check("(15y) nothing comfortable: no answer cards and no 'See all places' button; the message and the stretch section show, as before",
-    d.querySelectorAll("#answers .city").length === 0 && !visible(byId("seeAllBtn")) && visible(byId("seeAllBody")) && !visible(byId("seeAllSort"))
-      && /No city within a 60-minute drive has any home you can comfortably afford — the closest options are below\./.test(byId("list").textContent)
-      && /Only as a stretch/.test(byId("listMore").textContent) && moreCards(win).length > 0 && /only as a stretch — listed below\./.test(byId("rankNotes").textContent)
-      && win.eval("shownCards.every(function(c){ return c.section === 'stretch'; })"));
+  check("(15y) nothing comfortable: no answer cards; the three closest options take their place (section 16)",
+    answerCards(win).length === 0 && closestCards(win).length > 0 && d.querySelectorAll("#answers .answer-slot[data-answers='closest']").length === closestCards(win).length);
 
   // Phone and computer layout, from the stylesheet (jsdom does no layout).
   const css = require("fs").readFileSync(require("path").join(__dirname, "..", "calculator.html"), "utf8").match(/<style>([\s\S]*?)<\/style>/)[1];
@@ -1123,6 +1136,166 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
     threeAt > baseAt && twoAt > baseAt && byId("answers").querySelector(".answer-grid").classList.contains("answer-grid-3") && d.querySelectorAll("#answers .answer-grid-3 > .answer-slot").length === 3);
   check("(15ab) 'See all places' is the listings page's outlined 'Load more' button, not a new design", /\.listings-load-more,\.see-all-btn\{/.test(css) && /\.listings-load-more:hover,\.see-all-btn:hover\{/.test(css)
     && byId("seeAllBtn").className === "see-all-btn");
+
+  // =============== 16. HomePilot Worth Knowing and the "you're close" page (IMPROVEMENT_PLAN.md 2.2, 2.0) ===============
+  // Every tip on the page is checked against the page itself: search again
+  // with the one answer the tip changes, and the card it names must show the
+  // price, monthly cost, % of take-home and label the tip quoted. The module's
+  // own unit tests (tests/worth_knowing_test.js) check the rules in depth.
+  const wkNow = () => JSON.parse(win.eval("JSON.stringify(worthKnowing(answerPicks(results,{maxCommute:maxCommuteMin,onlyType:activeProp!=='all'?activeProp:null}),activeProp!=='all'?activeProp:null))"));
+  const wkTips = () => [...byId("worthKnowing").querySelectorAll(".wk-tip")].map((e) => ({ kind: e.dataset.kind, text: textOf(e) }));
+  const withChange = (b, kind, x) => kind === "save" ? { ...b, down: b.down + x }
+    : b.partnerIncome ? { ...b, income: b.income + x / 2, partnerIncome: b.partnerIncome + x / 2 } : { ...b, income: b.income + x };
+  // A card as the buyer reads it, and its row for one home type.
+  const cardFor = (n, typeKey) => cardEls(win).map(readCard).find((c) => c.city === n && TYPE_KEY[c.type] === typeKey);
+  const rowFor = (n, typeKey) => {
+    const el = cardEls(win).find((e) => e.querySelector(".cn").textContent.trim() === n);
+    const row = el && [...el.querySelectorAll("[id^='pt-row-']:not([id$='-chevron'])")].find((r) => r.id.endsWith("-" + typeKey));
+    const m = row && /\$([\d,]+) · \$([\d,]+)\/mo/.exec(row.textContent);
+    return m ? { price: Number(m[1].replace(/,/g, "")), monthly: Number(m[2].replace(/,/g, "")), pct: Number((/(\d+)%/.exec(row.textContent.replace(/\$[\d,]+/g, "")) || [])[1]) } : null;
+  };
+  // A save or earn tip: search again with it, and the card it names shows what it said.
+  const checkLeverOnPage = (b, tip) => {
+    const c = tip.claim;
+    search(win, withChange(b, tip.kind, c.extra));
+    const card = cardFor(c.n, c.type);
+    const ok = !!card && card.price === c.price && card.monthly === c.monthly && pctOf(card) === c.pct && card.fit === c.fit && card.fit !== LBL[2];
+    const detail = JSON.stringify(card && { city: card.city, type: card.type, price: card.price, monthly: card.monthly, pct: pctOf(card), fit: card.fit }) + " vs " + JSON.stringify(c);
+    search(win, b);
+    return [ok, detail];
+  };
+
+  // A normal page with two tips: a drive tip and an earn tip.
+  const RICH = { income: 250000, down: 300000, debt: 0, family: 3, firstTime: false, work: "daily", workCity: "Toronto", maxCommute: "60" };
+  search(win, RICH);
+  const wkR = wkNow(), tipsR = wkTips(), boxR = byId("worthKnowing").querySelector(".wk-box");
+  check("(16a) normal page: HomePilot Worth Knowing sits between the answer cards and 'See all places', in the 'At a glance' box style, with at most two tips",
+    !!boxR && textOf(boxR.querySelector(".wk-title")) === "HomePilot Worth Knowing" && tipsR.length >= 1 && tipsR.length <= 2 && answerCards(win).length === 3
+      && byId("answers").nextElementSibling === byId("worthKnowing") && byId("worthKnowing").nextElementSibling === byId("seeAll") && !wkR.empty,
+    tipsR.map((x) => x.kind + ": " + x.text).join(" | "));
+  const driveR = wkR.tips.find((x) => x.kind === "drive");
+  if (driveR) {
+    const c = driveR.claim, from = answerCards(win).find((a) => a.city === c.from.n && TYPE_KEY[a.type] === c.from.type), to = rowFor(c.n, c.type);
+    const text = tipsR.find((x) => x.kind === "drive").text;
+    const toCard = cardEls(win).map(readCard).find((x) => x.city === c.n);
+    check("(16b) the drive tip's figures are the cards': the answer card it starts from, and the same home's row on the other place's card (price, monthly cost, drive)",
+      !!from && !!to && to.price === c.price && to.monthly === c.monthly && from.price === c.from.price && from.monthly === c.from.monthly
+        && text.includes(`Drive ${toCard.drive - from.drive} more minutes to ${c.n} (about ${toCard.drive} min each way)`)
+        && text.includes(`${fcw(from.price - to.price)} less than in ${c.from.n} and ${fcw(from.monthly - to.monthly)} a month less`)
+        && toCard.drive - from.drive <= 30 && (from.price - to.price >= 50000 || from.monthly - to.monthly >= 300),
+      text + " / " + JSON.stringify({ from, to }));
+  } else check("(16b) this buyer gets a drive tip (15 minutes to Pickering for the same semi, $105,000 less)", false, JSON.stringify(wkR.tips.map((x) => x.kind)));
+  const leverR = wkR.tips.find((x) => x.kind === "earn" || x.kind === "save");
+  if (leverR) {
+    const [ok, detail] = checkLeverOnPage(RICH, leverR);
+    check(`(16c) the ${leverR.kind} tip: searching again with ${fcw(leverR.claim.extra)} more, ${leverR.claim.n}'s card shows the bigger home at the tip's price, monthly cost, % and label`, ok, detail);
+  } else check("(16c) this buyer gets a save or earn tip", false, JSON.stringify(wkR.tips.map((x) => x.kind)));
+
+  // Savings are the limit: that tip first (14l checks its words).
+  search(win, SAVER);
+  check("(16d) savings the limit: its tip is the first HomePilot Worth Knowing tip, and there are at most two",
+    wkTips()[0] && wkTips()[0].kind === "savings-limit" && wkTips().length <= 2);
+  const saveS = wkNow().tips.find((x) => x.kind === "save");
+  if (saveS) { const [ok, detail] = checkLeverOnPage(SAVER, saveS); check("(16e) ...and its save tip holds on the page: search with that much more down payment", ok, detail); }
+
+  // The plan's worked example (2.0): $65K + $65K, $70K down, $450/mo debt,
+  // hybrid, working in Toronto, first-time buyers; at the 60-minute default.
+  const WORKED = { income: 65000, partnerIncome: 65000, down: 70000, debt: 450, family: 3, firstTime: true, work: "hybrid", workCity: "Toronto", maxCommute: "60" };
+  search(win, WORKED);
+  const wk60 = wkNow();
+  const stretch60 = JSON.parse(win.eval("JSON.stringify(rankCities(results,{sort:'home',maxCommute:maxCommuteMin}).stretchOnly.map(function(e){ return {n:e.n,type:e.type,price:e.price,monthly:Math.round(e.costs.total),pct:e.pct}; }))"));
+  const closest60 = closestCards(win);
+  check("(16f) empty page: the heading is the count line: \"Nothing within 60 minutes fits your HomePilot comfort range yet, but you're close.\"",
+    textOf(byId("cnt")) === "Nothing within 60 minutes fits your HomePilot comfort range yet, but you're close." && wk60.empty && wk60.close, textOf(byId("cnt")));
+  check("(16g) ...then the three closest options: the lowest % of take-home within the limit (rankCities()'s stretch-only list), each labelled 'Closest to fitting · Stretch', three across like the answers",
+    closest60.length === 3 && closest60.every((c, i) => c.city === stretch60[i].n && TYPE_KEY[c.type] === stretch60[i].type && c.price === stretch60[i].price && c.monthly === stretch60[i].monthly && pctOf(c) === stretch60[i].pct)
+      && closest60.every((c, i) => i === 0 || pctOf(closest60[i - 1]) <= pctOf(c)) && closest60.every((c) => c.drive <= 60)
+      && [...d.querySelectorAll("#answers .answer-slot")].every((s) => textOf(s.querySelector(".answer-label")) === "Closest to fitting · Stretch" && s.dataset.answers === "closest")
+      && !!byId("answers").querySelector(".answer-grid.answer-grid-3") && answerCards(win).length === 0,
+    closest60.map((c) => c.city + " " + pctOf(c) + "%").join(", "));
+  const stretchHtml = win.eval(`(function(){ var els = document.querySelectorAll('#answers .city'); return rankCities(results,{sort:'home',maxCommute:maxCommuteMin}).stretchOnly.slice(0,3).map(function(e,i){ return cityCardHtml(e,'stretch',els[i].id); }); })()`);
+  const asEl = (h) => { const box = d.createElement("div"); box.innerHTML = h; return box.firstElementChild.outerHTML; };
+  check("(16h) ...each is today's stretch card, unchanged: the same HTML cityCardHtml() draws under 'Only as a stretch' (the 'beyond comfortable' note, Stretch label, breakdowns, AI Insights, compare, View available homes)",
+    [...d.querySelectorAll("#answers .city")].every((el, i) => el.outerHTML === asEl(stretchHtml[i])) && closest60.every((c) => /beyond comfortable/.test(c.text) && c.fit === LBL[2]));
+  const tips60 = wkTips();
+  check("(16i) ...then HomePilot Worth Knowing, the main message: one tip per lever that has one, in the order save, drive, earn",
+    byId("answers").nextElementSibling === byId("worthKnowing") && !!byId("worthKnowing").querySelector(".wk-box") && tips60.length >= 1
+      && tips60.map((x) => x.kind).join(",") === ["save", "drive", "earn"].filter((k) => tips60.some((x) => x.kind === k)).join(","),
+    tips60.map((x) => x.kind + ": " + x.text).join(" | "));
+  for (const tip of wk60.tips.filter((x) => x.kind === "save" || x.kind === "earn")) {
+    const [ok, detail] = checkLeverOnPage(WORKED, tip);
+    const firstAfter = (() => { search(win, withChange(WORKED, tip.kind, tip.claim.extra)); const a = answerCards(win)[0]; search(win, WORKED); return a; })();
+    check(`(16j) worked example, ${tip.kind} ${fcw(tip.claim.extra)}: searching again with it, ${tip.claim.n}'s ${tip.claim.type} fits at the tip's figures and is the 'Most home' answer`,
+      ok && !!firstAfter && firstAfter.city === tip.claim.n && TYPE_KEY[firstAfter.type] === tip.claim.type, detail);
+    check(`(16k) worked example, ${tip.kind}: "just fits" exactly when the % lands at 43% or more (within 2 points of the 45% Stretch line)`,
+      /just fits/.test(tips60.find((x) => x.kind === tip.kind).text) === (tip.claim.pct >= 43));
+  }
+  const nMore = stretch60.length - 3;
+  check("(16l) 'See all places' is closed, with the other stretch-only places behind it",
+    visible(byId("seeAllBtn")) && textOf(byId("seeAllBtn")) === `See all places (${nMore} more)` && !visible(byId("seeAllBody"))
+      && textOf(byId("rankNotes")).includes(`${stretch60.length} cities work only as a stretch — the closest 3 are below, the rest under "See all places".`),
+    textOf(byId("seeAllBtn")) + " / " + textOf(byId("rankNotes")));
+  byId("seeAllBtn").click();
+  const rest60 = [...d.querySelectorAll("#listMore .city")].map(readCard);
+  check("(16m) ...opening it shows 'Only as a stretch' with the rest, none of the three again; shownCards is the three closest, then those",
+    /Only as a stretch/.test(byId("listMore").textContent) && rest60.length === nMore && rest60.every((c) => !closest60.some((x) => x.city === c.city && x.type === c.type))
+      && d.querySelectorAll("#list .city").length === 0
+      && win.eval("shownCards.map(function(c){ return c.section; }).join()") === ["answer-closest", "answer-closest", "answer-closest"].concat(Array(nMore).fill("stretch")).join(),
+    win.eval("shownCards.map(function(c){ return c.section; }).join()"));
+  const showBtn = [...byId("rankNotes").querySelectorAll("button")].find((x) => /Show them/.test(x.textContent));
+  if (showBtn) showBtn.click();
+  check("(16n) ...and 'Show them' still brings in the places past the limit, in their own section", !!showBtn && /Past your 60-minute commute limit/.test(byId("listMore").textContent));
+  check("(16o) the old empty-page message and its hint are gone; the new pieces never say 'comfortably afford' or a bare 'comfort range'",
+    !/the closest options are below|Try adjusting your filters/.test(d.body.textContent)
+      && ![textOf(byId("cnt")), textOf(byId("worthKnowing"))].some((x) => /comfortably afford/.test(x) || (x.match(/comfort range/g) || []).length !== (x.match(/HomePilot comfort range/g) || []).length));
+
+  // The same couple with the 90-minute limit the plan used: a drive tip too.
+  search(win, { ...WORKED, maxCommute: "90" });
+  const wk90 = wkNow(), drive90 = wk90.tips.find((x) => x.kind === "drive");
+  check("(16p) worked example at 90 minutes: \"Nothing within 90 minutes ... but you're close.\", with a save, a drive and an earn tip",
+    textOf(byId("cnt")) === "Nothing within 90 minutes fits your HomePilot comfort range yet, but you're close." && wkTips().map((x) => x.kind).join(",") === "save,drive,earn",
+    wkTips().map((x) => x.text).join(" | "));
+  if (drive90) {
+    const c = drive90.claim;
+    search(win, { ...WORKED, maxCommute: "none" });
+    const card = cardFor(c.n, c.type);
+    check(`(16q) ...the drive tip holds: with no limit, ${c.n}'s card shows the ${c.type} at the tip's price, % and label, ${c.extra} minutes past 90`,
+      !!card && card.price === c.price && pctOf(card) === c.pct && card.fit === c.fit && card.drive === c.commuteMin && c.commuteMin - 90 === c.extra && c.extra <= 30,
+      JSON.stringify(card && { price: card.price, pct: pctOf(card), drive: card.drive }) + " vs " + JSON.stringify(c));
+  }
+
+  // Not close: no tip gets there within the caps. The heading stops at "yet."
+  // and the box says plainly what would change the answer.
+  search(win, { income: 90000, down: 80000, debt: 0, family: 3, firstTime: true, work: "daily", workCity: "Toronto", maxCommute: "60" });
+  const far = wkNow();
+  check("(16r) not close: \"Nothing within 60 minutes fits your HomePilot comfort range yet.\" (no 'close'), and the box says what would change the answer",
+    far.empty && !far.close && textOf(byId("cnt")) === "Nothing within 60 minutes fits your HomePilot comfort range yet." && /What would change the answer/.test(textOf(byId("worthKnowing")))
+      && far.far.length > 0 && wkTips().length === far.far.length + far.tips.length, textOf(byId("cnt")) + " / " + textOf(byId("worthKnowing")));
+  search(win, { income: 70000, down: 15000, debt: 0, family: 3, firstTime: true, work: "daily", workCity: "Toronto", maxCommute: "60" });
+  check("(16s) nothing at all within reach: the box says no single change it tried gets there, after the savings tip",
+    textOf(byId("cnt")) === "Nothing within 60 minutes fits your HomePilot comfort range yet." && /No single change we tried/.test(textOf(byId("worthKnowing")))
+      && wkTips()[0] && wkTips()[0].kind === "savings-limit" && d.querySelectorAll("#answers .city").length === 0);
+
+  // Remote buyers: no commute, so no "within N minutes" and never a drive tip.
+  search(win, { income: 90000, down: 40000, debt: 0, family: 3, firstTime: true, work: "remote" });
+  check("(16t) remote, nothing fits yet: \"Nothing fits your HomePilot comfort range yet, but you're close.\", and no drive tip",
+    textOf(byId("cnt")) === "Nothing fits your HomePilot comfort range yet, but you're close." && !wkTips().some((x) => x.kind === "drive") && wkTips().length > 0, textOf(byId("cnt")));
+  search(win, { income: 140000, down: 80000, debt: 0, family: 3, firstTime: true, work: "remote" });
+  check("(16u) remote, normal page: tips, but never a drive tip", wkTips().length > 0 && !wkTips().some((x) => x.kind === "drive") && !wkNow().levers.some((x) => x.kind === "drive"));
+
+  // A home type picked: the heading names it.
+  search(win, WORKED);
+  win.eval("filtProp('detached', document.getElementById('pt-detached'))");
+  check("(16v) with a home type picked, the heading names it: \"No detached home within 60 minutes fits your HomePilot comfort range yet...\"",
+    /^No detached home within 60 minutes fits your HomePilot comfort range yet/.test(textOf(byId("cnt"))), textOf(byId("cnt")));
+  win.eval("filtProp('all', document.getElementById('pt-all'))");
+
+  // The box is the "At a glance" box's style, as classes: same colours, border, radius, heading and lines.
+  const glanceSrc = win.eval("buildWhyRanked.toString()");
+  check("(16w) the box reuses today's info-box style: the 'At a glance' panel's background, border, radius, heading and line styles",
+    /\.wk-box\{margin:4px 0 0;padding:10px 12px;background:#FAFAFA;border:1px solid #EEEEEE;border-radius:10px\}/.test(css) && /padding:10px 12px;background:#FAFAFA;border:1px solid #EEEEEE;border-radius:10px/.test(glanceSrc)
+      && /\.wk-title\{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0\.06em;color:#555;margin-bottom:7px\}/.test(css) && /font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0\.06em;color:#555;margin-bottom:7px/.test(glanceSrc)
+      && /\.wk-tip\{font-size:12px;color:#1a1a1a;padding:2px 0;display:flex;align-items:flex-start;gap:6px\}/.test(css) && /font-size:12px;color:#1a1a1a;padding:2px 0;display:flex;align-items:flex-start;gap:6px/.test(glanceSrc));
 
   check("(8) no uncaught script errors during any of this", errors.length === 0, errors.join(" | "));
 

@@ -22,7 +22,6 @@ const T={
     err:"Please fill in your income to continue.",
     fit_great_lbl:"Great fit",fit_good_lbl:"Good Fit",fit_stretch_lbl:"Stretch",
     true_cost:"True monthly cost",mortgage:"Mortgage",
-    stretch_warn:"⚠️ This property type slightly exceeds your current buying power. A larger down payment, co-borrower, or reduced debt could make it achievable.",
-    no_results3:"Try adjusting your filters or increasing your down payment."
+    stretch_warn:"⚠️ This property type slightly exceeds your current buying power. A larger down payment, co-borrower, or reduced debt could make it achievable."
   }
 };

@@ -561,6 +561,14 @@ select{
   .answer-grid-3{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
 #seeAllBody{margin-top:18px}
+/* HomePilot Worth Knowing (2026-09-24, IMPROVEMENT_PLAN.md 2.2 and 2.0), under
+   the answer cards: the "At a glance" box every card already has
+   (buildWhyRanked(), src/render-support.js) -- the same grey panel, border,
+   radius, small uppercase heading and dotted 12px lines -- as classes. */
+.wk-box{margin:4px 0 0;padding:10px 12px;background:#FAFAFA;border:1px solid #EEEEEE;border-radius:10px}
+.wk-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#555;margin-bottom:7px}
+.wk-tip{font-size:12px;color:#1a1a1a;padding:2px 0;display:flex;align-items:flex-start;gap:6px}
+.wk-lead{font-size:12px;color:#1a1a1a;padding:2px 0;font-weight:600}
 
 /* ── FILTER PILLS ────────────────────────────────────────────── */
 .filters{display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap;align-items:center}
@@ -1554,10 +1562,12 @@ body.cmp-bar-open #waWrap{bottom:80px!important}
     </div>
     <!-- Three answers, then "See all places" (2026-09-24, IMPROVEMENT_PLAN.md 2.2; drawn by
          render() and renderSeeAll() in src/render.js). #answers: today's cards, one per question
-         (Most home, Shortest commute, Lowest monthly cost), each under its label. #worthKnowing:
-         HomePilot Worth Knowing goes here, between the answers and "See all places"; empty until
-         that item is built. #seeAllBody: the rest of the places (#list) in the order picked in its
-         "Sort by", then "Only as a stretch" and "Past your commute limit" (#listMore). -->
+         (Most home, Shortest commute, Lowest monthly cost), each under its label; when nothing
+         within the commute limit fits, the three closest options, labelled Stretch (IMPROVEMENT_PLAN.md
+         2.0). #worthKnowing: HomePilot Worth Knowing (src/worth-knowing.js), between the answers and
+         "See all places"; empty when no tip is worth showing. #seeAllBody: the rest of the places
+         (#list) in the order picked in its "Sort by", then "Only as a stretch" and "Past your commute
+         limit" (#listMore). -->
     <div id="answers"></div>
     <div id="worthKnowing"></div>
     <div id="seeAll">
@@ -1692,6 +1702,7 @@ body.cmp-bar-open #waWrap{bottom:80px!important}
 <script src="src/render-support.js"></script>
 <script src="src/main.js"></script>
 <script src="src/render.js"></script>
+<script src="src/worth-knowing.js"></script>
 <script src="src/buyer-profile.js"></script>
 <script src="src/listing-fit.js"></script>
 <script src="src/listings-display.js"></script>

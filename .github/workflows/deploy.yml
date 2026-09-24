@@ -81,6 +81,12 @@ jobs:
       - name: Results outcome tests
         run: npm run test:results-outcomes
 
+      # HomePilot Worth Knowing and the "you're close" page (IMPROVEMENT_PLAN.md
+      # 2.2, 2.0): every tip is checked by running the calculator's own search
+      # again with the answer it changes. Reads the files; no server.
+      - name: Worth Knowing unit tests
+        run: npm run test:worth-knowing
+
       # The consent pop-up before any result (src/consent.js): the button goes
       # through it, the agreement is version-stamped so changed legal copy asks
       # again, and it stays closed while "Work arrangement" or "First-time

@@ -55,7 +55,8 @@ function fitPill(fit) {
 //      monthly cost (answerPicks(), ranking.js). They are today's cards,
 //      exactly as cityCardHtml() draws them, each under a small label; side by
 //      side on a computer, stacked on a phone (CSS in calculator.html);
-//   3. #worthKnowing: HomePilot Worth Knowing, empty until that item is built;
+//   3. #worthKnowing: HomePilot Worth Knowing (worth-knowing.js), one or two
+//      trade-offs worth knowing, or nothing when none is worth it;
 //   4. "See all places", closed until the buyer opens it: the rest of the
 //      places in the same big cards, ordered by most home unless the buyer
 //      picks another order there, then the "Only as a stretch" and "Past your
@@ -63,13 +64,24 @@ function fitPill(fit) {
 // "The rest" leaves out the homes the answer cards already show (same place,
 // same home type), so no card appears twice. A place can still show twice
 // with a different home, as it can among the answers.
-// When nothing is comfortable there are no answers, and the page is as it was
-// (IMPROVEMENT_PLAN.md 2.0 will replace it): the message, then the sections.
+// When nothing within the commute limit is comfortable (IMPROVEMENT_PLAN.md
+// 2.0, 2026-09-24), the page is not empty. The count line is the heading,
+// "Nothing within 60 minutes fits your HomePilot comfort range yet, but you're
+// close." (wkEmptyHeading()); #answers holds the three closest options -- the
+// lowest % of take-home within the limit, rankCities()'s stretch-only list --
+// in the same three-across layout, today's stretch cards, each labelled
+// "Closest to fitting · Stretch"; then HomePilot Worth Knowing, one tip per
+// lever; then "See all places" with the other stretch-only places and, when
+// asked for, those past the limit.
 
 // What render() drew above "See all places": renderSeeAll() draws that part
 // again on its own when the buyer opens it, closes it or re-sorts it, so an
 // answer card the buyer has open stays open.
 let answersView = null;
+
+// The empty page shows this many of the closest options (IMPROVEMENT_PLAN.md
+// 2.0), in the answer cards' three-across layout.
+const CLOSEST_CARDS = 3;
 
 // Card ids. Everything on a card (its breakdowns, AI Insights, the compare
 // box) hangs off its id, 'c-' + the place. A place can now have two cards on
@@ -101,25 +113,31 @@ function render(){
   const byHome=answers.byHome;
   const {ranked,stretchOnly,overCommute}=byHome;
   const visibleOver=showOverCommute?overCommute:[];
+  const noAnswers=!ranked.length;
+  // HomePilot Worth Knowing (worth-knowing.js, calculator.html only): its
+  // tips, and on the empty page whether the buyer is close.
+  const wk=typeof worthKnowing==='function'?worthKnowing(answers,onlyType):null;
+  // The empty page's closest options: the stretch-only places within the
+  // limit, lowest monthly cost -- so lowest % of take-home -- first.
+  const closest=noAnswers?stretchOnly.slice(0,CLOSEST_CARDS):[];
 
   // The results count is set HERE, not in go() (moved 2026-09-22, audit), and
   // since 2026-09-23 it counts only cities with a home the buyer can
   // comfortably afford (REVIEW_BACKLOG.md P1-5). It used to count every city
   // with any option, so "38 cities match your budget" included cities where
   // every option was a Stretch.
-  // When nothing within the commute limit is comfortable but places further
-  // out are, the commute is the lever to name -- not the down payment.
+  // When nothing within the limit is comfortable it is the empty page's
+  // heading (2.0): "Nothing within 60 minutes fits your HomePilot comfort
+  // range yet, but you're close." Places further out that fit, and what
+  // would get the buyer there, are HomePilot Worth Knowing's tips.
   const overComfortable=overCommute.filter(e=>e.comfortable).length;
-  const limitIsTheReason=!ranked.length&&byHome.limit!==null&&overComfortable>0;
   const typeWord=activeProp==='all'?'a home':'a '+(PROP_LABELS[activeProp]||'home').toLowerCase();
   const cntEl=document.getElementById('cnt');
   if(cntEl){
     const n=ranked.length;
     cntEl.innerHTML=n
       ?'<span>'+n+' '+(n===1?'city':'cities')+'</span> with '+typeWord+' you can comfortably afford — tap a city for the full monthly breakdown'
-      :limitIsTheReason
-        ?'<span>No cities</span> within a '+byHome.limit+'-minute drive have '+typeWord+' you can comfortably afford — '+overComfortable+' further out do'
-        :'<span>No cities</span> with '+typeWord+' you can comfortably afford yet — try adjusting your down payment or home type';
+      :(typeof wkEmptyHeading==='function'?wkEmptyHeading(wk||{limit:byHome.limit,onlyType,close:false}):'');
   }
 
   // What was set aside and why. The rule sentence ("Ranked by ...") went into
@@ -127,7 +145,10 @@ function render(){
   const notesEl=document.getElementById('rankNotes');
   if(notesEl){
     const notes=[];
-    if(stretchOnly.length) notes.push(stretchOnly.length+(ranked.length?' more ':' ')+(stretchOnly.length===1?'city works':'cities work')+' only as a stretch — listed '+(ranked.length?'under "See all places", after the others.':'below.'));
+    const cityWord=(k)=>k===1?'city works':'cities work';
+    if(stretchOnly.length&&!noAnswers) notes.push(stretchOnly.length+' more '+cityWord(stretchOnly.length)+' only as a stretch — listed under "See all places", after the others.');
+    // The empty page: the closest of them are the cards below.
+    else if(stretchOnly.length) notes.push(stretchOnly.length+' '+cityWord(stretchOnly.length)+' only as a stretch — '+(stretchOnly.length>closest.length?'the closest '+closest.length+' are below, the rest under "See all places".':(stretchOnly.length===1?'it is':'all are')+' below.'));
     if(byHome.limit!==null&&overCommute.length) notes.push(overCommute.length+' '+(overCommute.length===1?'city':'cities')+' hidden — estimated drive over '+byHome.limit+' min'+(overComfortable?' ('+overComfortable+' with '+typeWord+' you can comfortably afford)':'')+'. <button type="button" class="link-btn" onclick="toggleOverCommute()">'+(showOverCommute?'Hide them':'Show them')+'</button>');
     if((workArrangement==='hybrid'||workArrangement==='daily')&&!workZone) notes.push("We couldn't place your work location, so commute isn't used below. Check the work city or postal code.");
     notesEl.innerHTML=notes.map(x=>'<div class="rank-note">'+x+'</div>').join('');
@@ -140,20 +161,31 @@ function render(){
   if(tpEl) tpEl.innerHTML='';
 
   // The answer cards: cityCardHtml() exactly as every other card, under the
-  // label of the question (or questions) it answers.
+  // label of the question (or questions) it answers. On the empty page, the
+  // closest options instead: today's stretch card (the one "Only as a
+  // stretch" shows), labelled Stretch.
   const nextId=cardIdMaker();
   const shown=[];
-  const slots=answers.picks.map(p=>{
-    const id=nextId(p.entry.n);
-    shown.push(shownCardOf(p.entry,'answer-'+p.answers[0],id,{answers:p.answers.slice()}));
-    return '<div class="answer-slot" data-answers="'+p.answers.join(' ')+'">'+
-      '<div class="answer-label">'+p.answers.map(q=>ANSWER_LABELS[q]).join(' · ')+'</div>'+
-      cityCardHtml(p.entry,'ranked',id)+
-    '</div>';
-  });
+  const slot=(answersAttr,label,e,section,id)=>'<div class="answer-slot" data-answers="'+answersAttr+'">'+
+    '<div class="answer-label">'+label+'</div>'+cityCardHtml(e,section,id)+'</div>';
+  const slots=noAnswers
+    ?closest.map(e=>{
+      const id=nextId(e.n);
+      shown.push(shownCardOf(e,'answer-closest',id,{answers:['closest']}));
+      return slot('closest','Closest to fitting · Stretch',e,'stretch',id);
+    })
+    :answers.picks.map(p=>{
+      const id=nextId(p.entry.n);
+      shown.push(shownCardOf(p.entry,'answer-'+p.answers[0],id,{answers:p.answers.slice()}));
+      return slot(p.answers.join(' '),p.answers.map(q=>ANSWER_LABELS[q]).join(' · '),p.entry,'ranked',id);
+    });
   const answersEl=document.getElementById('answers');
   if(answersEl) answersEl.innerHTML=slots.length?'<div class="answer-grid answer-grid-'+slots.length+'">'+slots.join('')+'</div>':'';
-  answersView={onlyType,answerHomes:new Set(answers.picks.map(p=>homeKey(p.entry))),shown,idCounts:nextId.counts,limitIsTheReason};
+  // HomePilot Worth Knowing, between the answers and "See all places".
+  const wkEl=document.getElementById('worthKnowing');
+  if(wkEl) wkEl.innerHTML=typeof worthKnowingHtml==='function'?worthKnowingHtml(wk):'';
+  const topHomes=noAnswers?closest:answers.picks.map(p=>p.entry);
+  answersView={onlyType,answerHomes:new Set(topHomes.map(homeKey)),shown,idCounts:nextId.counts};
   renderSeeAll();
 
   const rateBarEl=document.getElementById('rateBar');
@@ -186,25 +218,30 @@ function render(){
 function renderSeeAll(){
   const v=answersView;
   if(!v) return;
-  const t=T.en;
   const ranking=rankCities(results,{sort:resultsSort,maxCommute:maxCommuteMin,onlyType:v.onlyType});
-  const {ranked,stretchOnly,overCommute}=ranking;
+  const {ranked,overCommute}=ranking;
   const visibleOver=showOverCommute?overCommute:[];
+  // The cards above (the answers, or on the empty page the closest options)
+  // are left out, so no card shows twice.
   const rest=ranked.filter(e=>!v.answerHomes.has(homeKey(e)));
+  const stretchOnly=ranking.stretchOnly.filter(e=>!v.answerHomes.has(homeKey(e)));
   const noAnswers=!ranked.length;
   const hasMore=rest.length+stretchOnly.length+visibleOver.length>0;
-  // Nothing comfortable: no answers and no button; the message and the
-  // sections show as they always did.
-  const open=noAnswers||seeAllOpen;
+  // Closed until the buyer opens it, on the empty page too (2.0): its cards
+  // are the stretch-only places after the closest three, and the places past
+  // the limit when asked for. The count is of the places it adds: the
+  // comfortable ones, or on the empty page the stretch-only ones.
+  const open=seeAllOpen;
+  const moreCount=noAnswers?stretchOnly.length:rest.length;
 
   const btn=document.getElementById('seeAllBtn');
   if(btn){
-    btn.style.display=!noAnswers&&hasMore?'':'none';
-    btn.textContent=open?'Hide the other places':'See all places'+(rest.length?' ('+rest.length+' more)':'');
+    btn.style.display=hasMore?'':'none';
+    btn.textContent=open?'Hide the other places':'See all places'+(moreCount?' ('+moreCount+' more)':'');
     btn.setAttribute('aria-expanded',String(open));
   }
   const body=document.getElementById('seeAllBody');
-  if(body) body.style.display=open&&(noAnswers||hasMore)?'block':'none';
+  if(body) body.style.display=open&&hasMore?'block':'none';
 
   // The order: most home unless the buyer picked another here. "Shortest
   // commute" only exists when there is a commute to sort by.
@@ -226,17 +263,12 @@ function renderSeeAll(){
   const nextId=cardIdMaker(v.idCounts);
   const drawn=[];
   const card=(e,section)=>{ const id=nextId(e.n); drawn.push(shownCardOf(e,section,id)); return cityCardHtml(e,section,id); };
+  // The empty page's message ("No city within a 60-minute drive has any home
+  // you can comfortably afford — the closest options are below", and a hint)
+  // that stood here is the heading in the count line now, and its hint is
+  // HomePilot Worth Knowing (2.0, 2026-09-24).
   const el=document.getElementById('list');
-  if(el){
-    if(noAnswers){
-      const pn={all:'any home',condo:'a condo',town:'a townhouse',semi:'a semi-detached home',detached:'a detached home'}[activeProp]||'any home';
-      const where=v.limitIsTheReason?' within a '+ranking.limit+'-minute drive':'';
-      const hint=v.limitIsTheReason?'A longer commute limit, or "Show them" above, brings in the places further out.':t.no_results3;
-      el.innerHTML='<div style="font-size:13px;color:#999;padding:16px 0;text-align:center;">No city'+where+' has '+pn+' you can comfortably afford'+(stretchOnly.length?' — the closest options are below.':'.')+'<br><span style="font-size:12px;">'+hint+'</span></div>';
-    } else {
-      el.innerHTML=open?rest.map(e=>card(e,'ranked')).join(''):'';
-    }
-  }
+  if(el) el.innerHTML=open?rest.map(e=>card(e,'ranked')).join(''):'';
   const more=document.getElementById('listMore');
   if(more){
     let h='';
@@ -258,7 +290,8 @@ function renderSeeAll(){
   // screen order, with the exact figures on it and the part of the page it is
   // in: 'answer-home', 'answer-commute', 'answer-cost' or 'answer-also' (a card
   // answering two questions is under its first, and lists both in `answers`),
-  // then 'ranked', 'stretch' and 'over' from "See all places".
+  // or on the empty page 'answer-closest' (2.0), then 'ranked', 'stretch' and 'over'
+  // from "See all places".
   shownCards=[...v.shown,...drawn];
 }
 
