@@ -9,7 +9,7 @@
 // loadScenarioFromURL() init call), same shared global scope as before.
 //
 // Contains: RF (region filter mapping), the core mutable application state
-// (lang, results, buyPower, comfortBuyPower, fam_selected, dn_selected,
+// (results, buyPower, comfortBuyPower, fam_selected, dn_selected,
 // grossMonthlyIncome, netMonthlyIncome, customMortgageRate, firstTimeBuyer,
 // existingDebt, activeProp, activeFit, devMode, workArrangement, workZone,
 // maxCommuteMin, resultsSort, showOverCommute, shownCards),
@@ -18,7 +18,7 @@
 // when the buyer submits the form.
 
 const RF={all:null,gta:["gta"],west:["west"],east:["east"],north:["north"],duff:["duff"],niag:["niag"],wloo:["wloo"],east2:["east2"]};
-let lang="en",results=[],buyPower=0,comfortBuyPower=0,fam_selected="3",dn_selected=0,grossMonthlyIncome=0,netMonthlyIncome=0,customMortgageRate=DEFAULT_MORTGAGE_RATE_PCT/100,firstTimeBuyer=false,existingDebt=0;
+let results=[],buyPower=0,comfortBuyPower=0,fam_selected="3",dn_selected=0,grossMonthlyIncome=0,netMonthlyIncome=0,customMortgageRate=DEFAULT_MORTGAGE_RATE_PCT/100,firstTimeBuyer=false,existingDebt=0;
 
 let activeProp='all',activeFit='all',devMode=false;
 
@@ -167,7 +167,7 @@ function go(){
   // link or a restored form can set the work style without that call.
   if(!maxCommuteTouched) { maxCommuteMin = DEFAULT_MAX_COMMUTE[workArrangement] || null; syncMaxCommuteSelect(); }
   const area=document.getElementById("area").value,fam=document.getElementById("fam").value;
-  const t=T[lang];
+  const t=T.en;
   // Validation hardened 2026-09-22 (audit). Previously: an income of exactly 1
   // passed (`inc < 1` lets 1 through) and produced a buying power of $0; an
   // income of 1e400 became Infinity and rendered the literal text "$NaN" to the
@@ -261,7 +261,7 @@ function go(){
     const stressRateDisplay=(getStressRate(customMortgageRate)*100).toFixed(2)+'%';
     const rn=document.getElementById('rateNote');if(rn)rn.innerHTML=`Based on ${rateDisplay} mortgage rate · ${amortizationNote(firstTimeBuyer===true)} · Stress tested at ${stressRateDisplay} · <span style="color:rgba(255,255,255,0.6);font-style:italic">Educational estimate only — not a mortgage pre-approval. Actual qualification depends on lender underwriting, credit, and full application details.</span>`;
     const frn=document.getElementById('footerRateNote');
-    if(frn) frn.innerHTML=`Estimates based on ${rateDisplay} mortgage rate, stress tested at ${stressRateDisplay} (higher of 5.25% or contract rate + 2%). Amortization: 25-year, or 30-year where 20%+ down qualifies. Property tax rates sourced from each municipality. Utilities estimated by family size and region. Maintenance at 1% of home value annually. Qualification estimates are educational only and do not represent mortgage approval — final qualification depends on lender underwriting, credit, property taxes, condo fees, heating costs, and program eligibility. Sandeep Takhar is a RE/MAX agent covering Bolton, Caledon, Orangeville and surrounding areas. English · Français · 中文 · Punjabi · Hindi · Urdu · 416-725-8087`;
+    if(frn) frn.innerHTML=`Estimates based on ${rateDisplay} mortgage rate, stress tested at ${stressRateDisplay} (higher of 5.25% or contract rate + 2%). Amortization: 25-year, or 30-year where 20%+ down qualifies. Property tax rates sourced from each municipality. Utilities estimated by family size and region. Maintenance at 1% of home value annually. Qualification estimates are educational only and do not represent mortgage approval — final qualification depends on lender underwriting, credit, property taxes, condo fees, heating costs, and program eligibility. Sandeep Takhar is a RE/MAX agent covering Bolton, Caledon, Orangeville and surrounding areas. 416-725-8087`;
     document.getElementById("bpBox").style.display="block";
     const es=document.getElementById("calcEmptyState");if(es)es.style.display="none";
     // The "N cities match your budget" line is written by render() now, which
@@ -275,5 +275,5 @@ function go(){
     render();
     setTimeout(()=>document.getElementById("bpBox").scrollIntoView({behavior:"smooth",block:"start"}),100);
   }catch(e){document.getElementById("err").textContent="Error: "+e.message;document.getElementById("err").style.display="block";console.error(e);}
-  btn.disabled=false;btn.innerHTML="<span id='bt'>"+T[lang].bt+"</span>";
+  btn.disabled=false;btn.innerHTML="<span id='bt'>"+T.en.bt+"</span>";
 }

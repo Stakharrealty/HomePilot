@@ -117,7 +117,7 @@ for (const [inc, dn] of [[100000, 5000], [200000, 20000], [400000, 50000], [4000
 // 6. A missing or unusable cost must never read as the most reassuring label.
 //    getFit() now returns null rather than inventing a tier.
 {
-  run(`netMonthlyIncome=6000;lang='en';`);
+  run(`netMonthlyIncome=6000;`);
   const cls = (expr) => run(`(function(){var f=${expr};return f?f.cls:null;})()`);
   const score = (expr) => run(`(function(){var f=${expr};return f?f.score:null;})()`);
   t('getFit(null) is not "Great fit"', cls(`getFit(null,8333)`) !== 'fg', `got ${cls(`getFit(null,8333)`)}`);

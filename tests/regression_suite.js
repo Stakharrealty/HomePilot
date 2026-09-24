@@ -680,7 +680,7 @@ async function runSuite7(){
   suite('Breakdown');
   // Engine state for the checks below. The lead tests' form reset used to set
   // it, so this suite silently depended on them: 4.19%, not a first-time buyer.
-  run(`customMortgageRate=0.0419; firstTimeBuyer=false; fam_selected='3'; existingDebt=0; lang='en';`);
+  run(`customMortgageRate=0.0419; firstTimeBuyer=false; fam_selected='3'; existingDebt=0;`);
 
   // --- Breakdown display formula (golden-line source check) ---
   // selectPropType() mutates the DOM in place rather than returning HTML, so instead

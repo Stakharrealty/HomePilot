@@ -360,10 +360,7 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
   search(win, { ...PAIR, partnerIncome: -5000, income: 100000 });
   check("(11i) a negative income is refused with a visible message",
     win.document.getElementById("err").style.display === "block" && /can't be negative/.test(win.document.getElementById("err").textContent));
-  win.eval("setLang('fr')");
-  const frLabel = win.document.getElementById("l1b").textContent, frPh = win.document.getElementById("inc2").placeholder;
-  win.eval("setLang('en')");
-  check("(11j) the partner box is translated", frLabel === win.eval("T.fr.l1b") && frPh === win.eval("T.fr.inc2_ph") && win.document.getElementById("l1b").textContent === "Partner's income (before tax)", frLabel + " | " + frPh);
+  // (11j checked the partner box's translations; the site went English only 2026-09-23.)
 
   check("(8) no uncaught script errors during any of this", errors.length === 0, errors.join(" | "));
 

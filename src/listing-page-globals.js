@@ -13,4 +13,3 @@
 let customMortgageRate = DEFAULT_MORTGAGE_RATE_PCT / 100;
 let firstTimeBuyer = false;
 let netMonthlyIncome = 0;
-let lang = "en"; // these pages are English-only; getFit() reads T[lang] for its label

@@ -154,31 +154,6 @@ body{
   .hdr-nav-cta:hover{opacity:0.9}
 }
 
-/* ── LANGUAGE SELECTOR ──────────────────────────────────────── */
-.lang-sel{
-  font-size:12px;
-  padding:6px 10px;
-  border-radius:var(--radius-sm);
-  border:1px solid var(--border);
-  background:var(--card);
-  color:var(--ink);
-  cursor:pointer;
-  outline:none;
-  min-width:0;
-  flex-shrink:0;
-}
-@media(min-width:480px){
-  .lang-sel{
-    background:var(--surface);
-    border-color:var(--border);
-    color:var(--ink);
-    font-size:12px;
-    padding:6px 9px;
-    max-width:110px;
-    margin-left:0;
-  }
-}
-
 /* ── HERO ────────────────────────────────────────────────────── */
 /* ===== Hero v2 — fintech-style two-column hero (mobile-first, desktop grid at 1024px) ===== */
 .hero2{margin-bottom:2rem}
@@ -1163,16 +1138,6 @@ select{
         <a class="hdr-nav-link" href="#faq" id="navFaq">FAQ</a>
         <a class="hdr-nav-cta" id="hdrCtaBtn" href="calculator.html" target="_blank" rel="noopener"><span id="hdrCtaText">See What I Can Afford</span></a>
       </div>
-      <select class="lang-sel" onchange="setLang(this.value)">
-        <option value="" disabled>🌐 Language</option>
-        <option value="en" selected>English</option>
-        <option value="fr">Français</option>
-        <option value="zh">中文</option>
-        <option value="pa">ਪੰਜਾਬੀ</option>
-        <option value="hi">हिंदी</option>
-        <option value="ur">اردو</option>
-        <option value="es">Español</option>
-      </select>
     </div>
   </div>
 
@@ -1474,7 +1439,6 @@ select{
 <script src="src/explainability.js"></script>
 <script src="src/ranking.js"></script>
 <script src="src/i18n.js"></script>
-<script src="src/i18n-homepage.js"></script>
 <script src="src/scenario-share.js"></script>
 <script src="src/ai.js"></script>
 <script src="src/utils.js"></script>

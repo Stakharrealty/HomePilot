@@ -47,7 +47,7 @@ function fitPill(fit) {
 }
 
 function render(){
-  const t=T[lang];
+  const t=T.en;
   const ranking=rankCities(results,{sort:resultsSort,maxCommute:maxCommuteMin,onlyType:activeProp!=='all'?activeProp:null});
   const {ranked,stretchOnly,overCommute}=ranking;
   const visibleOver=showOverCommute?overCommute:[];
@@ -159,7 +159,7 @@ function render(){
 // or 'over'. Every figure on the card comes from the entry, so the card, the
 // ranking and shownCards can never show different numbers.
 function cityCardHtml(e, section){
-  const t=T[lang];
+  const t=T.en;
   const x=e.city;
   const id='c-'+x.n.replace(/[^a-zA-Z0-9]/g,'-');
   const displayPrice=e.price;
@@ -290,7 +290,7 @@ function selectPropType(cityId, tp, cityName) {
   // (REVIEW_BACKLOG.md P1-21). This panel used its own <35 / <=45 thresholds,
   // so a home at 45.3% of take-home read "Good Fit" here and "Stretch" on
   // the card above it.
-  const fitObj = getFit(c.total, grossMonthlyIncome) || { cls: 'fs', lbl: T[lang].fit_stretch_lbl };
+  const fitObj = getFit(c.total, grossMonthlyIncome) || { cls: 'fs', lbl: T.en.fit_stretch_lbl };
   const fitLbl = fitObj.lbl, fitColor = (FIT_STYLE[fitObj.cls] || FIT_STYLE.fs).color, fitBg = (FIT_STYLE[fitObj.cls] || FIT_STYLE.fs).bg;
 
   const sectionHead = (title) =>
