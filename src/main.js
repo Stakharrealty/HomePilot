@@ -16,7 +16,9 @@
 // checkRequiredChoices() / showFirstUnansweredChoice() (the two questions with
 // no pre-selected answer), setWorkArrangement(), setMaxCommute(),
 // syncFormLines() / openFormField() / openWorkPostalIfSet() (the one-line
-// settings of the shorter form, 2.3a), setResultsSort(), toggleOverCommute(),
+// settings of the shorter form, 2.3a), setResultsSort(), toggleOverCommute(), candidateCities() and searchAgain()
+// (the search run again with answers changed, for HomePilot Worth Knowing and
+// the What-If),
 // amortizationNote(), the top section of the results (renderTopSection(), the
 // take-home the buyer can replace, "How we calculated this"; 2.2), and go() —
 // the main calculation orchestrator that runs when the buyer submits the form.
@@ -272,6 +274,38 @@ function toggleOverCommute() {
 function candidateCities(area, bp) {
   const rf=RF[area],seen=new Set();
   return M.filter(m=>{if(seen.has(m.n))return false;seen.add(m.n);if(rf&&!rf.includes(m.r))return false;return m.min<=bp;});
+}
+
+// The search, run again with some answers changed: go()'s own steps, calcBP()
+// at the search's mortgage rate, candidateCities() for the area, then
+// rankCities() for each sort asked for, at the rate on screen (the rate slider
+// changes monthly costs, never buying power, as on the page). The page's
+// globals are put back afterwards, whatever happens. Shared since 2026-09-24
+// by HomePilot Worth Knowing (wkRun(), worth-knowing.js) and the What-If
+// scenarios (_getAngleSnapshot(), scenario-sandbox.js): they had two copies
+// with different rules (the What-If used the slider's rate for buying power
+// and the area select as it stood), so the What-If's "Now" could name a
+// different home from the page's own Most home answer.
+// o: { total, dn, dbt, area, rate, net (monthly take-home), wa, zone, limit,
+//      onlyType, sorts (default ['home']) }. Returns { calc, rankings } with
+// one rankCities() result per sort.
+function searchAgain(o){
+  const saved={grossMonthlyIncome,netMonthlyIncome,dn_selected,existingDebt,buyPower,comfortBuyPower,customMortgageRate,workArrangement,workZone};
+  try{
+    workArrangement=o.wa; workZone=o.wa==='remote'?null:o.zone;
+    grossMonthlyIncome=o.total/12; netMonthlyIncome=o.net;
+    dn_selected=o.dn; existingDebt=o.dbt;
+    customMortgageRate=Number.isFinite(o.rate)?o.rate:saved.customMortgageRate;
+    const calc=calcBP(o.total,o.dn,o.dbt);
+    customMortgageRate=saved.customMortgageRate;
+    buyPower=calc.bp; comfortBuyPower=calc.comfortBP;
+    const cands=candidateCities(o.area||'all',calc.bp);
+    const rankings={};
+    (o.sorts||['home']).forEach(s=>{ rankings[s]=rankCities(cands,{sort:s,maxCommute:o.limit,onlyType:o.onlyType||null}); });
+    return {calc,rankings};
+  }finally{
+    ({grossMonthlyIncome,netMonthlyIncome,dn_selected,existingDebt,buyPower,comfortBuyPower,customMortgageRate,workArrangement,workZone}=saved);
+  }
 }
 
 // The rate note under the buying power. It said "25-year amortization

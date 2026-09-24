@@ -374,6 +374,23 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
   check("(6) the What-If scenario's #1 place is the #1 card on screen (the Most home answer)",
     !!screenFirst && snap.picks && snap.picks.home.n === screenFirst.city, `${snap.picks && snap.picks.home.n} vs ${screenFirst && screenFirst.city}`);
   win.eval("closeScenarioSandbox()");
+  // With the rate slider moved: the page keeps its buying power (the slider
+  // changes monthly costs), and so does the What-If's "Now" and HomePilot
+  // Worth Knowing's re-run, one shared searchAgain() (main.js). The What-If
+  // worked buying power out at the slider's rate until 2026-09-24, so its
+  // "Now" could name another home from the Most home answer.
+  search(win, { income: 180000, down: 120000, debt: 450, family: 3, firstTime: true, work: "hybrid", workCity: "Toronto", maxCommute: "60" });
+  win.eval("syncRate('3.0','input')");
+  const slidHome = answerCards(win)[0];
+  const snapSlid = win.eval("_getAngleSnapshot(grossMonthlyIncome*12, dn_selected, workArrangement, workZone)");
+  const wkSlid = JSON.parse(win.eval("JSON.stringify((function(){ var e = wkRun(wkBase(null), {}).ranking.ranked[0]; return e && {n:e.n, type:e.type, price:e.price}; })())"));
+  check("(6b) rate slider at 3%: the What-If's 'Now', HomePilot Worth Knowing's re-run and the page agree on the Most home and on buying power",
+    !!slidHome && !!snapSlid.picks && snapSlid.picks.home.n === slidHome.city && TYPE_LABEL[snapSlid.picks.home.type] === slidHome.type && snapSlid.picks.home.price === slidHome.price
+      && snapSlid.buyPower === win.eval("buyPower") && !!wkSlid && wkSlid.n === slidHome.city && wkSlid.price === slidHome.price,
+    JSON.stringify({ page: slidHome && [slidHome.city, slidHome.type, slidHome.price], whatIf: snapSlid.picks && [snapSlid.picks.home.n, snapSlid.picks.home.type, snapSlid.picks.home.price, snapSlid.buyPower], wk: wkSlid, bp: win.eval("buyPower") }));
+  win.eval("syncRate(String(DEFAULT_MORTGAGE_RATE_PCT),'input')");
+  // Back to the "No limit" the sections below expect (as section 3 leaves it).
+  win.eval("setMaxCommute('none')");
 
   // =============== 7. smaller fixes ===============
   search(win, { ...COUPLE, work: "remote", firstTime: true });

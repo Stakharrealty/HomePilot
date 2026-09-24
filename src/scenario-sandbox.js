@@ -59,37 +59,31 @@ function scenarioPreview() {
 // reports its #1 under each of the three sorts. Two scenario-only bugs went
 // with it: take-home pay was a flat 72% of gross instead of
 // estimateOntarioNetAnnual(), and the buyer's monthly debt was dropped.
+// Since 2026-09-24 the run itself is searchAgain() (main.js), the one HomePilot
+// Worth Knowing uses: buying power at the search's mortgage rate and in the
+// search's area, as on the page. This copy worked out buying power at the rate
+// slider's rate and read the area select as it stood, so with the slider moved
+// its "Now" named a different home from the page's Most home answer.
 function _getAngleSnapshot(income, dn, wa, zone) {
-  // Run the ranking against a hypothetical scenario WITHOUT mutating the
-  // buyer's real saved scenario permanently.
-  var savedWA = workArrangement, savedZone = workZone, savedGross = grossMonthlyIncome,
-      savedNet = netMonthlyIncome, savedDn = dn_selected, savedBP = buyPower, savedCBP = comfortBuyPower;
-  var picks = null, bp = null;
+  // Runs the ranking for a hypothetical scenario; the buyer's real answers are
+  // put back afterwards (searchAgain()).
   var limit = maxCommuteTouched ? maxCommuteMin : (DEFAULT_MAX_COMMUTE[wa] || null);
-  try {
-    workArrangement = wa;
-    workZone = wa === 'remote' ? null : zone;
-    grossMonthlyIncome = income/12;
+  var s = typeof lastSearch !== 'undefined' ? lastSearch : null;
+  var areaEl = document.getElementById('area');
+  var run = searchAgain({
+    total: income, dn: dn, dbt: existingDebt,
+    area: s && s.area ? s.area : (areaEl && areaEl.value ? areaEl.value : 'all'),
+    rate: s && Number.isFinite(s.rate) ? s.rate : customMortgageRate,
     // Same split between the two earners as the buyer entered (2026-09-23),
     // and the buyer's own take-home when they gave one (2026-09-24,
     // IMPROVEMENT_PLAN.md 2.2; takeHomeMonthlyFor() in main.js).
-    netMonthlyIncome = takeHomeMonthlyFor(income);
-    dn_selected = dn;
-    bp = calcBP(income, dn, existingDebt);
-    buyPower = bp.bp;
-    comfortBuyPower = bp.comfortBP;
-    var areaEl = document.getElementById('area');
-    var cands = candidateCities(areaEl && areaEl.value ? areaEl.value : 'all', bp.bp);
-    var first = function(sort){ return rankCities(cands, { sort: sort, maxCommute: limit, onlyType: null }).ranked[0] || null; };
-    var home = first('home');
-    if (home) picks = { home: home, commute: (wa !== 'remote' && workZone) ? first('commute') : null, cost: first('cost') };
-  } finally {
-    // Restore the buyer's real scenario
-    workArrangement = savedWA; workZone = savedZone;
-    grossMonthlyIncome = savedGross; netMonthlyIncome = savedNet;
-    dn_selected = savedDn; buyPower = savedBP; comfortBuyPower = savedCBP;
-  }
-  return { picks: picks, buyPower: bp ? bp.bp : 0, limit: limit };
+    net: takeHomeMonthlyFor(income),
+    wa: wa, zone: zone, limit: limit, onlyType: null, sorts: ['home', 'commute', 'cost'],
+  });
+  var first = function(sort){ return run.rankings[sort].ranked[0] || null; };
+  var home = first('home'), picks = null;
+  if (home) picks = { home: home, commute: (wa !== 'remote' && zone) ? first('commute') : null, cost: first('cost') };
+  return { picks: picks, buyPower: run.calc.bp, limit: limit };
 }
 
 function runScenarioComparison() {

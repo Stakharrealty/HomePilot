@@ -101,38 +101,33 @@ function wkEarnTo(base) { return base.partner > base.own ? 'partner' : 'own'; }
 //                      drops it when an income changes, so worthKnowing() offers
 //                      no earn tip while one is in force;
 //   { maxCommute }  -- a different commute limit (null for none).
-// It is go()'s own calculation: calcBP() on the changed figures, at the rate
-// the search used (go() always searches at the market rate; the rate slider
-// then changes monthly costs, not buying power), candidateCities() for the
-// same area, then rankCities() with the same commute limit and home-type
-// filter as the page, at the rate on screen. The page's globals are put back
-// afterwards, whatever happens. With no change it gives exactly the page's
-// own ranking (tests/worth_knowing_test.js checks that).
+// It is go()'s own calculation, through searchAgain() (main.js), which the
+// What-If scenarios use too: calcBP() on the changed figures, at the rate the
+// search used (go() always searches at the market rate; the rate slider then
+// changes monthly costs, not buying power), candidateCities() for the same
+// area, then rankCities() with the same commute limit and home-type filter as
+// the page, at the rate on screen. The page's globals are put back afterwards,
+// whatever happens. With no change it gives exactly the page's own ranking
+// (tests/worth_knowing_test.js checks that).
 // Returns { calc, ranking, total, dn }.
 function wkRun(base, change) {
   const c = change || {};
   const extraIncome = c.extraIncome || 0, extraDown = c.extraDown || 0;
   const total = base.total + extraIncome, dn = base.dn + extraDown;
   const limit = Object.prototype.hasOwnProperty.call(c, 'maxCommute') ? c.maxCommute : base.limit;
-  const saved = { grossMonthlyIncome, netMonthlyIncome, dn_selected, existingDebt, buyPower, comfortBuyPower, customMortgageRate, partnerIncomeShare };
-  try {
-    grossMonthlyIncome = total / 12;
-    if (extraIncome) {
-      const toPartner = wkEarnTo(base) === 'partner';
-      const partner = base.partner + (toPartner ? extraIncome : 0);
+  let net = netMonthlyIncome;
+  if (extraIncome) {
+    // householdNetAnnual() on the new split, as go() computes it.
+    const savedShare = partnerIncomeShare;
+    try {
+      const partner = base.partner + (wkEarnTo(base) === 'partner' ? extraIncome : 0);
       partnerIncomeShare = total > 0 ? partner / total : 0;
-      netMonthlyIncome = householdNetAnnual(total) / 12;
-    }
-    dn_selected = dn; existingDebt = base.dbt;
-    customMortgageRate = base.rate;
-    const calc = calcBP(total, dn, base.dbt);
-    customMortgageRate = saved.customMortgageRate;
-    buyPower = calc.bp; comfortBuyPower = calc.comfortBP;
-    const ranking = rankCities(candidateCities(base.area, calc.bp), { sort: 'home', maxCommute: limit, onlyType: base.onlyType });
-    return { calc, ranking, total, dn };
-  } finally {
-    ({ grossMonthlyIncome, netMonthlyIncome, dn_selected, existingDebt, buyPower, comfortBuyPower, customMortgageRate, partnerIncomeShare } = saved);
+      net = householdNetAnnual(total) / 12;
+    } finally { partnerIncomeShare = savedShare; }
   }
+  const r = searchAgain({ total, dn, dbt: base.dbt, area: base.area, rate: base.rate, net, wa: workArrangement, zone: workZone,
+    limit, onlyType: base.onlyType, sorts: ['home'] });
+  return { calc: r.calc, ranking: r.rankings.home, total, dn };
 }
 
 // ── Wording ────────────────────────────────────────────────────────────────
