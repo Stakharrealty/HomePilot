@@ -1114,7 +1114,7 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
   const answerPlaces15 = new Set(a15.map((a) => a.city));
   const morePlaces15 = new Set(restHome.map((e) => e.n).filter((n) => !answerPlaces15.has(n))).size;
   check("(15h) 'See all places' is closed after a search: the button says how many more places, nothing of it is drawn",
-    visible(byId("seeAllBtn")) && textOf(byId("seeAllBtn")) === `See all places (${morePlaces15} more)` && byId("seeAllBtn").getAttribute("aria-expanded") === "false"
+    visible(byId("seeAllBtn")) && textOf(byId("seeAllBtn")) === `Show All Cities (${morePlaces15} more)` && byId("seeAllBtn").getAttribute("aria-expanded") === "false"
       && !visible(byId("seeAllBody")) && d.querySelectorAll("#list .city, #listMore .city").length === 0 && restHome.length > 0 && win.eval("seeAllOpen") === false,
     textOf(byId("seeAllBtn")) + " / " + morePlaces15);
   check("(15i) ...and the page counts every place: 'N cities' is all the places, the answers' included", Number((/(\d+)\s+cities/.exec(byId("cnt").textContent) || [])[1]) === home15.length);
@@ -1406,8 +1406,8 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
   }
   const nMore = stretch60.length - 3;
   check("(16l) 'See all places' is closed, with the other stretch-only places behind it",
-    visible(byId("seeAllBtn")) && textOf(byId("seeAllBtn")) === `See all places (${nMore} more)` && !visible(byId("seeAllBody"))
-      && textOf(byId("rankNotes")).includes(`${stretch60.length} cities work only as a stretch — the closest 3 are below, the rest under "See all places".`),
+    visible(byId("seeAllBtn")) && textOf(byId("seeAllBtn")) === `Show All Cities (${nMore} more)` && !visible(byId("seeAllBody"))
+      && textOf(byId("rankNotes")).includes(`${stretch60.length} cities work only as a stretch — the closest 3 are below, the rest under "Show All Cities".`),
     textOf(byId("seeAllBtn")) + " / " + textOf(byId("rankNotes")));
   byId("seeAllBtn").click();
   const rest60 = [...d.querySelectorAll("#listMore .city")].map(readCard);

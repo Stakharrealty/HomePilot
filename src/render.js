@@ -154,9 +154,9 @@ function render(){
   if(notesEl){
     const notes=[];
     const cityWord=(k)=>k===1?'city works':'cities work';
-    if(stretchOnly.length&&!noAnswers) notes.push(stretchOnly.length+' more '+cityWord(stretchOnly.length)+' only as a stretch — listed under "See all places", after the others.');
+    if(stretchOnly.length&&!noAnswers) notes.push(stretchOnly.length+' more '+cityWord(stretchOnly.length)+' only as a stretch — listed under "Show All Cities", after the others.');
     // The empty page: the closest of them are the cards below.
-    else if(stretchOnly.length) notes.push(stretchOnly.length+' '+cityWord(stretchOnly.length)+' only as a stretch — '+(stretchOnly.length>closest.length?'the closest '+closest.length+' are below, the rest under "See all places".':(stretchOnly.length===1?'it is':'all are')+' below.'));
+    else if(stretchOnly.length) notes.push(stretchOnly.length+' '+cityWord(stretchOnly.length)+' only as a stretch — '+(stretchOnly.length>closest.length?'the closest '+closest.length+' are below, the rest under "Show All Cities".':(stretchOnly.length===1?'it is':'all are')+' below.'));
     if(byHome.limit!==null&&overCommute.length) notes.push(overCommute.length+' '+(overCommute.length===1?'city':'cities')+' hidden — estimated drive over '+byHome.limit+' min'+(overComfortable?' ('+overComfortable+' with '+typeWord+' that fits your HomePilot comfort range)':'')+'. <button type="button" class="link-btn" onclick="toggleOverCommute()">'+(showOverCommute?'Hide them':'Show them')+'</button>');
     if((workArrangement==='hybrid'||workArrangement==='daily')&&!workZone) notes.push("We couldn't place your work location, so commute isn't used below. Check the work city or postal code.");
     notesEl.innerHTML=notes.map(x=>'<div class="rank-note">'+x+'</div>').join('');
@@ -252,7 +252,7 @@ function renderSeeAll(){
   const btn=document.getElementById('seeAllBtn');
   if(btn){
     btn.style.display=hasMore?'':'none';
-    btn.textContent=open?'Hide the other places':'See all places'+(moreCount?' ('+moreCount+' more)':'');
+    btn.textContent=open?'Hide the other places':'Show All Cities'+(moreCount?' ('+moreCount+' more)':'');
     btn.setAttribute('aria-expanded',String(open));
   }
   const body=document.getElementById('seeAllBody');

@@ -360,7 +360,7 @@ async function measureDesktopInPage(b) {
       check("the search ran and the results show", m.ok && !m.error && m.viewport[0] === PHONE.width && m.viewport[1] === PHONE.height, m.error || JSON.stringify(m.viewport));
       check("the results are at most " + MAX_SCREENS + " phone screens, about three", screens <= MAX_SCREENS, screens.toFixed(2) + " screens");
       check("before 'See all places' is opened, only the answer cards are drawn (at most three), none under 'See all places'",
-        m.seeAllClosed && m.underSeeAll === 0 && m.answerCards >= 1 && m.answerCards <= 3 && m.cardsDrawn === m.answerCards && /^See all places/.test(m.seeAllButton),
+        m.seeAllClosed && m.underSeeAll === 0 && m.answerCards >= 1 && m.answerCards <= 3 && m.cardsDrawn === m.answerCards && /^Show All Cities/.test(m.seeAllButton),
         JSON.stringify({ closed: m.seeAllClosed, underSeeAll: m.underSeeAll, answers: m.answerCards, drawn: m.cardsDrawn, button: m.seeAllButton }));
       if (b.emptyPage) check("...on the 'you're close' page they are the three closest options", m.closest === 3 && m.closest === m.answerCards, m.closest);
       check("the answer cards are stacked at full width, as today's phone cards", m.stacked && m.cardWidths.every((w) => Math.abs(w - m.answersWidth) <= 1),
