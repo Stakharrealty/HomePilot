@@ -163,11 +163,6 @@ function render(){
     notesEl.style.display=notes.length?'':'none';
   }
 
-  // #topPicks used to hold renderAnglePicks()'s "Outside Your Comfort Range"
-  // box; the stretch section replaces it.
-  const tpEl=document.getElementById('topPicks');
-  if(tpEl) tpEl.innerHTML='';
-
   // The answer cards: cityCardHtml() exactly as every other card, under the
   // label of the question (or questions) it answers. On the empty page, the
   // closest options instead: today's stretch card (the one "Only as a

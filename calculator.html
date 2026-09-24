@@ -489,17 +489,6 @@ select{
   opacity:0.8;margin-bottom:6px;font-weight:700;
 }
 .bp-val{font-size:32px;font-weight:800;margin-bottom:4px;letter-spacing:-0.5px}
-.bp-row{display:flex;gap:12px;margin-top:12px}
-.bp-stat{
-  flex:1;
-  background:rgba(255,255,255,0.15);
-  backdrop-filter:blur(4px);
-  border-radius:var(--radius-sm);
-  padding:12px 14px;
-  border:1px solid rgba(255,255,255,0.1);
-}
-.bp-stat-lbl{font-size:10px;text-transform:uppercase;letter-spacing:0.07em;opacity:0.75;margin-bottom:5px;font-weight:700}
-.bp-stat-val{font-size:18px;font-weight:800;letter-spacing:-0.2px}
 /* The top section (2026-09-24, IMPROVEMENT_PLAN.md 2.2): one number, the
    HomePilot comfort range, then one small line each. Built from what the box
    already used: the white-on-green text at 80-90%, the translucent white inner
@@ -1508,8 +1497,9 @@ body.cmp-bar-open #waWrap{bottom:80px!important}
       </div>
     </div>
     <!-- The sort switch that stood here went into "See all places" below (2026-09-24,
-         IMPROVEMENT_PLAN.md 2.2): the three answer cards answer the three orders instead. -->
-    <div id="topPicks"></div>
+         IMPROVEMENT_PLAN.md 2.2): the three answer cards answer the three orders instead.
+         The empty #topPicks box that stood here too, cleared on every search and never
+         filled, is gone. -->
 
     <div id="printReport"></div>
 
