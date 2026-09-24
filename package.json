@@ -15,6 +15,7 @@
     "test:listing-seal-removed": "node tests/listing_verified_seal_removed_test.js",
     "test:footer-contact": "node tests/footer_contact_section_test.js",
     "test:results-outcomes": "node --no-warnings tests/results_outcomes_test.js",
+    "test:consent-gate": "node tests/consent_gate_test.js",
     "test:homepage-claims": "node --no-warnings tests/homepage_claims_test.js",
     "test:english-only": "node --no-warnings tests/english_only_test.js",
     "test:phone-fixes": "node --no-warnings tests/phone_fixes_test.js",

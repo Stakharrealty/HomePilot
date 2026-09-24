@@ -81,6 +81,13 @@ jobs:
       - name: Results outcome tests
         run: npm run test:results-outcomes
 
+      # The consent pop-up before any result (src/consent.js): the button goes
+      # through it, the agreement is version-stamped so changed legal copy asks
+      # again, and it stays closed while "Work arrangement" or "First-time
+      # buyer" is unanswered (IMPROVEMENT_PLAN.md 2.5). Reads the files; no server.
+      - name: Consent gate test
+        run: npm run test:consent-gate
+
       # The homepage says nothing the product does not back up, and its
       # example is the engine's real output (IMPROVEMENT_PLAN.md 1.3).
       - name: Homepage claims test
