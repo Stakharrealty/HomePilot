@@ -303,18 +303,19 @@ function amortizationNote(isFirstTimeBuyer) {
 // can run the same search again with one answer changed.
 let lastSearch = null, takeHomeEditOpen = false;
 
-// The bank's figure and the HomePilot comfort range are both rounded to the
-// nearest $10,000, so within $10,000 they are the same figure.
-const SAME_FIGURE_WITHIN = 10000;
-
-// The one small line under the number. When the down payment is what caps
-// the buyer and the bank's figure is the same, that is the news; otherwise it
-// names the bank's figure, once.
+// The one small line under the number, in one of the two wordings the user
+// decided. "Your savings are the limit, not your income. A bank would lend the
+// same." only when both halves are true of the figures on screen: the down
+// payment caps the bank's figure (calcBP()'s downPaymentLimited) and the bank's
+// figure IS the HomePilot comfort range, so savings cap that too. Otherwise
+// the bank's figure, once.
+// Until 2026-09-24 a $10,000 gap counted as "the same" ($290,000 against a
+// bank's $300,000 for $80K and $15K down read "A bank would lend the same",
+// while income, not savings, capped the $290,000), and a third wording, "A
+// bank would lend about the same.", stood in when the figures matched without
+// savings being the limit.
 function comfortBankLine(calc){
-  const gap = calc.bp - calc.comfortBP;
-  if(calc.downPaymentLimited && gap <= SAME_FIGURE_WITHIN) return 'Your savings are the limit, not your income. A bank would lend the same.';
-  // Heavy debt can hold both figures down to the down payment alone.
-  if(gap <= 0) return 'A bank would lend about the same.';
+  if(calc.downPaymentLimited && calc.bp === calc.comfortBP) return 'Your savings are the limit, not your income. A bank would lend the same.';
   return 'A bank might lend up to ' + fc(calc.bp) + ', but above your HomePilot comfort range is stretch territory.';
 }
 

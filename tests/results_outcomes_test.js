@@ -896,6 +896,26 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
   check("(14m) savings cap the bank but the HomePilot comfort range sits well under it: the bank line, not the savings line",
     capped.downPaymentLimited && capped.bp - capped.comfortBP > 10000
       && textOf(byId("bpBankLine")) === `A bank might lend up to ${fcw(capped.bp)}, but above your HomePilot comfort range is stretch territory.`, JSON.stringify(capped));
+  // A $10,000 gap is not "the same": the bank lends more, and income, not
+  // savings, caps the HomePilot comfort range (it read "Your savings are the
+  // limit... A bank would lend the same." until 2026-09-24).
+  search(win, { income: 80000, down: 15000, debt: 0, family: 3, firstTime: true, work: "daily" });
+  const gap10 = win.eval("lastSearch.calc");
+  check("(14m2) $80K, $15K down: HomePilot comfort range $10,000 under the bank's figure, so the line names the bank's figure",
+    gap10.downPaymentLimited && gap10.bp - gap10.comfortBP === 10000
+      && textOf(byId("bpBankLine")) === `A bank might lend up to ${fcw(gap10.bp)}, but above your HomePilot comfort range is stretch territory.`, JSON.stringify(gap10) + " " + textOf(byId("bpBankLine")));
+  const bankSweep = win.eval(`(function(){ var bad = [], n = 0, same = 0, ftSaved = firstTimeBuyer;
+    [true, false].forEach(function(ft){ firstTimeBuyer = ft;
+      for (var inc = 20000; inc <= 320000; inc += 15000) [10000, 15000, 25000, 50000, 70000, 100000].forEach(function(dn){ [0, 500, 1500].forEach(function(dbt){
+        var c = calcBP(inc, dn, dbt), line = comfortBankLine(c); n++;
+        var savings = line === 'Your savings are the limit, not your income. A bank would lend the same.';
+        var bank = line === 'A bank might lend up to ' + fc(c.bp) + ', but above your HomePilot comfort range is stretch territory.';
+        if (savings) same++;
+        if (!(savings || bank) || (savings && !(c.bp === c.comfortBP && c.downPaymentLimited)) || (bank && c.bp === c.comfortBP && c.downPaymentLimited)) bad.push(inc + '/' + dn + '/' + dbt + ':' + line);
+      }); }); });
+    firstTimeBuyer = ftSaved; return { n: n, same: same, bad: bad.slice(0, 5) }; })()`);
+  check(`(14m3) over ${bankSweep.n} buyers the line is one of the two decided wordings, and says "the same" only when the two figures are the same and savings cap them (${bankSweep.same} such buyers)`,
+    bankSweep.bad.length === 0 && bankSweep.same > 0, JSON.stringify(bankSweep.bad));
 
   // Take-home: the buyer's own figure.
   search(win, TOP);
