@@ -6,8 +6,15 @@
 // rows no single buyer's numbers could produce, labelled "ranked for your
 // budget" when they were nobody's. It now runs the calculator's own ranking,
 // rankCities() in ranking.js, for one stated sample buyer (the label above the
-// panel says who), so it always shows exactly what the calculator would show
-// that buyer and cannot drift from the engine again.
+// panel says who), so its figures are the engine's and cannot drift from it
+// again.
+// What it shows (corrected 2026-09-24): the first four places of the
+// calculator's "most home" order for that buyer. Row 1 is the calculator's
+// "Most home" answer card; the calculator then shows its other two answers
+// (for the sample buyer the Lowest monthly cost answer is not among these
+// rows) and lists the rest under "See all places" in this order. It is not
+// the calculator's first screen card for card; whether it should be is in
+// the notes for the user.
 //
 // Loaded last on index.html, which already loads every engine script. It sets
 // the calculator's globals for the sample buyer, ranks, and puts every one of
