@@ -873,6 +873,12 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
       && /Based on 4\.19% mortgage rate · 30-year amortization \(first-time buyer\) · Stress tested at 6\.19%/.test(details)
       && /not a mortgage pre-approval\. Actual qualification depends on lender underwriting, credit, and full application details\./.test(details)
       && /not a pre-approval\. Tap any city below to see the full monthly cost breakdown\./.test(details), details.slice(0, 200));
+  // The big number is the HomePilot comfort range, deliberately under what a
+  // bank would lend, so the small print does not call it "what a lender might
+  // approve" (the sentence the old box used for buying power, the bank's
+  // figure, until 2026-09-24).
+  check("(14g2) ...and it never calls the HomePilot comfort range what a lender might approve: 'Both figures are estimates, not a pre-approval.'",
+    !/lender might approve/.test(details) && /Both figures are estimates, not a pre-approval\./.test(details), details.slice(0, 400));
   const bpSrc = win.eval("calcBP.toString()");
   check("(14h) ...and the ratios it names are calcBP()'s own (32% / 38% comfort, 39% / 44% bank)",
     /bestPrice\(0\.32, 0\.38\)/.test(bpSrc) && /bestPrice\(0\.39, 0\.44\)/.test(bpSrc) && /within 32% of your before-tax income, and those plus your other debt payments within 38%\. A bank goes up to 39% and 44%/.test(details));
