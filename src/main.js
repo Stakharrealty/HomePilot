@@ -15,7 +15,8 @@
 // maxCommuteMin, resultsSort, showOverCommute, shownCards),
 // checkRequiredChoices() / showFirstUnansweredChoice() (the two questions with
 // no pre-selected answer), setWorkArrangement(), setMaxCommute(),
-// setResultsSort(), toggleOverCommute(),
+// syncFormLines() / openFormField() / openWorkPostalIfSet() (the one-line
+// settings of the shorter form, 2.3a), setResultsSort(), toggleOverCommute(),
 // amortizationNote(), and go() — the main calculation orchestrator that runs
 // when the buyer submits the form.
 
@@ -54,11 +55,18 @@ let maxCommuteMin = null, maxCommuteTouched = false, resultsSort = 'home', showO
 //   lttRebateConfirmed -- the buyer ticked "neither I nor my spouse has ever
 //                         owned a home, anywhere in the world". Off until
 //                         they do, so no rebate is shown to someone who
-//                         owned a home abroad.
+//                         owned a home abroad. Since 2026-09-24 (2.3a D) the
+//                         box sits in the cash-to-close breakdown on the
+//                         results, not on the form (costPanelHtml(),
+//                         render.js).
 //   canadianResident   -- citizen or permanent resident. When false, the
 //                         non-resident speculation taxes apply, the rebates
 //                         don't, and the results say most non-Canadians
-//                         cannot buy yet.
+//                         cannot buy yet. Since 2026-09-24 (2.3a E) it is
+//                         the form's "I'm not a Canadian citizen or
+//                         permanent resident" box, ticked = false.
+// Neither travels in a shared link: the share service keeps seven fields
+// (scenario-share.js), so whoever opens one starts from these defaults.
 let lttRebateConfirmed = false, canadianResident = true;
 function buyerLttRebateApplies(){ return lttRebateApplies(firstTimeBuyer, lttRebateConfirmed, canadianResident); }
 
@@ -123,14 +131,18 @@ function setWorkArrangement(type) {
   } else {
     if(fields) fields.style.display = 'flex';
     if(hint) hint.textContent = 'Places past your longest commute are set aside, not ranked. Drive times are estimates.';
+    openWorkPostalIfSet();
   }
   workZone = null;
   if(results.length) render();
 }
 
+// Sets the commute-limit select, and the one line that stands for it, to
+// maxCommuteMin.
 function syncMaxCommuteSelect() {
   const sel = document.getElementById('maxCommute');
   if(sel) sel.value = maxCommuteMin ? String(maxCommuteMin) : 'none';
+  syncFormLines();
 }
 
 // The "Longest commute you'd accept (one way)" select. Takes effect on the
@@ -140,7 +152,56 @@ function setMaxCommute(value) {
   maxCommuteMin = MAX_COMMUTE_CHOICES.includes(n) ? n : null;
   maxCommuteTouched = true;
   showOverCommute = false;
+  syncFormLines();
   if(results.length) render();
+}
+
+// ── Shorter form (2026-09-24, IMPROVEMENT_PLAN.md 2.3a A, B, C) ──────────
+// The commute limit and the preferred area each start as one line ("Showing
+// places within 60 minutes · change", "All areas · change"), and the work
+// postal code as a link under the work city. Nothing was taken out: "change"
+// and "+ add postal code" open the same select or box as before, and go()
+// reads them exactly as it did.
+//
+// syncFormLines() writes what is in force into the two lines. It runs
+// whenever the limit or the area can change: setMaxCommute(),
+// syncMaxCommuteSelect() (the work-style default, go(), a shared link), the
+// area select's own change, and go().
+function commuteLimitLine(min){
+  return min ? 'Showing places within ' + min + ' minutes' : 'Showing places with no commute limit';
+}
+function syncFormLines(){
+  const cl = document.getElementById('maxCommuteLineText');
+  if(cl) cl.textContent = commuteLimitLine(maxCommuteMin);
+  const al = document.getElementById('areaLineText');
+  const area = document.getElementById('area');
+  if(al && area){
+    const opt = area.options && area.selectedIndex >= 0 ? area.options[area.selectedIndex] : null;
+    al.textContent = !area.value || area.value === 'all' ? 'All areas' : (opt ? opt.textContent : area.value);
+  }
+}
+// Swaps a one-line stand-in (lineId) for the field it stands for (fieldId)
+// and puts the cursor in it (controlId).
+function openFormField(lineId, fieldId, controlId){
+  const line = document.getElementById(lineId), field = document.getElementById(fieldId);
+  if(line) line.style.display = 'none';
+  if(field) field.style.display = 'block';
+  const control = document.getElementById(controlId);
+  if(control && typeof control.focus === 'function') control.focus();
+}
+// A postal code that is already there (a shared link, the browser restoring
+// the form, a test) is shown, never used unseen.
+function openWorkPostalIfSet(){
+  const postal = document.getElementById('workPostal');
+  if(!postal || !String(postal.value || '').trim()) return;
+  const field = document.getElementById('workPostalField'), add = document.getElementById('workPostalAdd');
+  if(field) field.style.display = 'block';
+  if(add) add.style.display = 'none';
+}
+// The browser can put back a typed postal code or a chosen area on reload or
+// Back without telling the page.
+if(typeof window !== 'undefined' && typeof window.addEventListener === 'function'){
+  window.addEventListener('pageshow', function(){ openWorkPostalIfSet(); syncFormLines(); });
 }
 
 // The sort switch above the results.
@@ -206,6 +267,10 @@ function go(){
   // -- applied here too, not only in setWorkArrangement(), because a shared
   // link or a restored form can set the work style without that call.
   if(!maxCommuteTouched) { maxCommuteMin = DEFAULT_MAX_COMMUTE[workArrangement] || null; syncMaxCommuteSelect(); }
+  // The one-line settings show what this search uses (2.3a): a postal code
+  // set without the buyer opening its box is shown, and the lines are current.
+  if(workArrangement === 'hybrid' || workArrangement === 'daily') openWorkPostalIfSet();
+  syncFormLines();
   const area=document.getElementById("area").value,fam=document.getElementById("fam").value;
   const t=T.en;
   // Validation hardened 2026-09-22 (audit). Previously: an income of exactly 1

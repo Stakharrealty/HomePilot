@@ -108,7 +108,11 @@ const firstMatch = (text) => { const m = NON_ENGLISH.exec(text); return m ? JSON
   cd.getElementById("inc").value = "130000";
   cd.getElementById("dwn").value = "70000";
   cd.getElementById("dbt").value = "450";
-  calc.win.eval("setFTB(true); setResident(true); setWorkArrangement('remote'); go()");
+  // Citizen or PR: the citizenship box left unticked (2.3a E).
+  const nrBox = cd.getElementById("nonResident");
+  nrBox.checked = false;
+  nrBox.dispatchEvent(new calc.win.Event("change"));
+  calc.win.eval("setFTB(true); setWorkArrangement('remote'); go()");
   const cards = [...cd.querySelectorAll("#list .city")];
   const fits = cards.map((c) => (c.querySelector(".fit-pill") || {}).textContent || "").map((s) => s.trim());
   check("calculator: a search shows ranked places", cards.length > 0, cards.length);

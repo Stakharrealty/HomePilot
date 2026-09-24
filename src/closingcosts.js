@@ -6,9 +6,10 @@
 // main inline script, same shared global scope as before.
 //
 // Contains: checkDebtSanity() (flags apparent total-loan-balance entry in the
-// debt field), setFTB() (first-time-buyer toggle), calcLTT() (land transfer
-// tax), calcClosingCosts() (LTT + legal fees + title insurance estimate),
-// toggleCC() (show/hide the closing costs panel).
+// debt field), setFTB() (first-time-buyer toggle), setLttRebateConfirmed() and
+// setResident() (the two answers the land transfer tax depends on), calcLTT()
+// (land transfer tax), calcClosingCosts() (LTT + legal fees + title insurance
+// estimate), toggleCC() (show/hide the closing costs panel).
 
 function checkDebtSanity(){
   // Buyers sometimes type a total loan balance (e.g. "15000" for a car loan) instead
@@ -38,12 +39,30 @@ function setFTB(val){
   // Answered: clear the "Please choose Yes or No" message (main.js, 2.5).
   if(val===true||val===false){const fe=document.getElementById('ftb_err');if(fe)fe.style.display='none';}
   // The land transfer tax rebate question only means anything for a
-  // first-time buyer (see lttRebateApplies below).
-  const row=document.getElementById('ltt_rebate_row');if(row)row.style.display=val?'flex':'none';
-  if(!val){lttRebateConfirmed=false;const cb=document.getElementById('lttRebate');if(cb)cb.checked=false;}
+  // first-time buyer (see lttRebateApplies below). Its box is in the
+  // cash-to-close breakdown on the results (2.3a D; costPanelHtml() in
+  // render.js), which offers it only to a first-time buyer.
+  if(!val)lttRebateConfirmed=false;
 }
-function setLttRebateConfirmed(val){ lttRebateConfirmed=val===true; }
-function setResident(val){ canadianResident=val===true; paintYesNo('res-yes','res-no',canadianResident); }
+// The "never owned a home anywhere in the world" box. Since 2026-09-24
+// (IMPROVEMENT_PLAN.md 2.3a D) it sits in the cash-to-close breakdown, so a
+// tick has to show at once: every breakdown that is open is drawn again with
+// the rebate in or out (refreshOpenCostPanels(), render.js). Nothing else on
+// the page uses the rebate; the listing pages read it when they are opened
+// (readLiveBuyerProfile(), buyer-profile.js).
+function setLttRebateConfirmed(val){
+  lttRebateConfirmed=val===true;
+  if(typeof refreshOpenCostPanels==='function')refreshOpenCostPanels();
+}
+// Citizen or permanent resident. Since 2026-09-24 (IMPROVEMENT_PLAN.md 2.3a
+// E) the form asks it as one box, "I'm not a Canadian citizen or permanent
+// resident": ticked means setResident(false), as the old "No" button did.
+// Like the other form answers, it takes effect on the next search.
+function setResident(val){
+  canadianResident=val===true;
+  const cb=document.getElementById('nonResident');if(cb)cb.checked=!canadianResident;
+  const hint=document.getElementById('nonResidentHint');if(hint)hint.style.display=canadianResident?'none':'block';
+}
 
 // ── WHO GETS WHAT (added 2026-09-23, IMPROVEMENT_PLAN.md 1.7) ─────────────
 // "First-time buyer" means two different things, and the app used one answer

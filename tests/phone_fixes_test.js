@@ -248,7 +248,10 @@ async function openPage(file, width) {
   d.getElementById("fam").value = "3";
   d.getElementById("area").value = "all";
   w.eval("setFTB(true)");
-  w.eval("setResident(true)");
+  // Citizen or PR: the citizenship box left unticked (2.3a E).
+  const nrBox = d.getElementById("nonResident");
+  nrBox.checked = false;
+  nrBox.dispatchEvent(new w.Event("change"));
   w.eval("setWorkArrangement('hybrid')");
   d.getElementById("workCity").value = "Toronto";
   w.eval("go()");

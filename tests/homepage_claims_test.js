@@ -149,7 +149,11 @@ const visible = indexHtml.replace(/<script[\s\S]*?<\/script>/g, " ").replace(/<s
   cd.getElementById("fam").value = String(buyer.family);
   cd.getElementById("area").value = "all";
   cwin.eval(`setFTB(${buyer.firstTimeBuyer === true})`);
-  cwin.eval("setResident(true)");
+  // Citizen or PR: the "I'm not a Canadian citizen or permanent resident" box
+  // left unticked (it replaced a Yes/No card, 2026-09-24, IMPROVEMENT_PLAN.md 2.3a E).
+  const nrBox = cd.getElementById("nonResident");
+  nrBox.checked = false;
+  nrBox.dispatchEvent(new cwin.Event("change"));
   cwin.eval(`setWorkArrangement(${JSON.stringify(buyer.work)})`);
   cd.getElementById("workCity").value = "Toronto";
   cd.getElementById("workPostal").value = "";

@@ -267,13 +267,53 @@ function selectPropType(cityId, tp, cityName) {
   if(selectedRow) selectedRow.style.background = '#F0FDF9';
   if(chevron) chevron.style.transform = 'rotate(90deg)';
 
+  const html = costPanelHtml(cityName, tp);
+  if(!html) return;
+  // Which breakdown this is, so refreshOpenCostPanels() can draw it again.
+  panel.dataset.city = cityName;
+  panel.dataset.type = tp;
+  panel.innerHTML = html;
+  panel.style.display = 'block';
+}
+
+// Draws every cost breakdown that is open again, in place, from the current
+// answers. Called when the buyer ticks the rebate box inside one
+// (setLttRebateConfirmed(), closingcosts.js): the rest of the page does not
+// use the rebate, so re-rendering the cards would only close the breakdown
+// the buyer is reading.
+function refreshOpenCostPanels() {
+  document.querySelectorAll('[id^="pt-panel-"]').forEach(panel => {
+    if(panel.style.display === 'none' || !panel.dataset || !panel.dataset.city) return;
+    const html = costPanelHtml(panel.dataset.city, panel.dataset.type);
+    if(html) panel.innerHTML = html;
+  });
+}
+
+// The rebate box's own change handler. The breakdown it sits in is drawn
+// again (the rebate line comes or goes above the box), so the page is
+// scrolled by however far the box moved, and the box keeps the focus: the
+// buyer stays where they were.
+function onLttRebateBox(box) {
+  const panel = box && box.closest ? box.closest('[id^="pt-panel-"]') : null;
+  const before = box && box.getBoundingClientRect ? box.getBoundingClientRect().top : null;
+  setLttRebateConfirmed(!!(box && box.checked));
+  const again = panel ? panel.querySelector('.ltt-rebate-box') : null;
+  if(!again) return;
+  const shift = before === null ? 0 : again.getBoundingClientRect().top - before;
+  if(shift && typeof window.scrollBy === 'function') window.scrollBy(0, shift);
+  if(typeof again.focus === 'function') again.focus({ preventScroll: true });
+}
+
+// The breakdown under one home type: monthly cost, financial impact and cash
+// to close. Returns '' when the city or its price for that type is unknown.
+function costPanelHtml(cityName, tp) {
   // Find city object
   const cityObj = window._allMarkets && window._allMarkets.find(m => m.n === cityName);
-  if(!cityObj) return;
+  if(!cityObj) return '';
 
   const pt    = PT[cityName] || {};
   const price = pt[tp];
-  if(!price) return;
+  if(!price) return '';
 
   const c     = calcCosts(cityObj, price, fam_selected, dn_selected, tp);
   const net   = (netMonthlyIncome || grossMonthlyIncome * 0.72) || 1; // guard: never zero
@@ -346,6 +386,17 @@ function selectPropType(cityId, tp, cityName) {
   html += row('Provincial Land Transfer Tax', fc(cc.ltt.provNet));
   if(cc.isToronto) html += row('Toronto Land Transfer Tax', fc(cc.ltt.muniNet));
   if(cc.ltt.totalRebate > 0) html += row('First-Time Buyer Rebate', '-' + fc(cc.ltt.totalRebate), '#1D9E75');
+  // The rebate's own question, next to it (2026-09-24, IMPROVEMENT_PLAN.md
+  // 2.3a D; it was a box on the form). Offered to a first-time buyer, as on
+  // the form, and not to a buyer who said they are not a citizen or PR: the
+  // rebates never apply to them (lttRebateApplies(), closingcosts.js), so the
+  // box could not change anything. Unticked until the buyer ticks it.
+  if(firstTimeBuyer === true && canadianResident !== false) {
+    html += '<label class="ltt-rebate-row" onclick="event.stopPropagation()" style="display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px solid #f5f5f5;font-size:12px;color:#666;line-height:1.45;cursor:pointer">' +
+      '<input type="checkbox" class="ltt-rebate-box" onchange="onLttRebateBox(this)"' + (lttRebateConfirmed ? ' checked' : '') + ' style="margin-top:1px;flex-shrink:0">' +
+      '<span>Neither I nor my spouse has ever owned a home, anywhere in the world (including outside Canada)</span>' +
+    '</label>';
+  }
   if(cc.nrst > 0) html += row('Ontario Non-Resident Speculation Tax (25%)', fc(cc.nrst), '#C05A00');
   if(cc.mnrst > 0) html += row('Toronto Non-Resident Speculation Tax (10%)', fc(cc.mnrst), '#C05A00');
   html += row('Legal Fees', '~' + fc(cc.legal));
@@ -355,7 +406,7 @@ function selectPropType(cityId, tp, cityName) {
   html += row('Adjustments', '~' + fc(cc.adjustments));
   html += totalRow('Estimated Cash Required to Close', '~' + fc(cashToClose), '#1a1a1a');
   if(firstTimeBuyer && canadianResident !== false && !buyerLttRebateApplies()) {
-    html += '<div class="ltt-rebate-note" style="font-size:11px;color:#6B5A1E;background:#FBF6E6;border-radius:8px;padding:8px 10px;margin-top:8px;line-height:1.5">First-time buyer land transfer tax rebate not included. It applies only if neither you nor your spouse has ever owned a home anywhere in the world, and you are a Canadian citizen or permanent resident. Tick the box under the first-time buyer question if that is you.</div>';
+    html += '<div class="ltt-rebate-note" style="font-size:11px;color:#6B5A1E;background:#FBF6E6;border-radius:8px;padding:8px 10px;margin-top:8px;line-height:1.5">First-time buyer land transfer tax rebate not included. It applies only if neither you nor your spouse has ever owned a home anywhere in the world, and you are a Canadian citizen or permanent resident. Tick the box under the land transfer tax above if that is you.</div>';
   }
 
 
@@ -368,6 +419,5 @@ function selectPropType(cityId, tp, cityName) {
 
   html += '</div>';
 
-  panel.innerHTML = html;
-  panel.style.display = 'block';
+  return html;
 }

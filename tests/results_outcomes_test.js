@@ -23,6 +23,10 @@
 //      switch, no Ottawa for a Toronto worker.
 //  12. No pre-filled answers: "Work arrangement" and "First-time buyer" start
 //      unanswered, and no results appear until both are chosen.
+//  13. The shorter form (IMPROVEMENT_PLAN.md 2.3a): the income and debt
+//      wording, the commute limit, preferred area and work postal code as one
+//      line each, the "never owned a home" box in the cash-to-close breakdown,
+//      and citizenship as one small box. Every setting still works.
 //
 // Requires: a local static server on :8843 (npx http-server -p 8843 -s).
 // Run: node --no-warnings tests/results_outcomes_test.js
@@ -62,9 +66,13 @@ function search(win, b) {
   d.getElementById("area").value = "all";
   win.eval(`setFTB(${b.firstTime === true})`);
   // 2026-09-23 (IMPROVEMENT_PLAN.md 1.7): the rebate box and residency.
-  const box = d.getElementById("lttRebate");
-  if (box) { box.checked = b.neverOwnedAnywhere === true; win.eval(`setLttRebateConfirmed(${b.neverOwnedAnywhere === true})`); }
-  win.eval(`setResident(${b.resident !== false})`);
+  // Since 2026-09-24 (2.3a D) the rebate box is in the cash-to-close
+  // breakdown on the results, so the answer is set the way that box sets it;
+  // section 13 ticks the box itself. Citizenship is the form's one box (2.3a E).
+  win.eval(`setLttRebateConfirmed(${b.neverOwnedAnywhere === true})`);
+  const nonRes = d.getElementById("nonResident");
+  nonRes.checked = b.resident === false;
+  nonRes.dispatchEvent(new win.Event("change"));
   win.eval(`setWorkArrangement(${JSON.stringify(b.work)})`);
   if (b.work !== "remote") {
     d.getElementById("workCity").value = b.workCity || "Toronto";
@@ -261,7 +269,7 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
   search(win, { ...COUPLE, work: "remote" });
   check("(7k) remote: no 'Shortest commute' sort, no commute limit", win.document.getElementById("sort-commute").style.display === "none" && win.eval("maxCommuteMin") === null);
   check("(7l) the property list uses the one fit function: no '<35 / <=45' leftovers in the page code",
-    !/pct<35\)\{fitLbl='Great Fit'/.test(win.eval("render.toString()+selectPropType.toString()")));
+    !/pct<35\)\{fitLbl='Great Fit'/.test(win.eval("render.toString()+selectPropType.toString()+costPanelHtml.toString()")));
 
   // =============== 9. newcomers: the rebate and non-resident taxes (1.7) ===============
   // Opens one Toronto city's cost breakdown the way a buyer taps it.
@@ -273,10 +281,15 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
   };
   const cash = (text) => Number((/Estimated Cash Required to Close~\$([\d,]+)/.exec(text) || [])[1].replace(/,/g, ""));
   const TOR = { income: 200000, down: 150000, debt: 0, family: 3, work: "remote" };
+  const torId = "c-Toronto---Scarborough";
+  const torPanel = (type) => win.document.getElementById("pt-panel-" + torId + "-" + type);
   search(win, { ...TOR, firstTime: true, neverOwnedAnywhere: false });
-  check("(9a) the rebate box appears only for a first-time buyer, unticked", win.document.getElementById("ltt_rebate_row").style.display === "flex" && !win.document.getElementById("lttRebate").checked);
   const torType = win.eval("PT['Toronto - Scarborough'].condo") ? "condo" : "town";
   const newcomer = breakdown("Toronto - Scarborough", torType);
+  // 2.3a D: the box is in the cash-to-close breakdown now, not on the form.
+  const rebateBoxes = torPanel(torType).querySelectorAll(".ltt-rebate-box");
+  check("(9a) a first-time buyer's cash-to-close breakdown offers the rebate box, unticked",
+    rebateBoxes.length === 1 && !rebateBoxes[0].checked && /ever owned a home, anywhere in the world/.test(newcomer), newcomer.slice(-500));
   check("(9b) first-time buyer who hasn't confirmed never owning a home anywhere: no rebate in cash to close, and the panel says why",
     !/First-Time Buyer Rebate/.test(newcomer) && /rebate not included/.test(newcomer), newcomer.slice(-400));
   search(win, { ...TOR, firstTime: true, neverOwnedAnywhere: true });
@@ -295,8 +308,12 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
   win.eval("saveBuyerProfile()");
   const saved = JSON.parse(win.sessionStorage.getItem("hp_buyer_profile_v1"));
   check("(9f) the listing pages get the same answers (no rebate, non-resident)", saved.lttRebateEligible === false && saved.canadianResident === false);
+  check("(9f2) a non-resident is not offered the rebate box, which could not change anything", nonRes.length > 0 && torPanel(torType).querySelectorAll(".ltt-rebate-box").length === 0);
   search(win, { ...TOR, firstTime: false });
-  check("(9g) not a first-time buyer: the rebate box is hidden and unticked", win.document.getElementById("ltt_rebate_row").style.display === "none" && win.eval("lttRebateConfirmed") === false);
+  const repeat = breakdown("Toronto - Scarborough", torType);
+  check("(9g) not a first-time buyer: no rebate box in the breakdown, and no rebate",
+    /Estimated Cash Required to Close/.test(repeat) && torPanel(torType).querySelectorAll(".ltt-rebate-box").length === 0
+      && !/First-Time Buyer Rebate|ever owned a home/.test(repeat) && win.eval("lttRebateConfirmed") === false, repeat.slice(-300));
 
   // =============== 10. "Lowest monthly cost" means the cheapest home ===============
   // Reported on the live site 2026-09-23: $234,243 income, $324,234 down,
@@ -450,6 +467,210 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
     sw.eval("firstTimeBuyer") === null && sd.getElementById("ftb_err").style.display === "block" && sd.getElementById("wa_err").style.display !== "block"
       && sw.eval("results.length") === 0 && sd.getElementById("consentModalOverlay").style.display !== "flex");
   check("(12r) no script errors on either fresh page", fresh.errors.length === 0 && shared.errors.length === 0, [...fresh.errors, ...shared.errors].join(" | "));
+
+  // =============== 13. the shorter form (IMPROVEMENT_PLAN.md 2.3a) ===============
+  // Nothing was removed: every setting that left the form still works, from a
+  // one-line stand-in, from the results, or as a small box.
+  const sf = await openCalculator();
+  const s = sf.win, sd2 = s.document;
+  // jsdom does no layout. The form hides and shows its parts with inline
+  // display:none, so "visible" is: no display:none on the element or above it.
+  const visible = (el) => { for (let e = el; e && e.nodeType === 1; e = e.parentElement) { if (e.hidden || e.style.display === "none") return false; } return !!el; };
+  const textOf = (el) => (el ? el.textContent : "").replace(/\s+/g, " ").trim();
+  const labelFor = (id) => sd2.querySelector(`label[for="${id}"]`);
+  const form = sd2.getElementById("calculatorSection");
+
+  // L1-L3: wording.
+  const incCard = sd2.getElementById("inc").closest(".card");
+  check("(13a) L1: one heading, 'Household income (before tax)', with 'Your income' and 'Partner's income (optional)' under it",
+    textOf(incCard.querySelector(".lbl span")) === "Household income (before tax)" && textOf(labelFor("inc")) === "Your income"
+      && textOf(labelFor("inc2")) === "Partner's income (optional)" && incCard.contains(sd2.getElementById("inc2")) && !/\(before tax\) \(optional\)|Your income \(before tax\)/.test(textOf(incCard)),
+    textOf(incCard).slice(0, 200));
+  check("(13b) L2: the hint under income: yearly salary before tax, not what reaches the bank",
+    visible(sd2.getElementById("incHint")) && incCard.contains(sd2.getElementById("incHint"))
+      && textOf(sd2.getElementById("incHint")) === "Your yearly salary before tax, as on your job offer or T4, not what reaches your bank account.");
+  const dbtCard = sd2.getElementById("dbt").closest(".card");
+  check("(13c) L3: 'Household monthly debt payments', with the hint that it covers both people",
+    textOf(dbtCard.querySelector(".lbl span")) === "Household monthly debt payments" && visible(sd2.getElementById("dbtHint"))
+      && textOf(sd2.getElementById("dbtHint")) === "Car loans, credit cards, student loans, for both of you." && !/Existing monthly debt/.test(form.textContent));
+
+  // The count the plan names: a daily commuter who is a first-time buyer.
+  const wa13 = sd2.getElementById("waSelect");
+  wa13.value = "daily"; wa13.dispatchEvent(new s.Event("change"));
+  sd2.getElementById("ftb-yes").click();
+  const shownFields = [...form.querySelectorAll("input[type=number], input[type=text], select")].filter(visible).map((e) => e.id);
+  const shownYesNo = ["ftb-yes"].filter((id) => visible(sd2.getElementById(id))).length;
+  const shownBoxes = [...form.querySelectorAll("input[type=checkbox]")].filter(visible).map((e) => e.id);
+  const questions = shownFields.length + shownYesNo;
+  console.log(`  INFO - a daily commuter now sees ${questions} questions (${shownFields.join(", ")} + the first-time Yes/No), plus ${shownBoxes.length} small box (${shownBoxes.join(", ")}); it was 13`);
+  check("(13d) a daily commuter sees 8 questions, down from 13: two incomes, down payment, debt, work arrangement, work city, first-time buyer, family size",
+    questions === 8 && shownFields.join(",") === "inc,inc2,dwn,dbt,waSelect,workCity,fam", shownFields.join(",") + " + " + shownYesNo);
+  check("(13d2) ...plus the one small citizenship box near the bottom; no other box on the form", shownBoxes.join(",") === "nonResident", shownBoxes.join(","));
+
+  // A: the commute limit.
+  const mcLine = sd2.getElementById("maxCommuteLine"), mcSel = sd2.getElementById("maxCommute");
+  check("(13e) A: the commute limit is one line, 'Showing places within 60 minutes · change', with the drop-down closed",
+    visible(mcLine) && textOf(mcLine) === "Showing places within 60 minutes · change" && !visible(mcSel) && s.eval("maxCommuteMin") === 60, textOf(mcLine));
+  mcLine.querySelector("button").click();
+  check("(13f) 'change' opens the same drop-down, every choice still there, showing 60, with the cursor in it",
+    visible(mcSel) && !visible(mcLine) && [...mcSel.options].map((o) => o.value).join(",") === "30,45,60,75,90,none" && mcSel.value === "60" && sd2.activeElement === mcSel);
+  mcSel.value = "none"; mcSel.dispatchEvent(new s.Event("change"));
+  check("(13g) picking 'No limit' there takes effect, and the line records it", s.eval("maxCommuteMin") === null && s.eval("maxCommuteTouched") === true
+    && textOf(sd2.getElementById("maxCommuteLineText")) === "Showing places with no commute limit");
+
+  // B: the preferred area.
+  const areaLine = sd2.getElementById("areaLine"), areaSel = sd2.getElementById("area");
+  check("(13h) B: the preferred area is one line, 'All areas · change', with the drop-down closed",
+    visible(areaLine) && textOf(areaLine) === "All areas · change" && !visible(areaSel) && areaSel.value === "all", textOf(areaLine));
+  areaLine.querySelector("button").click();
+  check("(13i) 'change' opens the same drop-down, all nine areas, with the cursor in it",
+    visible(areaSel) && !visible(areaLine) && areaSel.options.length === 9 && sd2.activeElement === areaSel && visible(sd2.getElementById("area-tooltip").parentElement));
+  areaSel.value = "gta"; areaSel.dispatchEvent(new s.Event("change"));
+  check("(13j) ...and the line follows the choice", textOf(sd2.getElementById("areaLineText")) === "City of Toronto + Peel");
+
+  // C: the work postal code.
+  const postalAdd = sd2.getElementById("workPostalAdd"), postal = sd2.getElementById("workPostal");
+  check("(13k) C: the postal code is a link under work city, '+ add postal code for a more accurate commute', with its box closed",
+    visible(postalAdd) && textOf(postalAdd) === "+ add postal code for a more accurate commute" && !visible(postal)
+      && sd2.getElementById("workCity").parentElement.contains(postalAdd) && (sd2.getElementById("workCity").compareDocumentPosition(postalAdd) & 4) !== 0);
+  postalAdd.click();
+  check("(13l) the link opens the same postal box, with the cursor in it", visible(postal) && !visible(postalAdd) && sd2.activeElement === postal);
+
+  // All three, used by a real search: no limit, Toronto + Peel only, and the
+  // postal code's area rather than the work city's.
+  sd2.getElementById("inc").value = "150000";
+  sd2.getElementById("dwn").value = "120000";
+  sd2.getElementById("workCity").value = "Toronto";
+  postal.value = "L4W 5L5";
+  s.eval("go()");
+  const areaCards = [...sd2.querySelectorAll("#list .city, #listMore .city")];
+  check("(13m) a search uses all three: the postal code's work area, only Toronto + Peel, and no commute limit",
+    s.eval("workZone") === s.eval("FSA_TO_WORK_ZONE['L4W']") && s.eval("workZone") !== s.eval("CITY_TO_WORK_ZONE['toronto']")
+      && s.eval("results.length") > 0 && s.eval("results.every(function(r){ return r.r === 'gta'; })") && areaCards.length > 0
+      && !/hidden — estimated drive/.test(sd2.getElementById("rankNotes").textContent),
+    s.eval("workZone") + " / " + s.eval("results.map(function(r){ return r.n + ':' + r.r; }).join(',')"));
+
+  // A second page: the lines say what is in force without being opened.
+  const lf = await openCalculator();
+  const l = lf.win, ld = l.document;
+  const lLine = ld.getElementById("maxCommuteLine");
+  l.eval("setWorkArrangement('remote')");
+  check("(13n) a remote worker gets no commute line (as the drop-down before it), but does get the area line",
+    !visible(lLine) && !visible(ld.getElementById("workPostalAdd")) && visible(ld.getElementById("areaLine")));
+  l.eval("setWorkArrangement('hybrid')");
+  check("(13o) hybrid: the line shows, at the 60-minute default", visible(lLine) && textOf(lLine) === "Showing places within 60 minutes · change");
+  l.eval("setMaxCommute('45')");
+  const at45 = textOf(ld.getElementById("maxCommuteLineText"));
+  l.eval("setMaxCommute('none')");
+  check("(13p) ...and it keeps up with the limit however it is set: 45 minutes, then no limit",
+    at45 === "Showing places within 45 minutes" && textOf(ld.getElementById("maxCommuteLineText")) === "Showing places with no commute limit" && !visible(ld.getElementById("maxCommute")), at45);
+  ld.getElementById("area").value = "niag";
+  l.eval("syncFormLines()");
+  check("(13q) the area line names the area in force", textOf(ld.getElementById("areaLineText")) === "Niagara / Hamilton");
+  ld.getElementById("workPostal").value = "M5V 2T6";
+  l.eval("setWorkArrangement('daily')");
+  check("(13r) a postal code already filled in is shown open, never used unseen", visible(ld.getElementById("workPostal")) && !visible(ld.getElementById("workPostalAdd")));
+
+  // A shared link that carries a postal code opens with the box open, and
+  // with the citizenship and rebate answers at their defaults (the share
+  // service keeps seven fields; neither is one of them).
+  const sh2 = await openCalculator();
+  const sw2 = sh2.win, sd3 = sw2.document;
+  try { sw2.localStorage.removeItem("hp_consent"); } catch (e) { /* as above */ }
+  sw2.fetch = async () => ({ ok: true, json: async () => ({ inc: 150000, dn: 120000, dbt: 0, fam: "3", wa: "daily", wp: "L4W 5L5" }) });
+  sw2.history.replaceState(null, "", "?s=test-link-2");
+  await sw2.eval("loadScenarioFromURL()");
+  await new Promise((r) => setTimeout(r, 300));
+  check("(13s) a shared link with a postal code shows its box open, filled in",
+    visible(sd3.getElementById("workPostal")) && sd3.getElementById("workPostal").value === "L4W 5L5" && !visible(sd3.getElementById("workPostalAdd")));
+  check("(13t) ...and starts as a citizen or PR with no rebate, the defaults", sw2.eval("canadianResident") === true && !sd3.getElementById("nonResident").checked && sw2.eval("lttRebateConfirmed") === false);
+
+  // E: citizenship.
+  const nrBox = sd2.getElementById("nonResident");
+  const famCard = sd2.getElementById("fam").closest(".card");
+  check("(13u) E: the Yes/No citizenship card is gone", !sd2.getElementById("residencyCard") && !sd2.getElementById("res-yes") && !sd2.getElementById("res-no") && !/Are you a Canadian citizen/.test(form.textContent));
+  check("(13v) ...replaced by one small box near the bottom, after family size and before the button, unticked",
+    !!nrBox && nrBox.type === "checkbox" && !nrBox.checked && textOf(nrBox.closest("label")) === "I'm not a Canadian citizen or permanent resident"
+      && (famCard.compareDocumentPosition(nrBox) & 4) !== 0 && (nrBox.compareDocumentPosition(sd2.getElementById("goBtn")) & 4) !== 0
+      && s.eval("canadianResident") === true && nrBox.getAttribute("autocomplete") === "off");
+  nrBox.click();
+  s.eval("go()");
+  const firstCard = sd2.querySelector("#list .city, #listMore .city");
+  const firstRow = firstCard ? firstCard.querySelector("[id^='pt-row-']:not([id$='-chevron'])") : null;
+  if (firstRow) firstRow.click();
+  const nrPanel = firstCard ? [...firstCard.querySelectorAll("[id^='pt-panel-']")].find((p) => p.style.display === "block") : null;
+  check("(13w) ticked is today's 'No': non-resident taxes in cash to close and the federal-ban note",
+    s.eval("canadianResident") === false && visible(sd2.getElementById("nonResidentHint")) && /January 1, 2027/.test(sd2.getElementById("bpSub").textContent)
+      && !!nrPanel && /Ontario Non-Resident Speculation Tax \(25%\)/.test(nrPanel.textContent) && !nrPanel.querySelector(".ltt-rebate-box"));
+  nrBox.click();
+  s.eval("go()");
+  check("(13x) unticked is today's 'Yes': no note, no non-resident tax", s.eval("canadianResident") === true && !visible(sd2.getElementById("nonResidentHint"))
+    && !/January 1, 2027/.test(sd2.getElementById("bpSub").textContent));
+
+  // D: the rebate box, in the cash-to-close breakdown.
+  check("(13y) D: the 'never owned a home anywhere' box has left the form", !sd2.getElementById("lttRebate") && !sd2.getElementById("ltt_rebate_row") && !/ever owned a home/.test(form.textContent));
+  const rebateOf = (t) => Number((/First-Time Buyer Rebate-\$([\d,]+)/.exec(t) || [0, "0"])[1].replace(/,/g, ""));
+  search(win, { ...TOR, firstTime: true, neverOwnedAnywhere: false });
+  breakdown("Toronto - Scarborough", torType);
+  const torCard = win.document.getElementById(torId), openPanel = torPanel(torType);
+  // A second breakdown open on another card, to show every open one follows.
+  const otherCard = [...win.document.querySelectorAll("#list .city")].find((el) => el.id !== torId);
+  const otherRow = otherCard ? otherCard.querySelector("[id^='pt-row-']:not([id$='-chevron'])") : null;
+  if (otherRow) otherRow.click();
+  const otherPanel = otherCard ? [...otherCard.querySelectorAll("[id^='pt-panel-']")].find((p) => p.style.display === "block") : null;
+  const beforeTick = openPanel.textContent, otherBefore = otherPanel ? otherPanel.textContent : "";
+  written.length = 0;
+  win.open = () => { const w = { html: "", document: { write(h) { w.html += h; }, close() {} }, focus() {}, print() {}, close() {} }; written.push(w); return w; };
+  win.eval("downloadReport()");
+  const reportBefore = (written[0] || { html: "" }).html;
+  const whatIfBefore = win.eval("_getAngleSnapshot(grossMonthlyIncome*12, dn_selected, workArrangement, workZone)");
+  const rebateBox = openPanel.querySelector(".ltt-rebate-box");
+  const rebateRowEl = rebateBox.closest("label");
+  const ltRows = [...openPanel.querySelectorAll("div")].filter((el) => /^(Provincial|Toronto) Land Transfer Tax/.test(el.textContent) && el.children.length === 2);
+  check("(13z) the box sits right after the land transfer tax lines, where the rebate line goes",
+    ltRows.length === 2 && ltRows[1].nextElementSibling === rebateRowEl && !rebateBox.checked);
+  rebateBox.click();
+  const afterTick = openPanel.textContent;
+  check("(13aa) ticking it adds the rebate line and takes the rebate off cash to close at once",
+    win.eval("lttRebateConfirmed") === true && rebateOf(afterTick) > 4000 && cash(beforeTick) - cash(afterTick) === rebateOf(afterTick) && !/rebate not included/.test(afterTick),
+    `${cash(beforeTick)} -> ${cash(afterTick)}, rebate ${rebateOf(afterTick)}`);
+  const newBox = openPanel.querySelector(".ltt-rebate-box");
+  check("(13ab) ...without losing the buyer's place: same card, same breakdown open, the box ticked and still focused, the rebate line just above it",
+    win.document.getElementById(torId) === torCard && torPanel(torType) === openPanel && openPanel.style.display === "block"
+      && !!newBox && newBox.checked && win.document.activeElement === newBox
+      && /First-Time Buyer Rebate/.test(newBox.closest("label").previousElementSibling.textContent));
+  check("(13ac) ...and the other open breakdown follows the same answer",
+    !!otherPanel && otherPanel.style.display === "block" && rebateOf(otherPanel.textContent) > 0 && cash(otherBefore) - cash(otherPanel.textContent) === rebateOf(otherPanel.textContent)
+      && otherPanel.querySelector(".ltt-rebate-box").checked, otherCard && otherCard.id);
+  const handKey = win.eval("handOffBuyerProfile()");
+  const handed = JSON.parse(win.localStorage.getItem("hp_profile_handoff_v1:" + handKey)).profile;
+  win.localStorage.removeItem("hp_profile_handoff_v1:" + handKey);
+  check("(13ad) the listing pages get the tick: the handover a listings link sends reads it", handed.lttRebateEligible === true && handed.firstTimeBuyer === true && handed.canadianResident === true);
+  written.length = 0;
+  win.eval("downloadReport()");
+  const reportAfter = (written[0] || { html: "" }).html;
+  const whatIfAfter = win.eval("_getAngleSnapshot(grossMonthlyIncome*12, dn_selected, workArrangement, workZone)");
+  win.open = realOpen;
+  check("(13ae) the PDF report and Scenarios carry no closing costs, so the tick leaves them exactly as they were",
+    reportBefore.length > 0 && reportAfter === reportBefore && !/rebate/i.test(reportAfter)
+      && JSON.stringify(whatIfAfter) === JSON.stringify(whatIfBefore));
+  sentBody = null;
+  await win.eval("shareScenario()");
+  check("(13af) a shared link still holds only its seven fields, so the tick cannot travel in it",
+    !!sentBody && Object.keys(sentBody).sort().join(",") === "dbt,dn,fam,inc,rate,wa,wp", JSON.stringify(sentBody));
+  openPanel.querySelector(".ltt-rebate-box").click();
+  check("(13ag) unticking takes the rebate back out", win.eval("lttRebateConfirmed") === false && !/First-Time Buyer Rebate/.test(openPanel.textContent)
+    && cash(openPanel.textContent) === cash(beforeTick) && /rebate not included/.test(openPanel.textContent));
+  openPanel.querySelector(".ltt-rebate-box").click();
+  win.eval("setFTB(false)");
+  check("(13ah) answering 'No' to first-time buyer clears the tick, as it did on the form", win.eval("lttRebateConfirmed") === false);
+  win.eval("setFTB(true)");
+
+  // 2.5 still holds on the shorter form: the two required questions start
+  // unanswered (section 12 checks the rest on its own fresh page).
+  check("(13ai) first-time buyer still starts unanswered on the shorter form (12a-12q check the rest)",
+    l.eval("firstTimeBuyer") === null && !GREEN.test(ld.getElementById("ftb-yes").style.background) && !GREEN.test(ld.getElementById("ftb-no").style.background));
+  check("(13aj) no script errors on the section 13 pages", sf.errors.length === 0 && lf.errors.length === 0 && sh2.errors.length === 0, [...sf.errors, ...lf.errors, ...sh2.errors].join(" | "));
 
   check("(8) no uncaught script errors during any of this", errors.length === 0, errors.join(" | "));
 

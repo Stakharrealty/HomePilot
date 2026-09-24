@@ -435,6 +435,16 @@ select{
   box-shadow:0 0 0 3px rgba(29,158,117,0.12);
 }
 
+/* ── SHORTER FORM (2026-09-24, IMPROVEMENT_PLAN.md 2.3a) ────────
+   Built from what the form already uses: the grey 11px hint under a
+   question, the green .link-btn, the 12.5px checkbox row. */
+.form-sublbl{margin-bottom:5px;font-weight:500}
+.form-hint{font-size:11px;color:#9CA3AF;margin-top:6px;line-height:1.45}
+.form-line{font-size:12.5px;color:var(--ink-mid);line-height:1.5;margin-top:12px}
+.link-btn.form-line-btn{display:block;font-size:12.5px;margin-top:8px;text-align:left}
+.form-check{display:flex;align-items:flex-start;gap:8px;margin:4px 2px 12px;font-size:12.5px;color:#3D4555;line-height:1.45;cursor:pointer}
+.form-check input{margin-top:2px;flex-shrink:0}
+
 /* ── MAIN CTA BUTTON ────────────────────────────────────────── */
 .go-btn{
   width:100%;
@@ -872,7 +882,7 @@ body.cmp-bar-open #waWrap{bottom:80px!important}
 }
 
 /* ── FTB TOGGLE BUTTONS ──────────────────────────────────────── */
-#ftb-yes,#ftb-no,#res-yes,#res-no{
+#ftb-yes,#ftb-no{
   flex:1;padding:10px;
   border-radius:999px;
   font-family:var(--font);
@@ -1230,19 +1240,22 @@ body.cmp-bar-open #waWrap{bottom:80px!important}
   </button>
   <div class="card">
     <label class="lbl" style="display:flex;align-items:center;gap:6px;">
-      <span>Your income (before tax)</span>
+      <span>Household income (before tax)</span>
       <button type="button" class="info-btn" onclick="toggleTooltip(event,'inc-tooltip')" aria-label="Income info">ⓘ</button>
     </label>
     <!-- Two boxes, not one combined figure (2026-09-23, IMPROVEMENT_PLAN.md 3.3):
-         lenders add the incomes together, but each person is taxed separately. -->
+         lenders add the incomes together, but each person is taxed separately.
+         One "Household income" heading over both boxes (2026-09-24, 2.3a L1/L2). -->
     <div class="tooltip-box" id="inc-tooltip">
       <div>Your yearly income before taxes. Buying with a partner? Put their income in the second box.</div>
       <div style="margin-top:4px">Lenders add the two together. Take-home pay is worked out for each person separately, because that is how Canada taxes income, so two incomes leave more take-home pay than one income of the same total.</div>
       <div style="margin-top:4px;color:#1D9E75;font-weight:600">Example: you earn $80K and your partner earns $60K. Enter 80000, then 60000.</div>
     </div>
+    <label class="lbl form-sublbl" for="inc">Your income</label>
     <input type="number" id="inc" placeholder="e.g. 120000" min="0" oninput="checkDebtSanity()">
+    <div class="form-hint" id="incHint">Your yearly salary before tax, as on your job offer or T4, not what reaches your bank account.</div>
     <div style="margin-top:10px;">
-      <label class="lbl" for="inc2" style="margin-bottom:5px;"><span id="l1b">Partner's income (before tax)</span> <span style="color:#bbb;font-weight:400">(optional)</span></label>
+      <label class="lbl form-sublbl" for="inc2"><span id="l1b">Partner's income</span> <span style="color:#bbb;font-weight:400">(optional)</span></label>
       <input type="number" id="inc2" placeholder="Leave blank if buying alone" min="0" oninput="checkDebtSanity()">
     </div>
   </div>
@@ -1260,7 +1273,7 @@ body.cmp-bar-open #waWrap{bottom:80px!important}
   </div>
   <div class="card">
     <label class="lbl" style="display:flex;align-items:center;gap:6px;">
-      <span>Existing monthly debt payments</span>
+      <span>Household monthly debt payments</span>
       <button type="button" class="info-btn" onclick="toggleTooltip(event,'debt-tooltip')" aria-label="Debt info">ⓘ</button>
     </label>
     <div class="tooltip-box" id="debt-tooltip">
@@ -1269,6 +1282,8 @@ body.cmp-bar-open #waWrap{bottom:80px!important}
       <div style="margin-top:6px;color:#1D9E75;font-weight:600">No existing debts? Leave it as Zero</div>
     </div>
     <input type="number" id="dbt" placeholder="0" min="0" value="0" oninput="checkDebtSanity()">
+    <!-- Banks count both people's debts (2026-09-24, IMPROVEMENT_PLAN.md 2.3a L3). -->
+    <div class="form-hint" id="dbtHint">Car loans, credit cards, student loans, for both of you.</div>
     <div id="dbt-warning" style="display:none;margin-top:6px;font-size:12px;color:#92400E;background:#FFFBEB;border:1px solid #FDE68A;border-radius:6px;padding:8px 10px;line-height:1.4">
       ⚠ That looks high for a <em>monthly</em> payment. Please enter your monthly debt payment (e.g. $400), not your total loan balance — a large number here will incorrectly reduce how much home you qualify for.
     </div>
@@ -1286,52 +1301,59 @@ body.cmp-bar-open #waWrap{bottom:80px!important}
       <option value="daily">Daily (5+ days/week)</option>
     </select>
     <div class="err" id="wa_err" role="alert">Please choose one: remote, hybrid or daily.</div>
+    <!-- Shorter form (2026-09-24, IMPROVEMENT_PLAN.md 2.3a A, B, C): the work postal code, the
+         commute limit and the preferred area each start as one line. "+ add postal code" and
+         "change" open the same fields as before (openFormField() in main.js); every setting still
+         works. The two "change" lines always say what is in force (syncFormLines()). -->
     <div id="workLocationFields" style="display:none;" class="work-location-fields">
       <div style="margin-top:12px;">
-        <label class="lbl" style="margin-bottom:5px;">Work city</label>
+        <label class="lbl" for="workCity" style="margin-bottom:5px;">Work city</label>
         <input type="text" id="workCity" placeholder="e.g. Brampton">
+        <button type="button" class="link-btn form-line-btn" id="workPostalAdd" onclick="openFormField('workPostalAdd','workPostalField','workPostal')">+ add postal code for a more accurate commute</button>
       </div>
-      <div style="margin-top:10px;">
-        <label class="lbl" style="margin-bottom:5px;">Work postal code <span style="color:#bbb;font-weight:400">(optional)</span></label>
+      <div id="workPostalField" style="display:none;margin-top:10px;">
+        <label class="lbl" for="workPostal" style="margin-bottom:5px;">Work postal code <span style="color:#bbb;font-weight:400">(optional)</span></label>
         <input type="text" id="workPostal" placeholder="e.g. L6Y 0A1" maxlength="7" style="text-transform:uppercase;">
       </div>
       <!-- A hard limit, not a weight (2026-09-23, IMPROVEMENT_PLAN.md 1.4): places past it are set
            aside before ranking. Defaults to 60 for daily and hybrid alike (setWorkArrangement; 2.2a). -->
-      <div style="margin-top:10px;">
+      <div class="form-line" id="maxCommuteLine"><span id="maxCommuteLineText">Showing places within 60 minutes</span> · <button type="button" class="link-btn" onclick="openFormField('maxCommuteLine','maxCommuteField','maxCommute')" aria-label="Change the longest commute">change</button></div>
+      <div id="maxCommuteField" style="display:none;margin-top:10px;">
         <label class="lbl" for="maxCommute" style="margin-bottom:5px;">Longest commute you'd accept (one way)</label>
         <select id="maxCommute" onchange="setMaxCommute(this.value)">
           <option value="30">30 minutes</option>
           <option value="45">45 minutes</option>
-          <option value="60">60 minutes</option>
+          <option value="60" selected>60 minutes</option>
           <option value="75">75 minutes</option>
           <option value="90">90 minutes</option>
-          <option value="none" selected>No limit</option>
+          <option value="none">No limit</option>
         </select>
       </div>
     </div>
+    <div class="form-line" id="areaLine"><span id="areaLineText">All areas</span> · <button type="button" class="link-btn" onclick="openFormField('areaLine','areaField','area')" aria-label="Change the preferred area">change</button></div>
+    <div id="areaField" style="display:none;margin-top:12px;">
+      <label class="lbl" for="area" style="display:flex;align-items:center;gap:6px;">
+        <span>Preferred area</span>
+        <button type="button" class="info-btn" onclick="toggleTooltip(event,'area-tooltip')" aria-label="Area info">ⓘ</button>
+      </label>
+      <div class="tooltip-box" id="area-tooltip">
+        <div>Select the region you'd like to buy in. Choose "All GTA and surrounding areas" to see every city we cover.</div>
+        <div style="margin-top:4px;color:#1D9E75;font-weight:600">Tip: Smaller cities outside the GTA often offer significantly better value for your budget</div>
+      </div>
+      <select id="area" onchange="syncFormLines()">
+        <option value="all">All GTA and surrounding areas</option>
+        <option value="gta">City of Toronto + Peel</option>
+        <option value="west">West of Toronto (Halton / Wellington)</option>
+        <option value="east">East of Toronto (Durham)</option>
+        <option value="north">North of Toronto (York / Simcoe)</option>
+        <option value="duff">Dufferin / Orangeville area</option>
+        <option value="niag">Niagara / Hamilton</option>
+        <option value="wloo">Waterloo Region</option>
+        <option value="east2">Eastern Ontario</option>
+      </select>
+    </div>
     <!-- Empty until the buyer answers: setWorkArrangement() writes the hint for the answer given (2.5). -->
     <div style="font-size:11px;color:#9CA3AF;margin-top:8px;" id="wa_hint"></div>
-  </div>
-  <div class="card">
-    <label class="lbl" style="display:flex;align-items:center;gap:6px;">
-      <span>Preferred area</span>
-      <button type="button" class="info-btn" onclick="toggleTooltip(event,'area-tooltip')" aria-label="Area info">ⓘ</button>
-    </label>
-    <div class="tooltip-box" id="area-tooltip">
-      <div>Select the region you'd like to buy in. Choose "All GTA and surrounding areas" to see every city we cover.</div>
-      <div style="margin-top:4px;color:#1D9E75;font-weight:600">Tip: Smaller cities outside the GTA often offer significantly better value for your budget</div>
-    </div>
-    <select id="area">
-      <option value="all">All GTA and surrounding areas</option>
-      <option value="gta">City of Toronto + Peel</option>
-      <option value="west">West of Toronto (Halton / Wellington)</option>
-      <option value="east">East of Toronto (Durham)</option>
-      <option value="north">North of Toronto (York / Simcoe)</option>
-      <option value="duff">Dufferin / Orangeville area</option>
-      <option value="niag">Niagara / Hamilton</option>
-      <option value="wloo">Waterloo Region</option>
-      <option value="east2">Eastern Ontario</option>
-    </select>
   </div>
   <div class="card" id="ftbCard">
     <div class="lbl">Are you a first-time home buyer?</div>
@@ -1342,20 +1364,9 @@ body.cmp-bar-open #waWrap{bottom:80px!important}
     </div>
     <div class="err" id="ftb_err" role="alert">Please choose Yes or No.</div>
     <div style="font-size:11px;color:#9CA3AF;margin-top:6px">First-time buyers may qualify for a 30-year mortgage and land transfer tax rebates</div>
-    <!-- The rebates have a stricter rule than the 30-year mortgage (2026-09-23, IMPROVEMENT_PLAN.md 1.7;
-         see closingcosts.js). Unticked by default, so no rebate is shown to someone who owned a home abroad. -->
-    <label id="ltt_rebate_row" style="display:none;align-items:flex-start;gap:8px;margin-top:10px;font-size:12.5px;color:#3D4555;line-height:1.45;cursor:pointer">
-      <input type="checkbox" id="lttRebate" onchange="setLttRebateConfirmed(this.checked)" style="margin-top:2px;flex-shrink:0">
-      <span>Neither I nor my spouse has ever owned a home, anywhere in the world (including outside Canada)</span>
-    </label>
-  </div>
-  <div class="card" id="residencyCard">
-    <div class="lbl">Are you a Canadian citizen or permanent resident?</div>
-    <div style="display:flex;gap:10px;margin-top:8px">
-      <button id="res-yes" onclick="setResident(true)" style="flex:1;padding:10px;border-radius:999px;border:1.5px solid #1D9E75;background:#1D9E75;color:#fff;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;font-family:var(--font)">Yes</button>
-      <button id="res-no" onclick="setResident(false)" style="flex:1;padding:10px;border-radius:999px;border:1.5px solid #E4E7EC;background:#fff;color:#3D4555;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;font-family:var(--font)">No</button>
-    </div>
-    <div style="font-size:11px;color:#9CA3AF;margin-top:6px">If not: extra taxes apply, and most non-Canadians can't buy a home here until 2027.</div>
+    <!-- The "never owned a home anywhere in the world" box moved to the cash-to-close breakdown on
+         the results, next to the rebate it decides (2026-09-24, IMPROVEMENT_PLAN.md 2.3a D;
+         costPanelHtml() in render.js). -->
   </div>
   <div class="card">
     <label class="lbl" style="display:flex;align-items:center;gap:6px;">
@@ -1373,6 +1384,14 @@ body.cmp-bar-open #waWrap{bottom:80px!important}
       <option value="5">5+ people</option>
     </select>
   </div>
+  <!-- Citizenship as one small box (2026-09-24, IMPROVEMENT_PLAN.md 2.3a E); it replaced a Yes/No
+       card. Ticked is the old "No": non-resident taxes and the federal-ban note (setResident() in
+       closingcosts.js). autocomplete="off": a box the browser re-ticks on reload would not tell the page. -->
+  <label class="form-check" id="nonResidentRow" for="nonResident">
+    <input type="checkbox" id="nonResident" onchange="setResident(!this.checked)" autocomplete="off">
+    <span>I'm not a Canadian citizen or permanent resident</span>
+  </label>
+  <div class="form-hint" id="nonResidentHint" style="display:none;margin:0 0 10px 25px">Extra taxes apply, and most non-Canadians can't buy a home here until 2027.</div>
 
   <button class="go-btn" id="goBtn" onclick="requestCalculation()">
     <span id="bt">Show Me What I Can Afford</span>

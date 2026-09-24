@@ -120,7 +120,13 @@ async function loadScenarioFromURL() {
     if(p.wp) {
       const wpEl = document.getElementById('workPostal');
       if(wpEl) wpEl.value = p.wp;
+      // The postal box starts closed behind "+ add postal code" (2026-09-24,
+      // IMPROVEMENT_PLAN.md 2.3a C); one that arrives filled is shown open.
+      if(typeof openWorkPostalIfSet === 'function') openWorkPostalIfSet();
     }
+    // Not in the link, because the share service keeps only the seven fields
+    // above: the citizenship box and the rebate box (2.3a D, E). The page
+    // opening the link starts from their defaults, citizen or PR and no rebate.
     if(p.rate && p.rate !== DEFAULT_MORTGAGE_RATE_PCT) {
       customMortgageRate = p.rate / 100;
     }

@@ -686,9 +686,10 @@ async function runSuite7(){
   run(`customMortgageRate=0.0419; firstTimeBuyer=false; fam_selected='3'; existingDebt=0;`);
 
   // --- Breakdown display formula (golden-line source check) ---
-  // selectPropType() mutates the DOM in place rather than returning HTML, so instead
-  // of simulating a full render we lock in the exact source lines — this catches any
-  // accidental future edit that breaks the display formula.
+  // The breakdown is drawn into the page (selectPropType(), with the HTML from
+  // costPanelHtml() since 2026-09-24), so instead of simulating a full render we
+  // lock in the exact source lines — this catches any accidental future edit that
+  // breaks the display formula.
   t('source contains effectiveDn cash-rich cap (Math.min(dn_selected, price))', /const effectiveDn = Math\.min\(dn_selected, price\)/.test(src));
   t('source contains Down Payment row using effectiveDn', /row\('Down Payment', '-' \+ fc\(effectiveDn\)\)/.test(src));
   t('source contains Mortgage Amount row = price - effectiveDn', /row\('Mortgage Amount \(loan\)', fc\(Math\.max\(0, price - effectiveDn\)\)/.test(src));
@@ -752,15 +753,20 @@ runSuite7().then(async () => {
     // Per-type View Available Homes links (added same day) — each accordion panel
     // (condo/town/semi/detached) gets its own unambiguous view-btn using that exact
     // type's real price, instead of the city-level button's guess-the-type logic.
-    const selectPropStart = src.indexOf('function selectPropType(cityId, tp, cityName)');
-    const selectPropEndRaw = src.indexOf('\nfunction ', selectPropStart+30);
-    const selectPropEnd = selectPropEndRaw === -1 ? src.length : selectPropEndRaw;
-    const selectPropSrc = src.slice(selectPropStart, selectPropEnd);
-    t('selectPropType() function located for scoping these checks', selectPropStart !== -1 && selectPropEnd > selectPropStart);
-    t('per-type panel contains its own view-btn', /class="view-btn"/.test(selectPropSrc));
-    t('per-type view-btn is a plain link to the listings page via listingsLinkAttrs(cityName,tp,price) -- 2026-09-24, no pop-up window', /<a class="view-btn"[^>]*'\+listingsLinkAttrs\(cityName,tp,price\)\+'/.test(selectPropSrc) && !selectPropSrc.includes('openListingsWindow('));
-    t('per-type view-btn label uses PLBL to show the real type name (e.g. "Townhouse", not raw "town")', /View Available '\+\(PLBL\[tp\]\|\|tp\)\+' in '\+cityName/.test(selectPropSrc));
-    t('per-type view-btn appears inside the panel before panel.innerHTML is assigned (i.e. actually gets rendered, not dead code after assignment)', selectPropSrc.indexOf('class="view-btn"') < selectPropSrc.indexOf('panel.innerHTML = html'));
+    // Since 2026-09-24 (IMPROVEMENT_PLAN.md 2.3a D) the panel's HTML is built by
+    // costPanelHtml(cityName, tp), so refreshOpenCostPanels() can draw an open
+    // panel again when the buyer ticks the rebate box inside it; selectPropType()
+    // opens the panel and puts that HTML in it.
+    const fnSrc = (sig) => { const a = src.indexOf(sig); if (a === -1) return ''; const e = src.indexOf('\nfunction ', a+30); return src.slice(a, e === -1 ? src.length : e); };
+    const selectPropSrc = fnSrc('function selectPropType(cityId, tp, cityName)');
+    const panelSrc = fnSrc('function costPanelHtml(cityName, tp)');
+    t('selectPropType() and costPanelHtml() located for scoping these checks', selectPropSrc !== '' && panelSrc !== '');
+    t('per-type panel contains its own view-btn', /class="view-btn"/.test(panelSrc));
+    t('per-type view-btn is a plain link to the listings page via listingsLinkAttrs(cityName,tp,price) -- 2026-09-24, no pop-up window', /<a class="view-btn"[^>]*'\+listingsLinkAttrs\(cityName,tp,price\)\+'/.test(panelSrc) && !panelSrc.includes('openListingsWindow(') && !selectPropSrc.includes('openListingsWindow('));
+    t('per-type view-btn label uses PLBL to show the real type name (e.g. "Townhouse", not raw "town")', /View Available '\+\(PLBL\[tp\]\|\|tp\)\+' in '\+cityName/.test(panelSrc));
+    t('per-type view-btn is in the HTML the panel shows (built before costPanelHtml() returns it, and selectPropType() puts that HTML in the panel), not dead code',
+      panelSrc.indexOf('class="view-btn"') !== -1 && panelSrc.indexOf('class="view-btn"') < panelSrc.indexOf('return html;')
+        && /const html = costPanelHtml\(cityName, tp\);[\s\S]*panel\.innerHTML = html;/.test(selectPropSrc));
   }
   done();
 
