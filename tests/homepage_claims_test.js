@@ -172,7 +172,9 @@ const visible = indexHtml.replace(/<script[\s\S]*?<\/script>/g, " ").replace(/<s
   const readCalcCard = (el) => {
     const head = /^(.*?) · \$([\d,]+)/.exec(el.querySelector(".card-headline").textContent.trim());
     const pct = /(\d+)% of take-home/.exec(el.textContent);
-    const drive = /(?:About (\d+) min drive|Commute - (\d+) Min Estimate)/.exec((el.querySelector(".commute-badge") || {}).textContent || "");
+    // Answer cards have no drive badge (2026-09-24); their drive is At a glance's first line.
+    const drive = /About (\d+) min drive/.exec((el.querySelector(".commute-badge") || {}).textContent || "")
+      || (el.querySelector(".ac-head") ? /Estimated commute: about (\d+) min drive/.exec(el.textContent) : null);
     return {
       city: el.querySelector(".cn").textContent.trim(),
       type: head ? head[1].trim() : null,
@@ -180,7 +182,7 @@ const visible = indexHtml.replace(/<script[\s\S]*?<\/script>/g, " ").replace(/<s
       monthly: Number(el.querySelector("[id$='-mtotal']").textContent.replace(/[^0-9]/g, "")),
       fit: el.querySelector(".fit-pill").textContent.trim(),
       pct: pct ? Number(pct[1]) : null,
-      drive: drive ? Number(drive[1] || drive[2]) : null,
+      drive: drive ? Number(drive[1]) : null,
     };
   };
   const allCalcCards = [...cd.querySelectorAll("#answers .city, #list .city")].map(readCalcCard);

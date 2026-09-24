@@ -112,9 +112,11 @@ function readCard(el) {
   const headline = el.querySelector(".card-headline");
   const m = headline ? /^(.*?) · \$([\d,]+)/.exec(headline.textContent.trim()) : null;
   const drive = el.querySelector(".commute-badge");
-  // Today's card: "About N min drive · estimate"; the three answer cards:
-  // "Commute - N Min Estimate" (the user, 2026-09-24).
-  const dm = drive ? /(?:About (\d+) min drive|Commute - (\d+) Min Estimate)/.exec(drive.textContent) : null;
+  // Today's card: the "About N min drive · estimate" badge. The three answer
+  // cards have no badge since 2026-09-24 (the user); their drive is At a
+  // glance's "Estimated commute: about N min drive each way".
+  const dm = drive ? /About (\d+) min drive/.exec(drive.textContent)
+    : el.querySelector(".ac-head") ? /Estimated commute: about (\d+) min drive/.exec(el.textContent) : null;
   const monthly = el.querySelector("[id$='-mtotal']");
   return {
     id: el.id,
@@ -123,7 +125,7 @@ function readCard(el) {
     price: m ? Number(m[2].replace(/,/g, "")) : null,
     monthly: monthly ? Number(monthly.textContent.replace(/[^0-9]/g, "")) : null,
     fit: el.querySelector(".fit-pill") ? el.querySelector(".fit-pill").textContent.trim() : null,
-    drive: dm ? Number(dm[1] || dm[2]) : null,
+    drive: dm ? Number(dm[1]) : null,
     text: el.textContent,
   };
 }
