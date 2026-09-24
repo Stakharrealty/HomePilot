@@ -95,13 +95,17 @@ const text = (h) => String(h || '').replace(/<[^>]+>/g, '');
 const fc = (n) => run(`fc(${n})`);
 const justFits = (pct) => pct >= C.LINE - C.JUST;
 // The buyer with one answer changed, as they would type it: more down
-// payment, or more household income split between the two earners as they
-// split it (the tests use even splits, so the halves are exact).
+// payment, or more income typed into ONE box, the one the tip names: the
+// higher earner's ("Your income" when the two are equal). Until 2026-09-24
+// the tip split the raise in the couple's proportion without saying so, and
+// this helper split it evenly; neither is what a buyer would type.
 const changed = (b, lever, x) => {
   if (lever === 'save') return { ...b, down: b.down + x };
-  if (!b.partner) return { ...b, income: b.income + x };
-  return { ...b, income: b.income + x / 2, partner: b.partner + x / 2 };
+  if (b.partner && b.partner > b.income) return { ...b, partner: b.partner + x };
+  return { ...b, income: b.income + x };
 };
+// What an earn tip must say about whose income it raises.
+const earnWhose = (b) => !b.partner ? '(before tax)' : b.partner > b.income ? "(before tax, added to your partner's income)" : '(before tax, added to your income)';
 
 // ── The buyers ──────────────────────────────────────────────────────────
 // The plan's worked example (2.0): a couple on $65K + $65K, $70K down,
@@ -123,6 +127,10 @@ const BUYERS = [
   { tag: '$70K remote, $15K down', income: 70000, down: 15000, firstTime: true, work: 'remote' },
   { tag: 'worked example, detached only', income: 65000, partner: 65000, down: 70000, debt: 450, firstTime: true, work: 'hybrid', limit: 60, onlyType: 'detached' },
   { tag: '$150K daily in Brampton', income: 150000, down: 100000, firstTime: true, work: 'daily', workCity: 'Brampton', limit: 60 },
+  // Two unequal incomes: an earn tip holds only for the split it names.
+  { tag: '$150K + $60K hybrid Markham', income: 150000, partner: 60000, down: 150000, debt: 800, firstTime: false, work: 'hybrid', workCity: 'Markham', limit: 60 },
+  { tag: '$150K + $60K hybrid Markham, detached only', income: 150000, partner: 60000, down: 150000, debt: 800, firstTime: false, work: 'hybrid', workCity: 'Markham', limit: 60, onlyType: 'detached' },
+  { tag: '$60K + $150K hybrid Markham (partner earns more)', income: 60000, partner: 150000, down: 150000, debt: 800, firstTime: false, work: 'hybrid', workCity: 'Markham', limit: 60 },
 ];
 
 // The drive rule for the normal page, written out again from the plan and run
@@ -157,7 +165,7 @@ const driveMatches = (wk) => {
   return spec === null ? !tip : !!tip && tip.claim.n === spec.n && tip.claim.type === spec.type && tip.claim.from.n === spec.from && tip.claim.from.type === spec.fromType;
 };
 
-const seen = { normalTips: 0, emptyClose: 0, emptyFar: 0, emptyNothing: 0, kinds: new Set(), justFits: 0, notJust: 0, savings: 0 };
+const seen = { normalTips: 0, emptyClose: 0, emptyFar: 0, emptyNothing: 0, kinds: new Set(), justFits: 0, notJust: 0, savings: 0, earnSplit: 0 };
 const worked = {};
 
 // 0. The thresholds are the app's own lines.
@@ -220,6 +228,11 @@ for (const b of BUYERS) {
 
   // No drive tip without a commute.
   if (b.work === 'remote') t(`(${tag}) remote: no drive tip`, !all.some((x) => x.kind === 'drive'));
+  // An earn tip says whose income it raises when there are two, so the buyer
+  // can type exactly the search it was worked out on.
+  const earns = wk.levers.concat(all).filter((x) => x.kind === 'earn');
+  if (earns.length) seen.earnSplit += b.partner && b.partner !== b.income ? 1 : 0;
+  t(`(${tag}) every earn tip says "${earnWhose(b)}"`, earns.every((x) => text(x.html).includes('more a year ' + earnWhose(b) + ' and ')), earns.map((x) => text(x.html)).join(' | '));
 
   if (!wk.empty) {
     // ── The normal page ──
@@ -385,9 +398,46 @@ for (const b of BUYERS) {
     t('own take-home: searching again with the extra savings (same incomes, so the own take-home stays) gives the tip\'s home and %',
       data('netMonthlyIncome') === 7000 && sameHome(after.ranked[0], save.claim), JSON.stringify(after.ranked[0]) + ' vs ' + JSON.stringify(save.claim));
   } else {
-    t('own take-home: on $7,000/mo the save tip moves past the cap and the page says so', !wk.close || wk.tips.some((x) => x.kind === 'earn'));
+    t('own take-home: on $7,000/mo the save tip moves past the cap and the page says so', !wk.close || wk.tips.some((x) => x.kind === 'drive'));
   }
+  t('own take-home: no earn tip, and none looked for (a search with another income goes back to the estimate)',
+    wk.earnTried === false && !wk.levers.concat(wk.tips, wk.far).some((x) => x.kind === 'earn'), JSON.stringify(wk.tips.map((x) => x.kind)));
   run('resetTakeHome();');
+}
+
+// The buyer's own take-home, many buyers: "you're close" and every tip must be
+// what the page shows when the buyer searches again with the change. An earn
+// tip used to scale the buyer's own figure, which a search again never does
+// (go() drops it when an income changes): for $120K, $60K down and $7,773/mo it
+// said "Earn $20,000 more ... a Good Fit at 42%" and "you're close", and the
+// page at $140K showed that condo at 47%, Stretch.
+{
+  let pages = 0, closeOnes = 0, bad = [];
+  for (const workCity of ['Toronto', 'Mississauga', 'Brampton']) for (const income of [80000, 95000, 120000, 150000]) for (const down of [40000, 60000, 100000]) for (const k of [0.9, 1.1, 1.2]) {
+    const b = { income, down, firstTime: true, work: 'daily', workCity, limit: 60 };
+    search(b);
+    const own = Math.round(data('estimatedNetMonthlyIncome') * k);
+    byId('takeHomeInput').value = String(own);
+    run('applyTakeHome(); _wkCache = null;');
+    if (data('netMonthlyIncome') !== own) { bad.push(`${workCity} ${income}/${down} x${k}: own take-home not applied`); continue; }
+    const wk = wkNow();
+    pages++;
+    const tag = `${workCity} ${income}/${down} x${k}`;
+    if (wk.levers.concat(wk.tips, wk.far).some((x) => x.kind === 'earn')) bad.push(tag + ': an earn tip on the buyer\'s own take-home');
+    if (wk.empty && wk.close) {
+      closeOnes++;
+      for (const tip of wk.levers) {
+        if (tip.kind === 'save') {
+          search(changed(b, 'save', tip.claim.extra));
+          const after = pageRanking();
+          if (data('netMonthlyIncome') !== own || !sameHome(after.ranked[0], tip.claim) || after.ranked.length !== tip.claim.places) bad.push(tag + ': save tip is not what the page shows');
+          search(b);
+        }
+      }
+    }
+    run('resetTakeHome();');
+  }
+  t(`own take-home over ${pages} buyers (${closeOnes} "you're close"): no earn tip, and every save tip is what the page shows when searching again`, pages > 0 && !bad.length, bad.slice(0, 5).join('; '));
 }
 
 // The rate slider changes monthly costs, not buying power; the engine run
@@ -411,6 +461,7 @@ t('the normal page with no tip worth showing draws nothing', run("worthKnowingHt
 t('covered: tips on the normal page, the empty page close, far off, and with no answer at all',
   seen.normalTips > 0 && seen.emptyClose > 0 && seen.emptyFar > 0 && seen.emptyNothing > 0, JSON.stringify({ ...seen, kinds: [...seen.kinds] }));
 t('covered: a buyer whose savings cap the HomePilot comfort range', seen.savings > 0, seen.savings);
+t('covered: an earn tip for a couple with unequal incomes, checked by searching again with the raise in the box it names', seen.earnSplit > 0, seen.earnSplit);
 t('covered: save, drive and earn tips, "just fits" and not', ['save', 'drive', 'earn'].every((k) => seen.kinds.has(k)) && seen.justFits > 0 && seen.notJust > 0,
   JSON.stringify([...seen.kinds]) + ' just ' + seen.justFits + ' not ' + seen.notJust);
 

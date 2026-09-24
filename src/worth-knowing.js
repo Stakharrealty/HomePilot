@@ -20,8 +20,10 @@
 //     short extra drive. On the empty page: the nearest place past the
 //     buyer's commute limit that fits. No drive tip without a commute (remote
 //     work, or a work location the app could not place).
-//   - Earn more: the smallest extra household income, in $5,000 steps, that
-//     does what "save more" does.
+//   - Earn more: the smallest extra income a year, in $5,000 steps, that does
+//     what "save more" does. With two incomes it goes to the higher earner and
+//     the tip says so (wkEarnTo()). None while the buyer's own take-home is in
+//     force (wkOwnTakeHome()).
 // A tip shows only when it is worth it (the WK_ constants below). Weak tips
 // stay hidden. The normal page shows at most two, strongest first; the empty
 // page one per lever that has one.
@@ -71,18 +73,31 @@ function wkBase(onlyType) {
   const s = typeof lastSearch !== 'undefined' ? lastSearch : null;
   if (!s || !s.calc) return null;
   return {
-    total: s.total, dn: s.dn, dbt: s.dbt, area: s.area || 'all',
+    total: s.total, own: s.own || 0, partner: s.partner || 0, dn: s.dn, dbt: s.dbt, area: s.area || 'all',
     rate: Number.isFinite(s.rate) ? s.rate : customMortgageRate,
     limit: maxCommuteMin, onlyType: onlyType || null,
   };
 }
 
+// Whose income an "earn more" tip raises (2026-09-24). Take-home is taxed
+// person by person, so the same household raise gives a different take-home
+// depending on who earns it, and the tip's place, price and % hold only for
+// the split it was worked out on. It used to split the raise in the couple's
+// current proportion ($7,143 + $2,857 of $10,000), which the tip never stated
+// and no buyer would type. Now the whole raise goes to one person, the higher
+// earner (the buyer, when the two are equal), and the tip says so: exactly
+// what the buyer would type into that box to search again.
+function wkEarnTo(base) { return base.partner > base.own ? 'partner' : 'own'; }
+
 // The engine, run again for the buyer with one input changed:
 //   { extraDown }   -- more down payment;
-//   { extraIncome } -- more household income a year, split between the two
-//                      earners as they entered it; take-home follows it
-//                      through takeHomeMonthlyFor() (main.js), so a buyer who
-//                      typed their own take-home keeps their own ratio;
+//   { extraIncome } -- more income a year for the higher earner (wkEarnTo());
+//                      take-home is the estimate for the new pair of incomes,
+//                      exactly as go() works it out when the buyer searches
+//                      with them (householdNetAnnual() on the new split). A
+//                      buyer's own take-home figure is not carried over: go()
+//                      drops it when an income changes, so worthKnowing() offers
+//                      no earn tip while one is in force;
 //   { maxCommute }  -- a different commute limit (null for none).
 // It is go()'s own calculation: calcBP() on the changed figures, at the rate
 // the search used (go() always searches at the market rate; the rate slider
@@ -97,10 +112,15 @@ function wkRun(base, change) {
   const extraIncome = c.extraIncome || 0, extraDown = c.extraDown || 0;
   const total = base.total + extraIncome, dn = base.dn + extraDown;
   const limit = Object.prototype.hasOwnProperty.call(c, 'maxCommute') ? c.maxCommute : base.limit;
-  const saved = { grossMonthlyIncome, netMonthlyIncome, dn_selected, existingDebt, buyPower, comfortBuyPower, customMortgageRate };
+  const saved = { grossMonthlyIncome, netMonthlyIncome, dn_selected, existingDebt, buyPower, comfortBuyPower, customMortgageRate, partnerIncomeShare };
   try {
     grossMonthlyIncome = total / 12;
-    if (extraIncome) netMonthlyIncome = takeHomeMonthlyFor(total);
+    if (extraIncome) {
+      const toPartner = wkEarnTo(base) === 'partner';
+      const partner = base.partner + (toPartner ? extraIncome : 0);
+      partnerIncomeShare = total > 0 ? partner / total : 0;
+      netMonthlyIncome = householdNetAnnual(total) / 12;
+    }
     dn_selected = dn; existingDebt = base.dbt;
     customMortgageRate = base.rate;
     const calc = calcBP(total, dn, base.dbt);
@@ -109,7 +129,7 @@ function wkRun(base, change) {
     const ranking = rankCities(candidateCities(base.area, calc.bp), { sort: 'home', maxCommute: limit, onlyType: base.onlyType });
     return { calc, ranking, total, dn };
   } finally {
-    ({ grossMonthlyIncome, netMonthlyIncome, dn_selected, existingDebt, buyPower, comfortBuyPower, customMortgageRate } = saved);
+    ({ grossMonthlyIncome, netMonthlyIncome, dn_selected, existingDebt, buyPower, comfortBuyPower, customMortgageRate, partnerIncomeShare } = saved);
   }
 }
 
@@ -128,9 +148,12 @@ function wkFits(e) {
 function wkClaimOf(e) {
   return { n: e.n, type: e.type, price: e.price, monthly: Math.round(e.costs.total), pct: e.pct, fit: e.fit.lbl, commuteMin: e.commuteMin, justFits: wkJustFits(e.pct) };
 }
-function wkLeverHtml(lever, amount) {
-  return lever === 'save' ? 'Save <b>' + fc(amount) + ' more</b> and '
-    : 'Earn <b>' + fc(amount) + ' more a year</b> (household, before tax) and ';
+// An earn tip says whose income it raises when there are two (wkEarnTo()), in
+// the form's own words ("Your income", "Partner's income").
+function wkLeverHtml(lever, amount, base) {
+  if (lever === 'save') return 'Save <b>' + fc(amount) + ' more</b> and ';
+  const whose = !base || !(base.partner > 0) ? '' : wkEarnTo(base) === 'partner' ? ", added to your partner's income" : ', added to your income';
+  return 'Earn <b>' + fc(amount) + ' more a year</b> (before tax' + whose + ') and ';
 }
 
 // ── The levers ─────────────────────────────────────────────────────────────
@@ -165,8 +188,8 @@ function wkUpgradeTip(base, lever, places, cap) {
   const e = found.h.e;
   return {
     kind: lever, extra: found.x, effort: found.x / cap,
-    claim: Object.assign(wkClaimOf(e), { lever, extra: found.x, fromType: found.h.from.type }),
-    html: wkLeverHtml(lever, found.x) + wkHome(e) + ' ' + wkFits(e) + '.',
+    claim: Object.assign(wkClaimOf(e), { lever, extra: found.x, fromType: found.h.from.type }, lever === 'earn' ? { to: wkEarnTo(base) } : {}),
+    html: wkLeverHtml(lever, found.x, base) + wkHome(e) + ' ' + wkFits(e) + '.',
   };
 }
 
@@ -222,8 +245,8 @@ function wkFirstFitTip(base, lever, from, to) {
   const cap = lever === 'save' ? WK_SAVE_CAP : WK_EARN_CAP;
   return {
     kind: lever, extra: found.x, effort: found.x / cap,
-    claim: Object.assign(wkClaimOf(e), { lever, extra: found.x, places: others + 1 }),
-    html: wkLeverHtml(lever, found.x) + wkHome(e) + ' ' + wkFits(e) + '.' +
+    claim: Object.assign(wkClaimOf(e), { lever, extra: found.x, places: others + 1 }, lever === 'earn' ? { to: wkEarnTo(base) } : {}),
+    html: wkLeverHtml(lever, found.x, base) + wkHome(e) + ' ' + wkFits(e) + '.' +
       (others > 0 ? ' ' + others + ' other place' + (others === 1 ? '' : 's') + ' would fit too.' : ''),
   };
 }
@@ -255,14 +278,16 @@ function wkPastLimitTip(byHome) {
 //                 on all of them);
 //   close      -- empty page: a save, drive or earn tip is within the caps;
 //   far        -- empty page, not close: what would change the answer, past
-//                 the caps; nothingFar -- not even that, within WK_FAR_*.
+//                 the caps; nothingFar -- not even that, within WK_FAR_*;
+//   earnTried  -- false while the buyer's own take-home is in force: no
+//                 earn tip was looked for (wkOwnTakeHome()).
 // The result is kept until anything it depends on changes, so opening a card
 // or re-sorting "See all places" does not run the engine again.
 let _wkCache = null;
 function worthKnowing(answers, onlyType) {
   const base = wkBase(onlyType);
   if (!base || !answers || !answers.byHome) return null;
-  const key = JSON.stringify([base, lastSearch.calc, workArrangement, workZone, netMonthlyIncome, grossMonthlyIncome, customMortgageRate,
+  const key = JSON.stringify([base, lastSearch.calc, workArrangement, workZone, netMonthlyIncome, wkOwnTakeHome(), grossMonthlyIncome, customMortgageRate,
     firstTimeBuyer, fam_selected, buyPower, comfortBuyPower, partnerIncomeShare, (results || []).map((r) => r.n),
     answers.picks.map((p) => homeKey(p.entry))]);
   if (_wkCache && _wkCache.key === key) return _wkCache.value;
@@ -271,9 +296,20 @@ function worthKnowing(answers, onlyType) {
   return value;
 }
 
+// The buyer typed their own take-home ("Change it", main.js). A search with a
+// different income goes back to the estimate (go()), so an "earn more" tip
+// cannot say what the page would show at the higher income on the buyer's own
+// pay: it would be worked out on a take-home they told us is wrong, or on one
+// the page would not use. No earn tip then (2026-09-24). Until then the tip
+// scaled the buyer's figure, which a search again never did: for $120K, $60K
+// down and an own $7,773/mo, "Earn $20,000 more ... a Good Fit at 42%" and
+// "you're close", while the page at $140K showed that condo at 47%, Stretch.
+function wkOwnTakeHome() { return typeof takeHomeIsBuyersOwn === 'function' && takeHomeIsBuyersOwn(); }
+
 function _wkCompute(base, answers) {
   const byHome = answers.byHome;
-  const out = { empty: !byHome.ranked.length, limit: byHome.limit, onlyType: base.onlyType, tips: [], levers: [], close: false, far: [], nothingFar: false };
+  const earnOk = !wkOwnTakeHome();
+  const out = { empty: !byHome.ranked.length, limit: byHome.limit, onlyType: base.onlyType, tips: [], levers: [], close: false, far: [], nothingFar: false, earnTried: earnOk };
   const sl = savingsLimitTip(lastSearch.calc);
   // The plan's own words: "Your savings are the limit… $X more saved would get
   // you there", where "there" is the HomePilot comfort range the buyer's income
@@ -295,7 +331,7 @@ function _wkCompute(base, answers) {
     const levers = [
       wkUpgradeTip(base, 'save', places, WK_SAVE_CAP),
       wkDriveTip(answers, base.onlyType),
-      wkUpgradeTip(base, 'earn', places, WK_EARN_CAP),
+      earnOk ? wkUpgradeTip(base, 'earn', places, WK_EARN_CAP) : null,
     ].filter(Boolean).sort((a, b) => a.effort - b.effort || WK_LEVER_ORDER[a.kind] - WK_LEVER_ORDER[b.kind]);
     out.levers = levers;
     out.tips = [savingsTip].concat(levers).filter(Boolean).slice(0, WK_MAX_TIPS);
@@ -306,7 +342,7 @@ function _wkCompute(base, answers) {
   const within = [
     wkFirstFitTip(base, 'save', WK_STEP, WK_SAVE_CAP),
     drive && drive.extra <= WK_DRIVE_CAP_MIN ? drive : null,
-    wkFirstFitTip(base, 'earn', WK_STEP, WK_EARN_CAP),
+    earnOk ? wkFirstFitTip(base, 'earn', WK_STEP, WK_EARN_CAP) : null,
   ].filter(Boolean);
   out.close = within.length > 0;
   out.levers = within;
@@ -315,7 +351,7 @@ function _wkCompute(base, answers) {
     out.far = [
       wkFirstFitTip(base, 'save', WK_SAVE_CAP + WK_STEP, WK_FAR_SAVE_CAP),
       drive,
-      wkFirstFitTip(base, 'earn', WK_EARN_CAP + WK_STEP, WK_FAR_EARN_CAP),
+      earnOk ? wkFirstFitTip(base, 'earn', WK_EARN_CAP + WK_STEP, WK_FAR_EARN_CAP) : null,
     ].filter(Boolean);
     out.nothingFar = !out.far.length;
   }
@@ -345,8 +381,9 @@ function worthKnowingHtml(wk) {
     h += wk.far.length
       ? '<div class="wk-lead">What would change the answer (none of it a small step):</div>' + wk.far.map(row).join('')
       : '<div class="wk-lead">No single change we tried gets ' + (limited ? 'a place within ' + wk.limit + ' minutes' : 'a place') +
-        ' to fit your HomePilot comfort range: not ' + fc(WK_FAR_SAVE_CAP) + ' more saved, and not ' + fc(WK_FAR_EARN_CAP) +
-        ' more household income a year' + (limited ? '; and no place further out fits either.' : '.') + '</div>';
+        ' to fit your HomePilot comfort range: not ' + fc(WK_FAR_SAVE_CAP) + ' more saved' +
+        (wk.earnTried === false ? '' : ', and not ' + fc(WK_FAR_EARN_CAP) + ' more household income a year') +
+        (limited ? '; and no place further out fits either.' : '.') + '</div>';
   }
   return '<div class="wk-box" id="wkBox"><div class="wk-title">HomePilot Worth Knowing</div>' + h + '</div>';
 }
