@@ -280,9 +280,9 @@ function listedDaysAgoText(value, now = new Date()) {
 }
 
 // searchBudget (added 2026-07-29): the same recommended-price number the
-// buyer was shown on the card that opened this listings view (or their
-// overall buyPower, for the "all types" city-level entry point -- see
-// listingsPageUrl()). Used ONLY to decide the badge below -- the actual
+// buyer was shown on the card that opened this listings view (the home-type
+// panel's price, or the city card's own price for its "View Available Homes"
+// -- see listingsPageUrl()). Used ONLY to decide the badge below -- the actual
 // price ceiling (searchBudget * 1.10) is already enforced server-side in
 // getListingsByCity(), so every listing reaching this function is
 // guaranteed to be at or under that stretch ceiling already. null/absent
@@ -545,7 +545,7 @@ window.loadMoreListings = loadMoreListings;
 // browsing experience. See the product brief this was built from.
 // searchBudget (added 2026-07-29): the recommended price shown on whichever
 // card/context opened this view -- see listingsPageUrl() below for how
-// it's chosen (card's own displayed price vs. overall buyPower). Threaded
+// it's chosen (the price shown on the panel or card that was clicked). Threaded
 // through to fetchListings (server-side price ceiling) and every rendered
 // card (client-side fit-tier badge from getFit(); see listing-fit.js).
 // options (added 2026-09-23): { sort, minBeds } -- see resolveListingOptions().
