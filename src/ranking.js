@@ -56,10 +56,11 @@ const HOME_RANK = { detached: 4, semi: 3, town: 2, condo: 1 };
 // cost    -- lowest monthly cost first
 const RESULT_SORTS = ['home', 'commute', 'cost'];
 
-// The plan's defaults for "longest commute you'd accept (one way)": 60 minutes
-// for someone who drives in every day, 90 for hybrid. The buyer can change it,
-// or choose no limit. Remote workers have no commute to limit.
-const DEFAULT_MAX_COMMUTE = { daily: 60, hybrid: 90 };
+// The default "longest commute you'd accept (one way)": 60 minutes for daily
+// and hybrid alike (IMPROVEMENT_PLAN.md 2.2a, 2026-09-24; hybrid was 90). The
+// buyer can still pick 75 or 90, or no limit. Remote workers have no commute
+// to limit.
+const DEFAULT_MAX_COMMUTE = { daily: 60, hybrid: 60 };
 const MAX_COMMUTE_CHOICES = [30, 45, 60, 75, 90];
 
 // The estimated one-way rush-hour drive to work, rounded to 5 minutes. This is

@@ -423,7 +423,10 @@ suite('Ranking');
   t('the hidden desirability ranking is gone (DESIRABILITY, TIER_WEIGHTS, homePilotSort)',
     run(`typeof DESIRABILITY`) === 'undefined' && run(`typeof TIER_WEIGHTS`) === 'undefined' && run(`typeof homePilotSort`) === 'undefined');
   const dmc = run('DEFAULT_MAX_COMMUTE');
-  t('default commute limits: 60 min daily, 90 min hybrid, none for remote', dmc.daily === 60 && dmc.hybrid === 90 && !dmc.remote);
+  // 2.2a (2026-09-24): 60 for hybrid too (it was 90); 75 and 90 stay in the list.
+  t('default commute limits: 60 min daily, 60 min hybrid, none for remote', dmc.daily === 60 && dmc.hybrid === 60 && !dmc.remote);
+  const mcc = run('MAX_COMMUTE_CHOICES');
+  t('75 and 90 minutes can still be picked', mcc.includes(75) && mcc.includes(90));
   t('the three sorts: most home, shortest commute, lowest monthly cost', JSON.stringify(run('RESULT_SORTS')) === JSON.stringify(['home','commute','cost']));
   t('all 55 cities present in M', M.length === 55);
   t('Bolton and Caledon both exist (same municipality)', !!M.find(c=>c.n==='Bolton') && !!M.find(c=>c.n==='Caledon'));

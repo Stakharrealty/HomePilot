@@ -102,18 +102,20 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
   const { win, errors } = await openCalculator();
 
   // =============== 1. commute limit ===============
+  // 2026-09-24 (IMPROVEMENT_PLAN.md 2.2a): the default is 60 minutes for hybrid
+  // as well as daily (hybrid was 90).
   search(win, { ...COUPLE, work: "hybrid" });
-  check("(1a) hybrid defaults to a 90-minute limit", win.eval("maxCommuteMin") === 90 && win.document.getElementById("maxCommute").value === "90");
+  check("(1a) hybrid defaults to a 60-minute limit", win.eval("maxCommuteMin") === 60 && win.document.getElementById("maxCommute").value === "60");
   const hybridAll = [...mainCards(win), ...moreCards(win)];
-  check("(1b) DONE WHEN: a hybrid Toronto worker sees only places within 90 minutes",
-    hybridAll.length > 0 && hybridAll.every((c) => c.drive !== null && c.drive <= 90), hybridAll.map((c) => c.city + ":" + c.drive).join(", "));
+  check("(1b) DONE WHEN: a hybrid Toronto worker sees only places within 60 minutes",
+    hybridAll.length > 0 && hybridAll.every((c) => c.drive !== null && c.drive <= 60), hybridAll.map((c) => c.city + ":" + c.drive).join(", "));
   const notes = win.document.getElementById("rankNotes").textContent;
-  check("(1c) the page says how many places were hidden for the commute, and offers them", /\d+ cities hidden — estimated drive over 90 min/.test(notes) && /Show them/.test(notes), notes);
+  check("(1c) the page says how many places were hidden for the commute, and offers them", /\d+ cities hidden — estimated drive over 60 min/.test(notes) && /Show them/.test(notes), notes);
   check("(1d) Welland (was #1) and Ottawa (was #13) are not on the page", !hybridAll.some((c) => c.city === "Welland" || c.city === "Ottawa"));
   win.eval("toggleOverCommute()");
   const shown = moreCards(win);
   check("(1e) 'Show them' lists the far places in their own section, never among the ranked ones",
-    shown.some((c) => c.drive > 90) && mainCards(win).every((c) => c.drive <= 90) && /Past your 90-minute commute limit/.test(win.document.getElementById("listMore").textContent));
+    shown.some((c) => c.drive > 60) && mainCards(win).every((c) => c.drive <= 60) && /Past your 60-minute commute limit/.test(win.document.getElementById("listMore").textContent));
   win.eval("toggleOverCommute()");
 
   search(win, { ...COUPLE, income: 200000, down: 150000, work: "daily" });
@@ -125,6 +127,16 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
   check("(1h) tightening the limit to 45 re-applies it on the spot", tighter.every((c) => c.drive <= 45) && tighter.length <= daily.length);
   win.eval("setMaxCommute('none')");
   check("(1i) 'No limit' hides nothing", !/hidden — estimated drive/.test(win.document.getElementById("rankNotes").textContent));
+  // 2.2a: 75, 90 and "No limit" stay in the list for buyers who pick them.
+  const choices = [...win.document.querySelectorAll("#maxCommute option")].map((o) => o.value);
+  win.eval("setMaxCommute('90')");
+  const longer = mainCards(win);
+  check("(1j) 75, 90 and 'No limit' can still be picked; 90 brings back places up to 90 minutes away",
+    ["75", "90", "none"].every((v) => choices.includes(v)) && win.eval("maxCommuteMin") === 90
+      && longer.length >= daily.length && longer.every((c) => c.drive <= 90)
+      && /estimated drive over 90 min/.test(win.document.getElementById("rankNotes").textContent),
+    choices.join(",") + " :: " + longer.map((c) => c.city + ":" + c.drive).join(", "));
+  win.eval("setMaxCommute('none')");
 
   // =============== 2. the #1 card never carries a warning ===============
   const profiles = [
@@ -336,7 +348,8 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
   check("(11a) buying power is the same either way: lenders add the two incomes", pairBP > 0 && soloBP === pairBP, soloBP + " vs " + pairBP);
   check("(11b) two $65K earners get more take-home than one $130K earner ($500+/month)", pairNet - soloNet > 500, Math.round(soloNet) + " -> " + Math.round(pairNet));
   win.eval("setResultsSort('home')");
-  // This couple has no comfortable place within 90 minutes even on two
+  // The limit is still the 30 minutes section 10 picked, and this couple has no
+  // comfortable place within it (nor within the 60-minute default) even on two
   // incomes, so their cards are the stretch ones; those show % of take-home too.
   const pairCards = [...mainCards(win), ...moreCards(win)];
   check("(11c) each card's % of take-home is worked out on the two-earner take-home",

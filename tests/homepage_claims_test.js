@@ -99,8 +99,8 @@ const visible = indexHtml.replace(/<script[\s\S]*?<\/script>/g, " ").replace(/<s
   check("every example price is the price table's own figure, not a hand-typed one",
     engine.every((e) => PT[e.city] && PT[e.city][e.type] === e.price));
   check("every example row names its % of take-home and its drive", rows.every((r) => /% of take-home/.test(r.meta) && /min drive/.test(r.meta)));
-  check("the example's commuter stays within the default 90-minute hybrid limit",
-    rows.every((r) => { const m = /about (\d+) min drive/.exec(r.meta); return m && Number(m[1]) <= 90; }));
+  check("the example's commuter stays within the default 60-minute hybrid limit",
+    rows.every((r) => { const m = /about (\d+) min drive/.exec(r.meta); return m && Number(m[1]) <= 60; }));
   check("computing the example leaves the page's own globals untouched",
     win.eval("grossMonthlyIncome === 0 && buyPower === 0 && workZone === null && workArrangement === 'remote' && firstTimeBuyer === false"));
   check("the example label says it is one sample buyer, and who", /SAMPLE BUYER/.test(win.document.getElementById("heroExampleLbl").textContent)
