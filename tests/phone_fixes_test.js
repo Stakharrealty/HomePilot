@@ -279,10 +279,30 @@ async function openPage(file, width) {
   tick(cities[1], false);
   check("calculator: unticking one closes the bar and the button goes back down", d.getElementById("cmpSticky").style.display === "none" && styleAt(wa, "bottom", PHONE) === "20px");
   tick(cities[1], true);
-  w.eval("initCompare()");
-  check("calculator: a new search (initCompare) closes the bar and puts the button back", !d.body.classList.contains("cmp-bar-open") && styleAt(wa, "bottom", PHONE) === "20px");
+  w.eval("go()");
+  check("calculator: a new search closes the bar and puts the button back", !d.body.classList.contains("cmp-bar-open") && styleAt(wa, "bottom", PHONE) === "20px"
+    && d.getElementById("cmpSticky").style.display === "none");
   check("calculator: no script errors in the page", cp.errors.length === 0, cp.errors.slice(0, 3).join(" | "));
   w.close();
+
+  // On a computer the note sat over the third answer card, three across from
+  // 1240px (its label and true monthly cost), so it steps aside once there are
+  // results; the green button stays.
+  const cd = await openPage("calculator.html", DESKTOP);
+  const dw = cd.win, dd = dw.document;
+  check("calculator at 1280px: the WhatsApp note shows before a search", dd.getElementById("waTooltip").style.display !== "none");
+  dd.getElementById("inc").value = "90000";
+  dd.getElementById("inc2").value = "60000";
+  dd.getElementById("dwn").value = "100000";
+  dd.getElementById("dbt").value = "0";
+  dw.eval("setFTB(true)");
+  dw.eval("setWorkArrangement('hybrid')");
+  dd.getElementById("workCity").value = "Toronto";
+  dw.eval("go()");
+  check("calculator at 1280px: after a search the note steps aside and the green button stays",
+    dd.querySelectorAll("#answers .city").length === 3 && dd.getElementById("waTooltip").style.display === "none" && dd.querySelector("#waWrap a").style.display !== "none");
+  check("calculator at 1280px: no script errors", cd.errors.length === 0, cd.errors.slice(0, 3).join(" | "));
+  dw.close();
 
   console.log(`\n=== RESULT: ${passed} passed, ${failed} failed ===`);
   process.exit(failed > 0 ? 1 : 0);

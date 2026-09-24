@@ -576,6 +576,12 @@ function go(){
     document.querySelectorAll("[id^='pt-'],[id^='ft-']").forEach(b=>b.classList.remove("on"));const ptAll=document.getElementById('pt-all');if(ptAll)ptAll.classList.add('on');
 
     render();
+    // The WhatsApp note ("Questions about your analysis?", 210px) steps aside
+    // once there are results, at every width (2026-09-24, IMPROVEMENT_PLAN.md
+    // 2.10: the bubble covers nothing). Phones already hid it on the first
+    // scroll (ui-helpers.js). On a computer it sat over the third answer card's
+    // label and true monthly cost. The green button stays.
+    const waNote=document.getElementById('waTooltip');if(waNote)waNote.style.display='none';
     setTimeout(()=>document.getElementById("bpBox").scrollIntoView({behavior:"smooth",block:"start"}),100);
   }catch(e){document.getElementById("err").textContent="Error: "+e.message;document.getElementById("err").style.display="block";console.error(e);}
   btn.disabled=false;btn.innerHTML="<span id='bt'>"+T.en.bt+"</span>";

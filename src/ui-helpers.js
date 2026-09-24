@@ -130,7 +130,9 @@ function endTour(){
 // stats, the form and the result cards until the buyer found its small close
 // button. On phones (under 600px, the site's own phone breakpoint) the note
 // now steps aside the first time the page scrolls; the green button stays
-// where it is. Wider screens are unchanged. tests/phone_fixes_test.js.
+// where it is. Wider screens keep it while the page scrolls, except that on
+// the calculator go() hides it once there are results, at every width: it sat
+// over the third answer card (2026-09-24). tests/phone_fixes_test.js.
 const WA_NOTE_PHONE_QUERY = '(max-width: 599px)';
 function hideWaNoteOnPhoneScroll(){
   if(!window.matchMedia || !window.matchMedia(WA_NOTE_PHONE_QUERY).matches) return;
