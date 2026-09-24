@@ -886,9 +886,9 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
     saverCalc.downPaymentLimited && saverCalc.bp === saverCalc.comfortBP && textOf(byId("bpBankLine")) === "Your savings are the limit, not your income. A bank would lend the same."
       && money(saverTop).filter((m) => m === fcw(saverCalc.comfortBP)).length === 1 && !/A bank might lend/.test(saverTop), saverTop.slice(0, 260));
   const tip = win.eval("savingsLimitTip(lastSearch.calc)");
-  check("(14l) the savings tip is still worked out (savingsLimitTip(), calcBP()'s figures) and shown as the first HomePilot Worth Knowing tip, not in the top section",
-    !!tip && tip.incomeCapBP === saverCalc.incomeCapBP && tip.moreSaved === saverCalc.downPaymentShortfall && tip.moreSaved > 0
-      && textOf(byId("savingsTip")).includes(`about ${fcw(tip.moreSaved)} more saved would get you there`) && !/limit here, not your income/.test(saverTop)
+  check("(14l) the savings tip is still worked out (savingsLimitTip(), calcBP()'s figures for the HomePilot comfort range), in the plan's words, and shown as the first HomePilot Worth Knowing tip, not in the top section",
+    !!tip && tip.comfortCapBP === saverCalc.comfortIncomeCapBP && tip.moreSaved === saverCalc.comfortDownPaymentShortfall && tip.moreSaved > 0
+      && textOf(byId("savingsTip")).endsWith(`Your savings are the limit, not your income. On your income alone your HomePilot comfort range would be ${fcw(tip.comfortCapBP)}; about ${fcw(tip.moreSaved)} more saved would get you there.`) && !/limit here, not your income/.test(saverTop)
       && byId("worthKnowing").contains(byId("savingsTip")) && byId("worthKnowing").querySelector(".wk-tip") === byId("savingsTip")
       && !byId("bpBox").contains(byId("savingsTip")) && !/more saved would get you there/.test(byId("bpBox").textContent), JSON.stringify(tip));
   const capped = win.eval("calcBP(200000, 60000, 0)");
@@ -1335,9 +1335,15 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
     far.empty && !far.close && textOf(byId("cnt")) === "Nothing within 60 minutes fits your HomePilot comfort range yet." && /What would change the answer/.test(textOf(byId("worthKnowing")))
       && far.far.length > 0 && wkTips().length === far.far.length + far.tips.length, textOf(byId("cnt")) + " / " + textOf(byId("worthKnowing")));
   search(win, { income: 70000, down: 15000, debt: 0, family: 3, firstTime: true, work: "daily", workCity: "Toronto", maxCommute: "60" });
-  check("(16s) nothing at all within reach: the box says no single change it tried gets there, after the savings tip",
+  // Savings cap this buyer's bank figure but not their HomePilot comfort range,
+  // so there is no savings tip: it said "about $500 more saved would get you
+  // there" (the bank's ceiling) right above "not $250,000 more saved" until
+  // 2026-09-24.
+  const c16s = win.eval("lastSearch.calc");
+  check("(16s) nothing at all within reach: the box says no single change it tried gets there, and has no savings tip, since savings cap only the bank's figure",
     textOf(byId("cnt")) === "Nothing within 60 minutes fits your HomePilot comfort range yet." && /No single change we tried/.test(textOf(byId("worthKnowing")))
-      && wkTips()[0] && wkTips()[0].kind === "savings-limit" && d.querySelectorAll("#answers .city").length === 0);
+      && c16s.downPaymentLimited && !c16s.comfortDownPaymentLimited && !wkTips().some((x) => x.kind === "savings-limit") && !/more saved would get you there/.test(textOf(byId("worthKnowing")))
+      && d.querySelectorAll("#answers .city").length === 0, JSON.stringify(c16s) + " " + textOf(byId("worthKnowing")));
 
   // Remote buyers: no commute, so no "within N minutes" and never a drive tip.
   search(win, { income: 90000, down: 40000, debt: 0, family: 3, firstTime: true, work: "remote" });

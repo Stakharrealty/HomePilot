@@ -10,8 +10,9 @@
 // no network: every tip is the calculator's own engine run again with one
 // input changed, never an estimate of what that run would say.
 //   - Savings are the limit: calcBP()'s "about $X more saved would get you
-//     there" (savingsLimitTip(), main.js). It used to sit in the top section;
-//     it is the first tip whenever it applies.
+//     there", there being the HomePilot comfort range the buyer's income alone
+//     would give (savingsLimitTip(), main.js). It used to sit in the top
+//     section; it is the first tip whenever it applies.
 //   - Save more: the smallest extra down payment, in $5,000 steps, that makes
 //     a better home comfortable -- a bigger home type in one of the answer
 //     places, or on the empty page the first place that fits at all.
@@ -274,9 +275,13 @@ function _wkCompute(base, answers) {
   const byHome = answers.byHome;
   const out = { empty: !byHome.ranked.length, limit: byHome.limit, onlyType: base.onlyType, tips: [], levers: [], close: false, far: [], nothingFar: false };
   const sl = savingsLimitTip(lastSearch.calc);
+  // The plan's own words: "Your savings are the limit… $X more saved would get
+  // you there", where "there" is the HomePilot comfort range the buyer's income
+  // alone would give.
   const savingsTip = sl ? {
-    kind: 'savings-limit', extra: sl.moreSaved, effort: 0, claim: { incomeCapBP: sl.incomeCapBP, moreSaved: sl.moreSaved },
-    html: 'On your income you could qualify for up to <b>' + fc(sl.incomeCapBP) + '</b>. A home at that price needs a larger down payment than you have — about <b>' + fc(sl.moreSaved) + ' more saved</b> would get you there.',
+    kind: 'savings-limit', extra: sl.moreSaved, effort: 0, claim: { comfortCapBP: sl.comfortCapBP, moreSaved: sl.moreSaved },
+    html: '<b>Your savings are the limit</b>, not your income. On your income alone your HomePilot comfort range would be <b>' + fc(sl.comfortCapBP) +
+      '</b>; about <b>' + fc(sl.moreSaved) + ' more saved</b> would get you there.',
   } : null;
 
   if (!out.empty) {

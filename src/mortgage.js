@@ -181,6 +181,18 @@ function calcBP(inc,dn,dbt){
   const downPaymentShortfall = downPaymentLimited
     ? Math.max(0, Math.ceil((minDownPaymentFor(incomeCapBP) - dn)/100)*100)
     : 0;
+  // The same three figures for the HomePilot comfort range (added 2026-09-24,
+  // IMPROVEMENT_PLAN.md 2.2): the page leads with the comfort range, and its
+  // savings tip ("Your savings are the limit... $X more saved would get you
+  // there") must point at the comfort range, not at the bank's ceiling above.
+  // Savings cap the comfort range only when comfort's own ratios would allow
+  // more than the down payment can legally buy; then the bank's figure is
+  // capped too, and both are the same figure.
+  const comfortDownPaymentLimited = comfortBPRaw > legalCap + 1;
+  const comfortIncomeCapBP = Math.round(comfortBPRaw/10000)*10000;
+  const comfortDownPaymentShortfall = comfortDownPaymentLimited
+    ? Math.max(0, Math.ceil((minDownPaymentFor(comfortIncomeCapBP) - dn)/100)*100)
+    : 0;
 
   // Monthly payments shown to buyer use the actual selected rate (not stress rate) and
   // the amortization that was actually used to reach that ceiling.
@@ -197,7 +209,8 @@ function calcBP(inc,dn,dbt){
   };
   const mo = payment(bp, amortFor(bp));
   const comfortMo = payment(comfortBP, amortFor(comfortBP));
-  return{bp,comfortBP,mo,comfortMo,downPaymentLimited,legalCap,incomeCapBP,downPaymentShortfall};
+  return{bp,comfortBP,mo,comfortMo,downPaymentLimited,legalCap,incomeCapBP,downPaymentShortfall,
+    comfortDownPaymentLimited,comfortIncomeCapBP,comfortDownPaymentShortfall};
 }
 
 // Full per-property qualification check — used to gate whether a specific city+type

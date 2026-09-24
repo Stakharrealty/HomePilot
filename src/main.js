@@ -326,15 +326,23 @@ function basedOnLine(s){
     ' · ' + fc(s.dn) + ' down · ' + (s.dbt > 0 ? fc(s.dbt) + '/mo debt' : 'no debt');
 }
 
-// "Your savings are the limit… $X more saved would get you there": what income
-// alone would let a bank lend, and how much more down payment that price needs
-// (calcBP()'s incomeCapBP and downPaymentShortfall). null when savings are not
-// what holds the buyer back. Since 2026-09-24 it is the first HomePilot Worth
-// Knowing tip (worth-knowing.js), below the answer cards; it was a note in the
-// top section.
+// "Your savings are the limit… $X more saved would get you there": what the
+// buyer's income alone would make their HomePilot comfort range, and how much
+// more down payment that price needs (calcBP()'s comfortIncomeCapBP and
+// comfortDownPaymentShortfall). null when savings are not what holds the
+// HomePilot comfort range back. Since 2026-09-24 it is the first HomePilot
+// Worth Knowing tip (worth-knowing.js), below the answer cards; it was a note
+// in the top section.
+// It pointed at the bank's ceiling until 2026-09-24 (incomeCapBP, "you could
+// qualify for up to $X"), a price the top section calls stretch territory, and
+// it showed whenever savings capped the bank's figure, even when income capped
+// the comfort range: for $80K and $15K down, "about $2,500 more saved would get
+// you there" lifted the bank to $350,000 and left the HomePilot comfort range
+// at $290,000. It now shows exactly when savings cap the comfort range, which
+// is when the top line says "Your savings are the limit".
 function savingsLimitTip(calc){
-  if(!calc || !calc.downPaymentLimited || !(calc.downPaymentShortfall > 0) || !(calc.incomeCapBP > calc.bp)) return null;
-  return { incomeCapBP: calc.incomeCapBP, moreSaved: calc.downPaymentShortfall };
+  if(!calc || !calc.comfortDownPaymentLimited || !(calc.comfortDownPaymentShortfall > 0) || !(calc.comfortIncomeCapBP > calc.comfortBP)) return null;
+  return { comfortCapBP: calc.comfortIncomeCapBP, moreSaved: calc.comfortDownPaymentShortfall };
 }
 
 function renderTopSection(){

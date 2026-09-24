@@ -157,7 +157,7 @@ const driveMatches = (wk) => {
   return spec === null ? !tip : !!tip && tip.claim.n === spec.n && tip.claim.type === spec.type && tip.claim.from.n === spec.from && tip.claim.from.type === spec.fromType;
 };
 
-const seen = { normalTips: 0, emptyClose: 0, emptyFar: 0, emptyNothing: 0, kinds: new Set(), justFits: 0, notJust: 0 };
+const seen = { normalTips: 0, emptyClose: 0, emptyFar: 0, emptyNothing: 0, kinds: new Set(), justFits: 0, notJust: 0, savings: 0 };
 const worked = {};
 
 // 0. The thresholds are the app's own lines.
@@ -199,13 +199,24 @@ for (const b of BUYERS) {
   t(`(${tag}) the wording always says "HomePilot comfort range", never a bare "comfort range" or "comfortably afford"`,
     all.every((x) => !/comfortably afford/i.test(x.html) && (text(x.html).match(/comfort range/g) || []).length === (text(x.html).match(/HomePilot comfort range/g) || []).length));
 
-  // The savings tip: calcBP()'s own figures, first whenever it applies.
+  // The savings tip: calcBP()'s own figures for the HomePilot comfort range,
+  // first whenever savings cap it (2026-09-24: it pointed at the bank's
+  // ceiling, and showed when savings capped only the bank's figure).
   const calc = data(`calcBP(${b.income + (b.partner || 0)}, ${b.down}, ${b.debt || 0})`);
-  const savingsApplies = calc.downPaymentLimited && calc.downPaymentShortfall > 0 && calc.incomeCapBP > calc.bp;
-  t(`(${tag}) the savings tip is there exactly when savings are the limit, and it is first`,
-    savingsApplies ? wk.tips[0] && wk.tips[0].kind === 'savings-limit' && wk.tips[0].claim.incomeCapBP === calc.incomeCapBP && wk.tips[0].claim.moreSaved === calc.downPaymentShortfall
-      && text(wk.tips[0].html).includes(`about ${fc(calc.downPaymentShortfall)} more saved would get you there`)
+  const savingsApplies = calc.comfortDownPaymentLimited && calc.comfortDownPaymentShortfall > 0 && calc.comfortIncomeCapBP > calc.comfortBP;
+  if (savingsApplies) seen.savings++;
+  t(`(${tag}) the savings tip is there exactly when savings cap the HomePilot comfort range, and it is first, in the plan's words`,
+    savingsApplies ? wk.tips[0] && wk.tips[0].kind === 'savings-limit' && wk.tips[0].claim.comfortCapBP === calc.comfortIncomeCapBP && wk.tips[0].claim.moreSaved === calc.comfortDownPaymentShortfall
+      && text(wk.tips[0].html) === `Your savings are the limit, not your income. On your income alone your HomePilot comfort range would be ${fc(calc.comfortIncomeCapBP)}; about ${fc(calc.comfortDownPaymentShortfall)} more saved would get you there.`
       : !all.some((x) => x.kind === 'savings-limit'), JSON.stringify(wk.tips.map((x) => x.kind)));
+  if (savingsApplies) {
+    // Searching again with that much more saved gets the HomePilot comfort range there.
+    search(changed(b, 'save', calc.comfortDownPaymentShortfall));
+    const got = data('comfortBuyPower');
+    t(`(${tag}) savings tip: searching again with ${fc(calc.comfortDownPaymentShortfall)} more saved, the HomePilot comfort range is ${fc(calc.comfortIncomeCapBP)} or more`,
+      got >= calc.comfortIncomeCapBP, got);
+    search(b);
+  }
 
   // No drive tip without a commute.
   if (b.work === 'remote') t(`(${tag}) remote: no drive tip`, !all.some((x) => x.kind === 'drive'));
@@ -399,6 +410,7 @@ t('the normal page with no tip worth showing draws nothing', run("worthKnowingHt
 // Every kind of page and tip was exercised.
 t('covered: tips on the normal page, the empty page close, far off, and with no answer at all',
   seen.normalTips > 0 && seen.emptyClose > 0 && seen.emptyFar > 0 && seen.emptyNothing > 0, JSON.stringify({ ...seen, kinds: [...seen.kinds] }));
+t('covered: a buyer whose savings cap the HomePilot comfort range', seen.savings > 0, seen.savings);
 t('covered: save, drive and earn tips, "just fits" and not', ['save', 'drive', 'earn'].every((k) => seen.kinds.has(k)) && seen.justFits > 0 && seen.notJust > 0,
   JSON.stringify([...seen.kinds]) + ' just ' + seen.justFits + ' not ' + seen.notJust);
 
