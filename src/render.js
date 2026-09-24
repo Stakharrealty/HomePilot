@@ -170,7 +170,7 @@ function render(){
   const nextId=cardIdMaker();
   const shown=[];
   const slot=(answersAttr,label,e,section,id)=>'<div class="answer-slot" data-answers="'+answersAttr+'">'+
-    '<div class="answer-label">'+label+'</div>'+cityCardHtml(e,section,id)+'</div>';
+    '<div class="answer-label">'+label+'</div>'+cityCardHtml(e,section,id,true)+'</div>';
   // A closest option is not comfortable, but not always Stretch: a home under
   // 45% of take-home is one only because its price is above the HomePilot
   // comfort range, and its own pill says Good Fit. The label says which
@@ -324,8 +324,11 @@ function toggleSeeAll(){
 // or 'over'. Every figure on the card comes from the entry, so the card, the
 // ranking and shownCards can never show different numbers. `cardId` is the
 // card's id from cardIdMaker() (2026-09-24: a place can have two cards on the
-// page); without it, the plain 'c-' + place.
-function cityCardHtml(e, section, cardId){
+// page); without it, the plain 'c-' + place. `answer` is true for the three
+// answer cards at the top (and the empty page's three closest options): the
+// user's layout for those three only, 2026-09-24 -- see answerHead below.
+// Every other card is drawn exactly as before.
+function cityCardHtml(e, section, cardId, answer){
   const t=T.en;
   const x=e.city;
   const id=cardId||('c-'+x.n.replace(/[^a-zA-Z0-9]/g,'-'));
@@ -338,6 +341,8 @@ function cityCardHtml(e, section, cardId){
   // otherwise; red only on a card past the buyer's own limit.
   const commuteBadge=e.commuteMin===null?'':
     '<div class="commute-badge'+(section==='over'?' access-limited':e.commuteMin<=25?' access-excellent':'')+'">About '+e.commuteMin+' min drive · estimate</div>';
+  const commuteLine=e.commuteMin===null?'':
+    '<div class="commute-badge ac-commute'+(section==='over'?' access-limited':e.commuteMin<=25?' access-excellent':'')+'">Commute - '+e.commuteMin+' Min Estimate</div>';
   let unlockNote='';
   if(section==='stretch'){
     unlockNote='<div style="font-size:12px;color:#996600;margin-top:6px;display:flex;align-items:center;gap:5px"><span>⚠</span>Even the '+(PROP_LABELS[e.type]||'home').toLowerCase()+' here is beyond comfortable</div>';
@@ -348,11 +353,26 @@ function cityCardHtml(e, section, cardId){
   // monthly range and the property list below.
   const options=(activeProp==='all'?['condo','town','semi','detached']:[activeProp])
     .map(tp=>qualifyingOption(x,tp)).filter(Boolean);
+  // The answer cards' top, one item per line (the user, 2026-09-24): the
+  // place; the monthly cost; the % of take-home; the home and its price with
+  // the fit label on the right; the commute. Same figures, same ids.
+  const answerHead='<div class="ac-head">'+
+    '<div class="cn">'+x.n+'</div>'+
+    '<div class="ac-cost"><span class="ac-cost-lbl">Monthly cost</span><span class="ac-cost-v" id="'+id+'-mtotal">'+fc(c.total)+'/mo</span></div>'+
+    '<div class="ac-pct" id="'+id+'-mmort">'+(e.pct!==null?e.pct+'% of take-home':t.mortgage+': '+fc(c.mort)+'/mo')+'</div>'+
+    '<div class="card-headline ac-home"><span>'+(PROP_LABELS[e.type]||e.type)+' · '+fc(displayPrice)+'</span>'+fitPill(fit)+'</div>'+
+    commuteLine+
+    '</div>';
+  // On an answer card each part sits in its own .ac-sec, so side by side the
+  // parts line up across the three cards (the .answer-grid rules in
+  // calculator.html). On every other card sec() adds nothing.
+  const sec=answer?(cls,h)=>'<div class="ac-sec'+(cls?' '+cls:'')+'">'+h+'</div>':(cls,h)=>h;
   // .city-body holds everything above "View Available Homes". It changes
   // nothing on its own; side by side it lets the answer cards line their
   // buttons up (the .answer-grid rules in calculator.html).
   return '<div class="city" id="'+id+'" onclick="toggle(\''+id+'\')">'+
     '<div class="city-body">'+
+    (answer?answerHead:
     '<div class="ct"><div><div class="cn">'+x.n+'</div>'+
       '<div class="card-headline">'+(PROP_LABELS[e.type]||e.type)+' · '+fc(displayPrice)+' '+fitPill(fit)+'</div>'+
       commuteBadge+'</div>'+
@@ -360,11 +380,11 @@ function cityCardHtml(e, section, cardId){
       '<div style="font-size:10px;color:#555;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:2px">'+t.true_cost+'</div>'+
       '<div style="font-size:17px;font-weight:800;color:#1D9E75;white-space:nowrap" id="'+id+'-mtotal">'+fc(c.total)+'/mo</div>'+
       '<div style="font-size:11px;color:#777;margin-top:2px" id="'+id+'-mmort">'+(e.pct!==null?e.pct+'% of take-home':t.mortgage+': '+fc(c.mort)+'/mo')+'</div>'+
-    '</div></div>'+
-    unlockNote+
+    '</div></div>')+
+    sec('',unlockNote+
     buildWhyRanked(x, c, net, e.commuteMin, e.type, displayPrice)+
-    (devMode?buildDevPanel(e,section):'')+
-    (function(){
+    (devMode?buildDevPanel(e,section):''))+
+    sec('',(function(){
       // PROPERTY LIST — every type the buyer can actually buy in this city,
       // each with its monthly cost, its share of take-home pay, and getFit()'s
       // label (the same label used everywhere else).
@@ -394,22 +414,22 @@ function cityCardHtml(e, section, cardId){
       h+='</div>';
       h+='<div style="font-size:11px;color:#aaa;margin-top:4px;text-align:right">% of monthly take-home</div>';
       return h;
-    })()+
+    })())+
     // AI Insights sits right under the property type ladder (moved here
     // July 27 2026 per feedback — reads more naturally right after the
     // user has seen the concrete price/cost breakdown, rather than before
     // it at the top of the card).
-    '<div class="ai-insights-trigger" id="ai-trigger-'+id+'" onclick="event.stopPropagation();toggleAiInsights(\''+id+'\',\''+x.n+'\')" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:10px 12px;margin:10px 0;background:linear-gradient(135deg,#F3EEFB,#EEF7F3);border:1px solid #E3DAF5;border-radius:10px">'+
+    sec('ac-ai','<div class="ai-insights-trigger" id="ai-trigger-'+id+'" onclick="event.stopPropagation();toggleAiInsights(\''+id+'\',\''+x.n+'\')" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:10px 12px;margin:10px 0;background:linear-gradient(135deg,#F3EEFB,#EEF7F3);border:1px solid #E3DAF5;border-radius:10px">'+
     '<span style="font-size:13px;font-weight:700;color:#5B3A7E">✨ AI Insights for '+x.n+'</span>'+
     '<span id="ai-trigger-chevron-'+id+'" style="font-size:13px;color:#5B3A7E;transition:transform 0.2s">›</span>'+
     '</div>'+
-    '<div class="ai-insights" id="ai-'+id+'" style="display:none;margin-bottom:6px"></div>'+
-    '<label class="cmp-cb" onclick="event.stopPropagation()" id="cmp-lbl-'+id+'">'+
+    '<div class="ai-insights" id="ai-'+id+'" style="display:none;margin-bottom:6px"></div>')+
+    sec('ac-cmp','<label class="cmp-cb" onclick="event.stopPropagation()" id="cmp-lbl-'+id+'">'+
     '<input type="checkbox" id="cmp-chk-'+id+'" onchange="toggleCmpCity(\''+x.n+'\',this)">'+
     '<span class="cmp-cb-lbl">Compare this city (select up to 3 cities)</span></label>'+
     '<div class="bk">'+
     (fit.cls==='fs'?'<div style="font-size:12px;color:#633806;background:#FAEEDA;border-radius:8px;padding:8px 10px;margin-top:10px;line-height:1.6;">'+t.stretch_warn+'</div>':'')+
-    '</div>'+
+    '</div>')+
     '</div>'+
     '<a class="view-btn"'+listingsLinkAttrs(x.n,activeProp,displayPrice)+'>View Available '+(activeProp==='all'?'Homes':PLBL[activeProp])+' in '+x.n+'</a>'+
     '</div>';

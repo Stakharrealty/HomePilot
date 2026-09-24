@@ -554,24 +554,41 @@ select{
 .answer-grid [id^="pt-row-"]:not([id$="-chevron"]){flex-wrap:wrap;row-gap:4px}
 .answer-grid [id^="pt-row-"]:not([id$="-chevron"]) > div:first-child{flex-grow:1;flex-shrink:1;flex-basis:min-content}
 .answer-grid [id^="pt-row-"]:not([id$="-chevron"]) > div:last-child{flex:0 0 auto;margin-left:auto}
+/* The answer cards' top (the user, 2026-09-24, these three cards only): one
+   item per line -- the place, "Monthly cost $X/mo", "% of take-home", the
+   home and price with the fit label on the right, then "Commute - N Min
+   Estimate". The figures and their styles are the card's own. */
+.ac-cost{display:flex;align-items:baseline;gap:6px;white-space:nowrap;margin-top:4px}
+.ac-cost-lbl{font-size:10px;color:#555;font-weight:700;text-transform:uppercase;letter-spacing:0.05em}
+.ac-cost-v{font-size:17px;font-weight:800;color:#1D9E75}
+.ac-pct{font-size:11px;color:#777;margin-top:2px}
+.ac-home{justify-content:space-between;flex-wrap:nowrap;margin-top:6px}
+.ac-commute{white-space:nowrap}
+/* Split into .ac-sec parts, the AI Insights row's bottom margin would add to
+   the Compare line's top margin instead of overlapping it (10px + 10px).
+   Dropping it keeps the gap at today's 10px, open or closed. */
+.ac-ai .ai-insights-trigger,.ac-ai .ai-insights{margin-bottom:0!important}
 @media(min-width:1024px){
   .answer-grid{align-items:start;row-gap:14px}
-  .answer-grid-2{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:auto auto auto;row-gap:0}
-  .answer-grid-2 > .answer-slot{display:grid;grid-row:span 3;grid-template-rows:subgrid}
+  .answer-grid-2{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(7,auto);row-gap:0}
+  .answer-grid-2 > .answer-slot{display:grid;grid-row:span 7;grid-template-rows:subgrid}
   .answer-grid-2 > .answer-slot > .answer-label{align-self:end}
-  .answer-grid-2 > .answer-slot > .city{grid-row:span 2;display:grid;grid-template-rows:subgrid;grid-template-columns:minmax(0,1fr)}
+  .answer-grid-2 > .answer-slot > .city{grid-row:span 6;display:grid;grid-template-rows:subgrid;grid-template-columns:minmax(0,1fr)}
+  .answer-grid-2 > .answer-slot > .city > .city-body{grid-row:span 5;display:grid;grid-template-rows:subgrid;grid-template-columns:minmax(0,1fr)}
   .answer-grid-2 > .answer-slot > .city > .view-btn{display:flex;align-items:center;justify-content:center}
 }
-/* "View Available Homes" lines up across the cards side by side (the user,
-   2026-09-24), however many home types each card lists: the label, the card
-   body and the button are three rows every slot shares (subgrid), so the
-   buttons share a top and a height. Open a breakdown in one card and the
-   others' buttons move down with it. */
+/* Side by side, every part of the answer cards lines up across them (the
+   user, 2026-09-24), however many home types each card lists: the label, the
+   top, At a glance, the home-type list, AI Insights, Compare and "View
+   Available Homes" are seven rows every slot shares (nested subgrids), so
+   each part starts at the same height on every card. Open a breakdown in one
+   card and the parts below it move down on all three. */
 @media(min-width:1240px){
-  .answer-grid-3{grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:auto auto auto;row-gap:0}
-  .answer-grid-3 > .answer-slot{display:grid;grid-row:span 3;grid-template-rows:subgrid}
+  .answer-grid-3{grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(7,auto);row-gap:0}
+  .answer-grid-3 > .answer-slot{display:grid;grid-row:span 7;grid-template-rows:subgrid}
   .answer-grid-3 > .answer-slot > .answer-label{align-self:end}
-  .answer-grid-3 > .answer-slot > .city{grid-row:span 2;display:grid;grid-template-rows:subgrid;grid-template-columns:minmax(0,1fr)}
+  .answer-grid-3 > .answer-slot > .city{grid-row:span 6;display:grid;grid-template-rows:subgrid;grid-template-columns:minmax(0,1fr)}
+  .answer-grid-3 > .answer-slot > .city > .city-body{grid-row:span 5;display:grid;grid-template-rows:subgrid;grid-template-columns:minmax(0,1fr)}
   .answer-grid-3 > .answer-slot > .city > .view-btn{display:flex;align-items:center;justify-content:center}
 }
 #seeAllBody{margin-top:18px}

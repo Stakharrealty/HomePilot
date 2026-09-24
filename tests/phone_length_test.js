@@ -57,8 +57,10 @@ const path = require("path");
 
 const URL_CALC = "http://localhost:8843/calculator.html";
 const PHONE = { width: 375, height: 812 };
-// "About three phone screens" (IMPROVEMENT_PLAN.md 2.10).
-const MAX_SCREENS = 3.6;
+// "About three phone screens" (IMPROVEMENT_PLAN.md 2.10). 3.6 until
+// 2026-09-24, when the user's one-item-per-line top for the three answer cards
+// added about 70px a card (3.45 -> 3.68 screens for these buyers).
+const MAX_SCREENS = 3.8;
 
 const BUYERS = [
   { name: "(1) $90K + $60K, $100K down, hybrid Toronto, first-time", income: 90000, partnerIncome: 60000, down: 100000, debt: 0, work: "hybrid", workCity: "Toronto", firstTime: true },
@@ -270,11 +272,18 @@ async function measureDesktopInPage(b) {
   // "View Available Homes" on each answer card: how far apart the tops and
   // bottoms are (0 = lined up), worst case over the closed cards and every
   // breakdown opened below.
+  // Since 2026-09-24 every part lines up too (the user): the top, At a glance,
+  // the home-type list, AI Insights and Compare, so their tops are measured
+  // the same way.
   const btnSpread = () => {
     const bs = cards.map((c) => c.querySelector(":scope > .view-btn")).filter(Boolean).map((b) => b.getBoundingClientRect());
     if (bs.length !== cards.length) return Infinity;
-    const sp = (k) => Math.max(...bs.map((r) => r[k])) - Math.min(...bs.map((r) => r[k]));
-    return Math.max(sp("top"), sp("bottom"));
+    const sp = (k, rs) => Math.max(...rs.map((r) => r[k])) - Math.min(...rs.map((r) => r[k]));
+    let worst = Math.max(sp("top", bs), sp("bottom", bs));
+    const parts = cards.map((c) => [c.querySelector(".ac-head"), ...c.querySelectorAll(".city-body > .ac-sec")]);
+    if (parts.some((p) => p.length !== 5 || !p[0])) return Infinity;
+    for (let i = 0; i < 5; i++) worst = Math.max(worst, sp("top", parts.map((p) => p[i].getBoundingClientRect())));
+    return worst;
   };
   let buttonSpread = btnSpread();
   // Every breakdown, opened one at a time: the smallest gap between a label
@@ -375,7 +384,7 @@ async function measureDesktopInPage(b) {
         check(`${width}px, ${b.name}: the three cards start level, a wrapped label included`, Math.max(...m.tops) - Math.min(...m.tops) <= 1, m.tops.join("/"));
         check(`${width}px, ${b.name}: no home-type row is cut off (nothing wider than its list, every chevron inside it)`, m.overflow === 0 && m.chevronsCut === 0, m.overflow + "px over, " + m.chevronsCut + " chevrons cut");
         check(`${width}px, ${b.name}: in every cost breakdown each figure stays at least ${MIN_LABEL_GAP_PX}px from its label`, m.pairs > 0 && m.minGap >= MIN_LABEL_GAP_PX, m.minGap + "px");
-        check(`${width}px, ${b.name}: "View Available Homes" lines up across the three cards, however many home types each lists, breakdowns open or closed`, m.buttonSpread !== null && m.buttonSpread <= 1, m.buttonSpread + "px apart");
+        check(`${width}px, ${b.name}: every part (top, At a glance, home types, AI Insights, Compare) and "View Available Homes" lines up across the three cards, however many home types each lists, breakdowns open or closed`, m.buttonSpread !== null && m.buttonSpread <= 1, m.buttonSpread + "px apart");
         check(`${width}px, ${b.name}: nothing makes the page scroll sideways`, m.pageWidth <= width, m.pageWidth + "px wide");
       }
     }

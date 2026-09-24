@@ -112,7 +112,9 @@ function readCard(el) {
   const headline = el.querySelector(".card-headline");
   const m = headline ? /^(.*?) · \$([\d,]+)/.exec(headline.textContent.trim()) : null;
   const drive = el.querySelector(".commute-badge");
-  const dm = drive ? /About (\d+) min drive/.exec(drive.textContent) : null;
+  // Today's card: "About N min drive · estimate"; the three answer cards:
+  // "Commute - N Min Estimate" (the user, 2026-09-24).
+  const dm = drive ? /(?:About (\d+) min drive|Commute - (\d+) Min Estimate)/.exec(drive.textContent) : null;
   const monthly = el.querySelector("[id$='-mtotal']");
   return {
     id: el.id,
@@ -121,7 +123,7 @@ function readCard(el) {
     price: m ? Number(m[2].replace(/,/g, "")) : null,
     monthly: monthly ? Number(monthly.textContent.replace(/[^0-9]/g, "")) : null,
     fit: el.querySelector(".fit-pill") ? el.querySelector(".fit-pill").textContent.trim() : null,
-    drive: dm ? Number(dm[1]) : null,
+    drive: dm ? Number(dm[1] || dm[2]) : null,
     text: el.textContent,
   };
 }
@@ -1077,10 +1079,14 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
   const twice = a15.filter((a) => a.city === a15[2].city);
   check("(15c) the same place can win twice with a different home, and is shown both times, each card with its own id",
     twice.length === 2 && twice[0].type !== twice[1].type && twice[0].id !== twice[1].id && twice[1].id === twice[0].id + "__2", JSON.stringify(twice.map((a) => a.id + " " + a.type)));
-  const todays = win.eval(`(function(){ var cards = document.querySelectorAll('#answers .city'); return answerPicks(results, {maxCommute: maxCommuteMin, onlyType: null}).picks.map(function(p, i){ return cityCardHtml(p.entry, 'ranked', cards[i].id); }); })()`);
+  const todays = win.eval(`(function(){ var cards = document.querySelectorAll('#answers .city'); return answerPicks(results, {maxCommute: maxCommuteMin, onlyType: null}).picks.map(function(p, i){ return [cityCardHtml(p.entry, 'ranked', cards[i].id, true), cityCardHtml(p.entry, 'ranked', cards[i].id)]; }); })()`);
   const asParsed = (html) => { const box = d.createElement("div"); box.innerHTML = html; return box.firstElementChild.outerHTML; };
-  check("(15d) each answer card is today's card, exactly: the same HTML cityCardHtml() draws for every card (name, headline and label, true monthly cost, At a glance, the home-type rows, AI Insights, compare, View available homes)",
-    todays.length === 3 && a15.every((a, i) => a.slot.querySelector(".city").outerHTML === asParsed(todays[i]))
+  // Since 2026-09-24 the three answer cards have their own top (the user's
+  // layout); everything below it is today's card, part for part.
+  const belowTop = (html) => { const box = d.createElement("div"); box.innerHTML = html; const c = box.firstElementChild;
+    return [...c.querySelector(".city-body").children].filter((k) => !k.matches(".ct, .ac-head")).map((k) => k.matches(".ac-sec") ? k.innerHTML : k.outerHTML).join("") + c.querySelector(":scope > .view-btn").outerHTML; };
+  check("(15d) each answer card is cityCardHtml()'s answer card, and below its new top it is today's card, part for part (At a glance, the home-type rows, AI Insights, compare, View available homes)",
+    todays.length === 3 && a15.every((a, i) => a.slot.querySelector(".city").outerHTML === asParsed(todays[i][0]) && belowTop(todays[i][0]) === belowTop(todays[i][1]))
       && a15.every((a) => { const el = a.slot.querySelector(".city"); return el.querySelector(".cn") && el.querySelector(".card-headline .fit-pill") && el.querySelector("[id$='-mtotal']") && /At a glance/.test(el.textContent) && el.querySelector("[id^='pt-row-']") && el.querySelector(".ai-insights-trigger") && el.querySelector(".cmp-cb") && el.querySelector(".view-btn"); }));
   check("(15e) each label sits on top of its card, in the site's small eyebrow style",
     a15.every((a) => a.slot.firstElementChild.className === "answer-label" && a.slot.children[1].classList.contains("city") && a.slot.children.length === 2));
@@ -1256,11 +1262,14 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
   // (body, then "View Available Homes"), so the buttons line up whatever the
   // number of home types. tests/phone_length_test.js measures both in Chrome.
   check("(15ac) side by side the labels share one row, and each question in a label stays on one line",
-    css.includes(".answer-grid-3 > .answer-slot{display:grid;grid-row:span 3;grid-template-rows:subgrid}") && css.includes(".answer-grid-2 > .answer-slot{display:grid;grid-row:span 3;grid-template-rows:subgrid}")
+    css.includes(".answer-grid-3 > .answer-slot{display:grid;grid-row:span 7;grid-template-rows:subgrid}") && css.includes(".answer-grid-2 > .answer-slot{display:grid;grid-row:span 7;grid-template-rows:subgrid}")
       && css.includes(".answer-q{white-space:nowrap}") &&[...d.querySelectorAll("#answers .answer-slot")]
-        .every((s) => { const c = s.querySelector(":scope > .city"); return c && c.children.length === 2 && c.children[0].classList.contains("city-body") && c.children[1].classList.contains("view-btn"); })
-      && css.includes(".answer-grid-3 > .answer-slot > .city{grid-row:span 2;display:grid;grid-template-rows:subgrid")
-      && css.includes(".answer-grid-2 > .answer-slot > .city{grid-row:span 2;display:grid;grid-template-rows:subgrid")
+        .every((s) => { const c = s.querySelector(":scope > .city"); return c && c.children.length === 2 && c.children[0].classList.contains("city-body") && c.children[1].classList.contains("view-btn")
+          && c.children[0].children.length === 5 && c.children[0].children[0].classList.contains("ac-head") && [...c.children[0].children].slice(1).every((k) => k.classList.contains("ac-sec")); })
+      && css.includes(".answer-grid-3 > .answer-slot > .city{grid-row:span 6;display:grid;grid-template-rows:subgrid")
+      && css.includes(".answer-grid-3 > .answer-slot > .city > .city-body{grid-row:span 5;display:grid;grid-template-rows:subgrid")
+      && css.includes(".answer-grid-2 > .answer-slot > .city{grid-row:span 6;display:grid;grid-template-rows:subgrid")
+      && css.includes(".answer-grid-2 > .answer-slot > .city > .city-body{grid-row:span 5;display:grid;grid-template-rows:subgrid")
       && [...d.querySelectorAll("#answers .answer-slot")].every((s) => s.querySelectorAll(".answer-label .answer-q").length === s.dataset.answers.split(" ").length && [...s.querySelectorAll(".answer-label .answer-q")].map(textOf).join(" · ") === textOf(s.querySelector(".answer-label"))));
 
   // =============== 16. HomePilot Worth Knowing and the "you're close" page (IMPROVEMENT_PLAN.md 2.2, 2.0) ===============
@@ -1362,10 +1371,10 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
     closestOwn.length > 0 && closestOwn.every((c) => c.fit !== LBL[2]) && closestLabelOk(),
     [...d.querySelectorAll("#answers .answer-slot")].map((s) => textOf(s.querySelector(".answer-label")) + " / " + textOf(s.querySelector(".fit-pill"))).join(" | "));
   byId("takeHomeReset").click();
-  const stretchHtml = win.eval(`(function(){ var els = document.querySelectorAll('#answers .city'); return rankCities(results,{sort:'home',maxCommute:maxCommuteMin}).stretchOnly.slice(0,3).map(function(e,i){ return cityCardHtml(e,'stretch',els[i].id); }); })()`);
+  const stretchHtml = win.eval(`(function(){ var els = document.querySelectorAll('#answers .city'); return rankCities(results,{sort:'home',maxCommute:maxCommuteMin}).stretchOnly.slice(0,3).map(function(e,i){ return [cityCardHtml(e,'stretch',els[i].id,true), cityCardHtml(e,'stretch',els[i].id)]; }); })()`);
   const asEl = (h) => { const box = d.createElement("div"); box.innerHTML = h; return box.firstElementChild.outerHTML; };
-  check("(16h) ...each is today's stretch card, unchanged: the same HTML cityCardHtml() draws under 'Only as a stretch' (the 'beyond comfortable' note, Stretch label, breakdowns, AI Insights, compare, View available homes)",
-    [...d.querySelectorAll("#answers .city")].every((el, i) => el.outerHTML === asEl(stretchHtml[i])) && closest60.every((c) => /beyond comfortable/.test(c.text) && c.fit === LBL[2]));
+  check("(16h) ...each is the stretch card 'Only as a stretch' draws, with the answer cards' top: below it the same parts (the 'beyond comfortable' note, breakdowns, AI Insights, compare, View available homes)",
+    [...d.querySelectorAll("#answers .city")].every((el, i) => el.outerHTML === asEl(stretchHtml[i][0]) && belowTop(stretchHtml[i][0]) === belowTop(stretchHtml[i][1])) && closest60.every((c) => /beyond comfortable/.test(c.text) && c.fit === LBL[2]));
   const tips60 = wkTips();
   check("(16i) ...then HomePilot Worth Knowing, the main message: one tip per lever that has one, in the order save, drive, earn",
     byId("answers").nextElementSibling === byId("worthKnowing") && !!byId("worthKnowing").querySelector(".wk-box") && tips60.length >= 1
