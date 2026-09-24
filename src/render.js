@@ -199,7 +199,7 @@ function render(){
   const wkEl=document.getElementById('worthKnowing');
   if(wkEl) wkEl.innerHTML=typeof worthKnowingHtml==='function'?worthKnowingHtml(wk):'';
   const topHomes=noAnswers?closest:answers.picks.map(p=>p.entry);
-  answersView={onlyType,answerHomes:new Set(topHomes.map(homeKey)),shown,idCounts:nextId.counts};
+  answersView={onlyType,answerHomes:new Set(topHomes.map(homeKey)),answerPlaces:new Set(topHomes.map(e=>e.n)),shown,idCounts:nextId.counts};
   renderSeeAll();
 
   const rateBarEl=document.getElementById('rateBar');
@@ -244,9 +244,13 @@ function renderSeeAll(){
   // Closed until the buyer opens it, on the empty page too (2.0): its cards
   // are the stretch-only places after the closest three, and the places past
   // the limit when asked for. The count is of the places it adds: the
-  // comfortable ones, or on the empty page the stretch-only ones.
+  // comfortable ones, or on the empty page the stretch-only ones. Places, not
+  // cards (2026-09-24): an answer place can come back here with another home
+  // (Scarborough's detached, when its condo is the Lowest monthly cost
+  // answer), and counting that card made "3 answers + 8 more" against "10
+  // cities" on the count line.
   const open=seeAllOpen;
-  const moreCount=noAnswers?stretchOnly.length:rest.length;
+  const moreCount=new Set((noAnswers?stretchOnly:rest).map(e=>e.n).filter(n=>!v.answerPlaces.has(n))).size;
 
   const btn=document.getElementById('seeAllBtn');
   if(btn){

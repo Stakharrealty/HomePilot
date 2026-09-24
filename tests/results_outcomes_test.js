@@ -1067,11 +1067,33 @@ const COUPLE = { income: 130000, down: 70000, debt: 450, family: 3, firstTime: t
   const answerKeys = new Set(a15.map((a) => a.key));
   const restOf = (ranked) => ranked.filter((e) => !answerKeys.has(e.key));
   const restHome = restOf(home15);
-  check("(15h) 'See all places' is closed after a search: the button says how many more, nothing of it is drawn",
-    visible(byId("seeAllBtn")) && textOf(byId("seeAllBtn")) === `See all places (${restHome.length} more)` && byId("seeAllBtn").getAttribute("aria-expanded") === "false"
+  // "N more" counts places the answers do not show, not cards: an answer place
+  // can come back under "See all places" with another home.
+  const answerPlaces15 = new Set(a15.map((a) => a.city));
+  const morePlaces15 = new Set(restHome.map((e) => e.n).filter((n) => !answerPlaces15.has(n))).size;
+  check("(15h) 'See all places' is closed after a search: the button says how many more places, nothing of it is drawn",
+    visible(byId("seeAllBtn")) && textOf(byId("seeAllBtn")) === `See all places (${morePlaces15} more)` && byId("seeAllBtn").getAttribute("aria-expanded") === "false"
       && !visible(byId("seeAllBody")) && d.querySelectorAll("#list .city, #listMore .city").length === 0 && restHome.length > 0 && win.eval("seeAllOpen") === false,
-    textOf(byId("seeAllBtn")) + " / " + restHome.length);
+    textOf(byId("seeAllBtn")) + " / " + morePlaces15);
   check("(15i) ...and the page counts every place: 'N cities' is all the places, the answers' included", Number((/(\d+)\s+cities/.exec(byId("cnt").textContent) || [])[1]) === home15.length);
+  // The numbers add up: the places on the answer cards plus "N more" is the
+  // count line's "N cities", also when a place is on an answer card and again
+  // under "See all places" with another home (it said "8 more" beside 3
+  // answers and "10 cities", and "52 more" beside 3 answers and "54 cities").
+  const addsUp = (b) => {
+    search(win, b);
+    const n = Number((/(\d+)\s+cit(?:y|ies)/.exec(byId("cnt").textContent) || [])[1]);
+    const more = Number((/\((\d+) more\)/.exec(textOf(byId("seeAllBtn"))) || [0, 0])[1]);
+    const placesUp = new Set(answersOnPage().map((a) => a.city)).size;
+    openSeeAll(win);
+    const repeat = listCards().some((c) => answersOnPage().some((a) => a.city === c.city));
+    return { ok: placesUp + more === n, repeat, detail: `${placesUp} + ${more} vs ${n}` };
+  };
+  const J = addsUp({ income: 300000, partnerIncome: 200000, down: 500000, debt: 0, family: 3, firstTime: false, work: "daily", workCity: "Toronto", maxCommute: "60" });
+  const B3 = addsUp({ income: 250000, down: 300000, debt: 0, family: 3, firstTime: false, work: "remote" });
+  check("(15i2) answer places + 'N more' = 'N cities', for two buyers who have an answer place again under 'See all places'",
+    J.ok && B3.ok && J.repeat && B3.repeat, JSON.stringify({ J, B3 }));
+  search(win, { ...COUPLE, income: 180000, down: 120000, work: "hybrid", maxCommute: "60" });
   // An answer card's breakdown, open, to show the answers are left alone below.
   const firstAnswer = byId("answers").querySelector(".city");
   firstAnswer.querySelector("[id^='pt-row-']:not([id$='-chevron'])").click();
