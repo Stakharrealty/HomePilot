@@ -185,10 +185,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;bac
 <script src="src/map.js"></script>
 <script>
 // Did the buyer arrive from HomePilot's results (not from a listing page, a
-// bookmark or a shared link)?
+// bookmark or a shared link)? The live site serves its pages without ".html"
+// (listing.html?key=X redirects to /listing?key=X), so a listing page's
+// address is matched with or without it.
 function cameFromResults() {
   const ref = document.referrer || "";
-  return ref.indexOf(location.origin + "/") === 0 && !/\/listings?\.html/.test(ref);
+  if (ref.indexOf(location.origin + "/") !== 0) return false;
+  let refPath;
+  try { refPath = new URL(ref).pathname; } catch (e) { return false; }
+  return !/^\/listings?(\.html)?\/?$/.test(refPath);
 }
 
 // "← Back to Recommendations":

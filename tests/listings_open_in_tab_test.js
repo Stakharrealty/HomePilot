@@ -307,6 +307,24 @@ let B_ROUND_TRIP = null; // the address and handover from a real click in B, ope
     const C = await listingsPage({ search: `?city=Guelph&type=condo&budget=640000&hp=${KEY}`, referrer: "https://wa.me/", storage: { [PREFIX + KEY]: entry(PROFILE) } });
     check("(C19) arriving from another site is not treated as HomePilot's own tab", !(C.w.history.state && C.w.history.state.hpOwnTab));
   }
+  // The live site serves pages without ".html": listing.html?key=X redirects to
+  // /listing?key=X, so that is the referrer a listing page leaves behind. A
+  // buyer who opened a listing directly (a shared link, or its own tab) and
+  // pressed "← Back to listings" must not be sent back to that listing by
+  // "← Back to Recommendations" or the logo: both go to the homepage.
+  for (const [label, ref] of [["live site, no .html", `${ORIGIN}/listing?key=X1`], ["with .html", `${ORIGIN}/listing.html?key=X1`], ["listings page, no .html", `${ORIGIN}/listings?city=Guelph`]]) {
+    const C = await listingsPage({ search: "?city=Guelph", referrer: ref, sameTabHistory: true });
+    const w = C.w;
+    let backs = 0, closes = 0;
+    w.close = () => { closes++; }; w.history.back = () => { backs++; };
+    check(`(C25) came from a listing page (${label}): not counted as the results, not marked as its own tab, and Back to Recommendations follows its link to the homepage`,
+      w.cameFromResults() === false && !(w.history.state && w.history.state.hpOwnTab) && w.handleBackClick() === true && backs === 0 && closes === 0, ref);
+  }
+  {
+    const C = await listingsPage({ search: `?city=Guelph&type=condo&budget=640000&hp=${KEY}`, referrer: `${ORIGIN}/calculator`, storage: { [PREFIX + KEY]: entry(PROFILE) } });
+    check("(C26) the results as the live site serves them (/calculator, no .html) still count: first in its own tab, it is marked as such",
+      C.w.cameFromResults() === true && !!(C.w.history.state && C.w.history.state.hpOwnTab));
+  }
   {
     const C = await listingsPage({});
     check("(C20) no city in the address: the 'No city specified' message, no request", /No city specified/.test(C.doc.getElementById("listingsRoot").textContent) && C.calls.length === 0);
