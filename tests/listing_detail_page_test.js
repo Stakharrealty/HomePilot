@@ -130,8 +130,11 @@ async function openPage({ listing, status = 200, profile, budget, search, fetchT
   check("the 10% ceiling constants are untouched (server 1.10 and client 1.10)", /const STRETCH_MULTIPLIER = 1\.10;/.test(read("workers/homepilot-listings/src/db.js")) && /const LD_STRETCH_MULTIPLIER = 1\.10;/.test(read("src/listing-fit.js")));
   check("deploy.yml copies listing.html into the deploy folder (and no longer copies listing-full.html)", /cp listing\.html deploy\//.test(read(".github/workflows/deploy.yml")) && !/listing-full/.test(read(".github/workflows/deploy.yml")));
   const display = read("src/listings-display.js");
-  const ow = display.slice(display.indexOf("function openListingsWindow("));
-  check("openListingsWindow saves the buyer profile before opening the window", ow.indexOf("saveBuyerProfile()") > -1 && ow.indexOf("saveBuyerProfile()") < ow.indexOf("window.open("));
+  const lc = display.slice(display.indexOf("function listingsLinkClicked("), display.indexOf("\nwindow.listingsLinkClicked"));
+  check("the 'View Available Homes' link saves the buyer profile and hands it over as it is followed (listingsLinkClicked)",
+    lc.includes("saveBuyerProfile()") && lc.includes("handOffBuyerProfile()") && !/preventDefault|return false/.test(lc));
+  check("listing.html's script never resizes or moves the window (the pop-up sizing code is gone)",
+    !/resizeTo|moveTo|ldFillPopupToScreen|\.opener\b/.test(read("src/listing-detail.js")) && !/resizeTo|moveTo|\.opener\b/.test(read("listing.html")));
   const hrefLine = display.split(/\r?\n/).find((ln) => ln.includes("const detailHref")) || "";
   check("the detail link is built from the listing key and budget only (no profile data)", /listing\.html\?key=/.test(hrefLine) && !/income|downPayment|profile|debt/i.test(hrefLine), hrefLine);
 
@@ -190,19 +193,6 @@ async function openPage({ listing, status = 200, profile, budget, search, fetchT
   check("(M1c) wide-screen CSS swaps the visual order (gallery left, cost view right) without touching the DOM order asserted above",
     /@media\(min-width:760px\)\{[^}]*\.ld-top\{display:flex/.test(listingHtml) &&
     listingHtml.includes(".ld-top>.ld-hp{order:2}") && listingHtml.includes(".ld-top>.ld-gallery{order:1}"));
-  // ---- inside a listings popup, the listing page fills the screen (desktop size)
-  const stubWin = (o) => { const calls = []; return { calls, w: { opener: { closed: false }, screen: { availWidth: 1920, availHeight: 1080 }, outerWidth: 1040, outerHeight: 840, moveTo: (...a) => calls.push(["moveTo", ...a]), resizeTo: (...a) => calls.push(["resizeTo", ...a]), ...o } }; };
-  const P1 = stubWin({});
-  check("(P1) inside a popup that is smaller than the screen: moveTo(0,0) then resizeTo(availWidth, availHeight)",
-    F.w.ldFillPopupToScreen(P1.w) === true && JSON.stringify(P1.calls) === JSON.stringify([["moveTo", 0, 0], ["resizeTo", 1920, 1080]]), JSON.stringify(P1.calls));
-  const P2 = stubWin({ opener: null });
-  check("(P2) a normal tab (no opener) is never resized", F.w.ldFillPopupToScreen(P2.w) === false && P2.calls.length === 0);
-  const P3 = stubWin({ outerWidth: 1920, outerHeight: 1080 });
-  check("(P3) a popup that already fills the screen is left alone", F.w.ldFillPopupToScreen(P3.w) === false && P3.calls.length === 0);
-  const P4 = stubWin({ screen: { availWidth: 800, availHeight: 600 }, outerWidth: 500, outerHeight: 400 });
-  check("(P4) small screen: floors at 1040x840", F.w.ldFillPopupToScreen(P4.w) === true && P4.calls[1][1] === 1040 && P4.calls[1][2] === 840, JSON.stringify(P4.calls));
-  const P5 = stubWin({ moveTo() { throw new Error("blocked"); } });
-  check("(P5) a browser that blocks the resize doesn't throw", F.w.ldFillPopupToScreen(P5.w) === false);
   const fullFacts = {
     type: "Property type: Detached", beds: "Beds: 4", baths: "Baths: 3", parking: "Parking spaces: 2", total: "Total parking: 3", garage: "Garage: Attached",
     basement: "Basement: Finished", heating: "Heating: Forced Air", cooling: "Cooling: Central Air", year: "Year built: 2005", lot: "Lot size: 40 Feet",

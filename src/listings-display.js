@@ -5,10 +5,10 @@
 // INCOM WAS FULLY REMOVED 2026-07-22 (see utils.js). This is the only
 // listings experience in the app -- and as of 2026-07-25, it's no longer
 // an inline expand panel under each city card either (see
-// openListingsWindow() below and listings.html): "View Available Homes"
-// buttons now open a dedicated separate listings page/popup, per explicit
-// product direction that listings should support HomePilot's
-// recommendation, not become a browsing experience embedded in it.
+// listingsLinkAttrs() below and listings.html): "View Available Homes"
+// links open a dedicated separate listings page, per explicit product
+// direction that listings should support HomePilot's recommendation, not
+// become a browsing experience embedded in it.
 //
 // DDF REMOVED 2026-09-18: CREA's DDF Policy and Rules (section 6) required
 // a REALTOR.ca attribution mark, the REALTOR® logo, and a specific CREA
@@ -282,7 +282,7 @@ function listedDaysAgoText(value, now = new Date()) {
 // searchBudget (added 2026-07-29): the same recommended-price number the
 // buyer was shown on the card that opened this listings view (or their
 // overall buyPower, for the "all types" city-level entry point -- see
-// openListingsWindow()). Used ONLY to decide the badge below -- the actual
+// listingsPageUrl()). Used ONLY to decide the badge below -- the actual
 // price ceiling (searchBudget * 1.10) is already enforced server-side in
 // getListingsByCity(), so every listing reaching this function is
 // guaranteed to be at or under that stretch ceiling already. null/absent
@@ -544,7 +544,7 @@ window.loadMoreListings = loadMoreListings;
 // listings support HomePilot's recommendation, they aren't a separate
 // browsing experience. See the product brief this was built from.
 // searchBudget (added 2026-07-29): the recommended price shown on whichever
-// card/context opened this view -- see openListingsWindow() below for how
+// card/context opened this view -- see listingsPageUrl() below for how
 // it's chosen (card's own displayed price vs. overall buyPower). Threaded
 // through to fetchListings (server-side price ceiling) and every rendered
 // card (client-side fit-tier badge from getFit(); see listing-fit.js).
@@ -576,13 +576,14 @@ async function renderLiveListings(city, containerEl, propertyType, searchBudget,
   // Re-fetches for the clicked type, keeping the same city, search budget,
   // order and bedroom minimum, and reflects the choice in the URL
   // (replaceState, not pushState -- a filter pick isn't a new page to go
-  // "back" through).
+  // "back" through). The page's history state is kept, because listings.html's
+  // back link reads it.
   const onSelectType = (type) => {
     if (typeof window !== "undefined" && window.history && window.location) {
       const url = new URL(window.location.href);
       if (type === "all") url.searchParams.delete("type");
       else url.searchParams.set("type", type);
-      window.history.replaceState(null, "", url);
+      window.history.replaceState(window.history.state, "", url);
     }
     renderLiveListings(city, containerEl, type, searchBudget, opts);
   };
@@ -593,7 +594,7 @@ async function renderLiveListings(city, containerEl, propertyType, searchBudget,
       const url = new URL(window.location.href);
       url.searchParams.set("sort", next.sort);
       url.searchParams.set("beds", next.minBeds === null ? "any" : String(next.minBeds));
-      window.history.replaceState(null, "", url);
+      window.history.replaceState(window.history.state, "", url);
     }
     renderLiveListings(city, containerEl, propertyType, searchBudget, { sort: next.sort, minBeds: next.minBeds });
   };
@@ -661,107 +662,87 @@ async function renderLiveListings(city, containerEl, propertyType, searchBudget,
 // Exposed for listings.html to call once it loads.
 window.renderLiveListings = renderLiveListings;
 
-// --- Entry point from HomePilot's main recommendation cards ---
-// REDESIGNED 2026-07-25, replacing the old toggleLiveListings() inline
-// expand/collapse: per explicit product direction, listings must not be
-// embedded inside city cards or expand inline beneath a recommendation --
-// they open in a dedicated HomePilot listings experience (listings.html),
-// framed as "Available Condos Matching This Recommendation", not "All
-// Listings in Brampton". This keeps HomePilot's role as a decision engine
-// front and center; listings support that decision, they don't replace it.
+// --- Entry point from HomePilot's recommendation cards ---
+// Listings open on their own page (listings.html), framed as "Available
+// Condos Matching This Recommendation", not "All Listings in Brampton": they
+// support HomePilot's recommendation, they don't replace it (2026-07-25; they
+// used to expand inline under each city card).
 //
-// Desktop: a real, separate OS popup window (window.open()), per explicit
-// direction. Mobile: real URL navigation with a native back button (also
-// explicit direction) -- not a same-window in-app overlay, so the phone's
-// own back gesture/button works for free and the URL is shareable.
+// "View Available Homes" is a plain link (2026-09-24, IMPROVEMENT_PLAN 2.7;
+// before that it opened a pop-up window that a script resized). On a phone it
+// opens in the same tab, so the phone's own back button returns to the
+// results. On a computer it opens in a new tab (target=_blank rel=noopener)
+// next to the results.
 //
-// DESKTOP_BREAKPOINT_PX matches the app's own existing @media(min-width:1024px)
-// breakpoint in index.html's CSS (the true desktop grid-layout tier), not a
-// new arbitrary number.
+// Phone or computer is decided the way the site decides its layout: at 1024px
+// and wider the calculator switches to its desktop layout
+// (@media(min-width:1024px) in calculator.html and index.html).
 const DESKTOP_BREAKPOINT_PX = 1024;
 
-// CRITICAL popup-blocker constraint: window.open() must be the very FIRST
-// thing that happens in this function, called synchronously from the click
-// handler -- no fetch/await/anything before it. Browsers only allow
-// window.open() through if it happens inside the same synchronous tick as
-// the user's click; any async work first (even a fast API call) makes the
-// browser treat the eventual window.open() as an unrequested popup and
-// silently block it, no error, no visible failure. So this function opens
-// the window (or navigates, on mobile) IMMEDIATELY, pointed at a real URL
-// that does its own fetching once loaded -- it never fetches data itself
-// before opening/navigating.
-// searchBudget (added 2026-07-29, affordability-consistency fix): the
-// recommended price the buyer was just shown -- passed by render.js as the
-// 3rd argument at BOTH call sites, with different meaning by context (per
-// explicit product decision, 2026-07-29):
-//   - Property-type recommendation cards/panels (Detached/Semi/Town/Condo):
-//     the EXACT number displayed on that card (render.js's `displayPrice`/
-//     `price`) -- so the listings search never uses a different number than
-//     what the buyer just looked at.
-//   - City-level "View All Homes" (no single type/price shown): the
-//     buyer's overall buyPower, since there's no specific on-screen number
-//     to match in that context.
-// Optional/validated -- an invalid or missing value just omits the budget
-// param entirely, matching prior behavior (no price ceiling) exactly.
-function openListingsWindow(city, propertyType, searchBudget) {
-  // Hand the buyer's own numbers to the listing detail page (sessionStorage,
-  // synchronous, never the URL -- see buyer-profile.js). Written BEFORE the
-  // window opens because a popup gets a copy of sessionStorage at open time.
-  if (typeof saveBuyerProfile === "function") saveBuyerProfile();
-  const paramsObj = { city, type: propertyType || "all" };
-  if (Number.isFinite(searchBudget) && searchBudget > 0) paramsObj.budget = String(searchBudget);
-  const params = new URLSearchParams(paramsObj);
-  const url = `listings.html?${params.toString()}`;
-
-  const isDesktop = window.matchMedia(`(min-width: ${DESKTOP_BREAKPOINT_PX}px)`).matches;
-
-  if (isDesktop) {
-    // Named target ("hp_listings") means clicking a second "View Available
-    // Homes" button re-focuses the same popup and navigates it to the new
-    // city/type, rather than piling up multiple popup windows.
-    // NOTE: deliberately no "noopener" here -- noopener makes window.open()
-    // always return null BY DESIGN (the browser refuses to hand back a
-    // reference), which broke the very check on the next line: `if (popup)`
-    // was always false, so every desktop click fell through to the mobile
-    // fallback and navigated the CURRENT tab away instead of opening a
-    // separate window -- confirmed live 2026-07-25 (a real mouse click,
-    // not a script-simulated one, still hit this). This function needs the
-    // real popup reference (to .focus() it on repeat clicks, and to
-    // legitimately detect an actual browser-level block), so noopener and
-    // "check if popup is truthy" can't be combined.
-    //
-    // window.open()'s width/height features (tried here previously) only
-    // size the new window's CONTENT AREA, not the outer window --
-    // requesting window.screen.availWidth/availHeight there still leaves a
-    // gap the size of the browser's own chrome (title bar, tab strip,
-    // address bar), so the window could never actually reach a true
-    // full-screen/maximized look that way, no matter what was requested.
-    // resizeTo()/moveTo(), called on the window reference right after
-    // opening it, set the OUTER window's size and position directly --
-    // that's what actually fills the screen. Both wrapped in try/catch:
-    // some browsers refuse resizeTo/moveTo on certain window
-    // configurations (e.g. a window with more than one tab), which would
-    // otherwise throw and abort focus() for no good reason -- the popup
-    // having opened at its default size is a fine fallback, not worth
-    // losing focus() over. Floored at the original 1040x840. Plain
-    // synchronous calls inside the click handler -- same requirement as
-    // the popup-blocker note above.
-    const popup = window.open(url, "hp_listings", "width=1040,height=840,scrollbars=yes,resizable=yes");
-    if (popup) {
-      try {
-        popup.moveTo(0, 0);
-        popup.resizeTo(Math.max(1040, window.screen.availWidth), Math.max(840, window.screen.availHeight));
-      } catch (e) { /* not fatal -- popup still opened, just at its default size */ }
-      popup.focus();
-    }
-    // If popup is still null here, that's now a REAL block (e.g. the user
-    // has popups hard-disabled) -- fall back to same-tab navigation rather
-    // than silently doing nothing.
-    else window.location.href = url;
-  } else {
-    // Mobile: real navigation, not an in-app overlay -- gives the phone's
-    // native back button and a shareable/bookmarkable URL for free.
-    window.location.href = url;
+function listingsOpenInNewTab() {
+  try {
+    return !!(window.matchMedia && window.matchMedia(`(min-width: ${DESKTOP_BREAKPOINT_PX}px)`).matches);
+  } catch (e) {
+    return false;
   }
 }
-window.openListingsWindow = openListingsWindow;
+
+// The listings page's address: city, property type and budget, nothing
+// personal (the buyer's income and savings are handed over separately, see
+// listingsLinkClicked below). searchBudget is the price the buyer was just
+// shown, passed by render.js at both call sites (product decision,
+// 2026-07-29):
+//   - Property-type panels (Detached/Semi/Town/Condo): the exact number shown
+//     on that panel, so the search never uses a different number than the one
+//     the buyer just looked at.
+//   - The city card's own "View Available Homes": the price on that card.
+// An invalid or missing budget is left out (no price ceiling).
+function listingsPageUrl(city, propertyType, searchBudget) {
+  const paramsObj = { city, type: propertyType || "all" };
+  const budget = searchBudget === null || searchBudget === "" ? NaN : Number(searchBudget);
+  if (Number.isFinite(budget) && budget > 0) paramsObj.budget = String(budget);
+  return `listings.html?${new URLSearchParams(paramsObj).toString()}`;
+}
+
+// The attributes of a "View Available Homes" link, for render.js's card markup
+// (an HTML string): the address, the new-tab attributes on a computer, and the
+// click handlers. stopPropagation keeps the click from also opening or closing
+// the city card the link sits in.
+function listingsLinkAttrs(city, propertyType, searchBudget) {
+  return ` href="${escapeHtml(listingsPageUrl(city, propertyType, searchBudget))}"`
+    + (listingsOpenInNewTab() ? ' target="_blank" rel="noopener"' : "")
+    + ' onclick="event.stopPropagation();listingsLinkClicked(event,this)"'
+    + ' onauxclick="listingsLinkClicked(event,this)"';
+}
+
+// Runs as the link is followed and never cancels it:
+//  - Re-checks phone or computer, in case the window was resized after the
+//    card was drawn.
+//  - Saves the buyer's numbers for this tab, and hands them to the page about
+//    to open: a new tab does not get a copy of this tab's sessionStorage, so
+//    the link carries a one-time key (?hp=...) and the numbers wait in
+//    handOffBuyerProfile() (buyer-profile.js) for listings.html to collect.
+//    The numbers themselves never go in the address.
+// A middle click (auxclick, button 1) opens a new tab too, so it gets the same
+// treatment; a right click does not.
+function listingsLinkClicked(event, link) {
+  if (event && event.type === "auxclick" && event.button !== 1) return;
+  if (listingsOpenInNewTab()) {
+    link.setAttribute("target", "_blank");
+    link.setAttribute("rel", "noopener");
+  } else {
+    link.removeAttribute("target");
+    link.removeAttribute("rel");
+  }
+  if (typeof saveBuyerProfile === "function") saveBuyerProfile();
+  try {
+    const url = new URL(link.getAttribute("href"), window.location.href);
+    url.searchParams.delete(HP_HANDOFF_PARAM);
+    const key = typeof handOffBuyerProfile === "function" ? handOffBuyerProfile() : null;
+    if (key) url.searchParams.set(HP_HANDOFF_PARAM, key);
+    link.setAttribute("href", url.href);
+  } catch (e) {
+    // The link still opens; the listings page just shows no fit badges.
+  }
+}
+window.listingsLinkClicked = listingsLinkClicked;

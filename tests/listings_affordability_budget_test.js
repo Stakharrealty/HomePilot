@@ -58,15 +58,16 @@ async function main() {
     !/buyPower\s*\*\s*1\.10/.test(renderSrc)
   );
 
-  // --- 3. render.js: both "View Homes" buttons pass a price/budget as the
-  //     3rd argument to openListingsWindow ---
+  // --- 3. render.js: both "View Available Homes" links pass a price/budget
+  //     as the 3rd argument to listingsLinkAttrs (plain links since
+  //     2026-09-24; they used to call openListingsWindow) ---
   check(
-    "City-level 'View All Homes' button passes displayPrice as 3rd arg to openListingsWindow",
-    renderSrc.includes("openListingsWindow(\\''+x.n+'\\',\\''+activeProp+'\\','+displayPrice+')")
+    "City-level 'View Available Homes' link passes displayPrice as 3rd arg to listingsLinkAttrs",
+    renderSrc.includes("listingsLinkAttrs(x.n,activeProp,displayPrice)")
   );
   check(
-    "Property-type card button passes price (the card's own displayed number) as 3rd arg",
-    renderSrc.includes("openListingsWindow(\\''+cityName+'\\',\\''+tp+'\\','+price+')")
+    "Property-type panel link passes price (the panel's own displayed number) as 3rd arg",
+    renderSrc.includes("listingsLinkAttrs(cityName,tp,price)")
   );
 
   // --- 4. db.js: getListingsByCity accepts searchBudget and builds the
@@ -198,15 +199,15 @@ async function main() {
   // 6.3(b), 100 per search) instead of the raw limit.
   check("index.js passes searchBudget into getListingsByCity", /getListingsByCity\(env\.DB, city, cappedLimit, propertyType, offset, searchBudget, torontoDistricts, communities, \{ minBeds, sort \}\)/.test(indexSrc));
 
-  // --- 8. listings-display.js: fetchListings/openListingsWindow wiring ---
+  // --- 8. listings-display.js: fetchListings/listingsPageUrl wiring ---
   const displaySrc = fs.readFileSync(path.join(__dirname, "..", "src", "listings-display.js"), "utf8");
   check(
     "fetchListings sets 'budget' param only when searchBudget is valid",
     /params\.set\("budget", String\(searchBudget\)\)/.test(displaySrc)
   );
   check(
-    "openListingsWindow includes budget in the listings.html URL only when valid",
-    /paramsObj\.budget = String\(searchBudget\)/.test(displaySrc)
+    "listingsPageUrl includes budget in the listings.html URL only when valid",
+    /if \(Number\.isFinite\(budget\) && budget > 0\) paramsObj\.budget = String\(budget\)/.test(displaySrc)
   );
   check(
     "renderListingCard gets its badge from listingFit(listing, profile, searchBudget) (getFit tier)",

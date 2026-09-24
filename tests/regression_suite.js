@@ -758,7 +758,7 @@ runSuite7().then(async () => {
     const selectPropSrc = src.slice(selectPropStart, selectPropEnd);
     t('selectPropType() function located for scoping these checks', selectPropStart !== -1 && selectPropEnd > selectPropStart);
     t('per-type panel contains its own view-btn', /class="view-btn"/.test(selectPropSrc));
-    t('per-type view-btn wires to real DDF listings via openListingsWindow(cityName,tp) -- redesigned 2026-07-25 from inline toggle to dedicated popup/page', selectPropSrc.includes('openListingsWindow(') && /openListingsWindow\(.*cityName.*\)/.test(selectPropSrc));
+    t('per-type view-btn is a plain link to the listings page via listingsLinkAttrs(cityName,tp,price) -- 2026-09-24, no pop-up window', /<a class="view-btn"[^>]*'\+listingsLinkAttrs\(cityName,tp,price\)\+'/.test(selectPropSrc) && !selectPropSrc.includes('openListingsWindow('));
     t('per-type view-btn label uses PLBL to show the real type name (e.g. "Townhouse", not raw "town")', /View Available '\+\(PLBL\[tp\]\|\|tp\)\+' in '\+cityName/.test(selectPropSrc));
     t('per-type view-btn appears inside the panel before panel.innerHTML is assigned (i.e. actually gets rendered, not dead code after assignment)', selectPropSrc.indexOf('class="view-btn"') < selectPropSrc.indexOf('panel.innerHTML = html'));
   }

@@ -9,19 +9,20 @@
 
   Replaces the old inline-expand-under-city-card pattern per explicit
   product direction: listings must not be embedded inside city cards or
-  expand inline beneath a recommendation. They open here instead --
-  desktop opens this as a real separate popup window (window.open()),
-  mobile navigates here directly (real URL, native back button).
+  expand inline beneath a recommendation. They open here instead, from a
+  plain "View Available Homes" link (2026-09-24, no pop-up window): in the
+  same tab on a phone (the phone's back button returns to the results), in
+  a new tab on a computer.
 
-  This is a REAL, separate page (not a client-side-only view swap) so
-  that: (a) window.open() can point at it directly and satisfy the popup
-  blocker's synchronous-click requirement, and (b) mobile navigation gets
-  a real URL, shareable and bookmarkable, with the phone's native back
-  button working automatically -- both were explicit product requirements,
-  not implementation conveniences.
+  This is a REAL, separate page (not a client-side-only view swap), with a
+  real URL that is shareable and bookmarkable. It works when opened
+  directly too: without the buyer's numbers it shows the listings without
+  fit badges or monthly costs.
 
   Query params: ?city=<name>&type=<condo|town|semi|detached|all>
                 &budget=<price>&sort=<best|price|newest>&beds=<1-5|any>
+                &hp=<one-time key for the buyer's numbers; see
+                     buyer-profile.js. Removed from the address on load.>
 -->
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -183,28 +184,52 @@ body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;bac
 <script src="src/maps-key.js" onerror="window.HOMEPILOT_MAPS_KEY='';"></script>
 <script src="src/map.js"></script>
 <script>
-// If this page was opened as a popup (window.opener exists), "back" should
-// close the popup and return focus to the original HomePilot window rather
-// than navigating the popup itself to myhomepilot.ca -- navigating a popup
-// away from listings.html defeats the point of having a dedicated popup.
-// If there's no opener (mobile: this is a real navigated-to page, not a
-// popup), fall through to the normal link navigation, which is exactly
-// the native "back" behavior mobile was built to use.
+// Did the buyer arrive from HomePilot's results (not from a listing page, a
+// bookmark or a shared link)?
+function cameFromResults() {
+  const ref = document.referrer || "";
+  return ref.indexOf(location.origin + "/") === 0 && !/\/listings?\.html/.test(ref);
+}
+
+// "← Back to Recommendations":
+//  - Opened in its own tab from the results (computers): the results are in
+//    the tab next to this one, so close this tab. A browser that won't let a
+//    page close its tab falls through to the link.
+//  - Same tab (phones): go back, to the results as they were.
+//  - Anything else (a bookmark, a shared link): follow the link to the homepage.
 function handleBackClick(event) {
-  if (window.opener && !window.opener.closed) {
+  if (history.state && history.state.hpOwnTab) {
     window.close();
+    return !window.closed;
+  }
+  if (cameFromResults() && history.length > 1) {
+    history.back();
     return false;
   }
-  return true; // no opener -- let the link navigate normally (mobile case)
+  return true;
 }
 
 (function init() {
   const params = new URLSearchParams(window.location.search);
+  // The buyer's numbers, handed over by the link that opened this page
+  // (?hp=<one-time key>; see buyer-profile.js). The key is taken out of the
+  // address straight away, so a reload, bookmark or shared link never has it.
+  // A page first in its own tab, opened from the results, is marked for the
+  // back link above.
+  const handoff = params.get("hp");
+  const ownTab = history.length === 1 && cameFromResults();
+  if (handoff !== null && typeof takeBuyerProfileHandoff === "function") takeBuyerProfileHandoff(handoff);
+  if (handoff !== null || ownTab) {
+    const clean = new URL(window.location.href);
+    clean.searchParams.delete("hp");
+    const state = Object.assign({}, history.state && typeof history.state === "object" ? history.state : null, ownTab ? { hpOwnTab: true } : null);
+    history.replaceState(state, "", clean);
+  }
   const city = params.get("city");
   const propertyType = params.get("type") || "all";
   // budget (added 2026-07-29, affordability-consistency fix): the
   // recommended price the buyer was shown on whichever card opened this
-  // page -- see openListingsWindow() in listings-display.js for how it's
+  // page -- see listingsPageUrl() in listings-display.js for how it's
   // chosen. Parsed defensively: an absent/invalid value becomes undefined,
   // which renderLiveListings/fetchListings treat as "no budget context",
   // not zero (zero would incorrectly exclude every real listing).
