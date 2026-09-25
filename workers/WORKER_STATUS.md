@@ -13,6 +13,20 @@ one of those folders would have silently overwritten the actual production
 Worker. With the name changed, an accidental deploy now creates a new,
 separate, harmless Worker instead.
 
+**Update, September 24, 2026:** the live code of all three was downloaded
+from Cloudflare (read-only) into `workers/homepilot-insights/`,
+`workers/homepilot-send-lead/` and `workers/homepilot-scenario-share/`. Those
+folders are what is actually running; see their sections below. The
+`RECONSTRUCTED_` folders and sections are kept as history; where they disagree
+with the live code, the live code wins. Their `wrangler.jsonc` files carry the
+real Worker names, so `wrangler deploy` from those folders deploys to
+production (unchanged, that re-uploads the same code). The claim further down
+that Cloudflare "does not expose source for Workers deployed via Wrangler CLI"
+was wrong: `npx wrangler init --from-dash <worker-name> --no-delegate-c3`, run
+from a folder outside the repo, downloads the deployed script plus a generated
+`wrangler.jsonc`. Secret values are never included, but plain-text vars would
+be, so scan before committing.
+
 ---
 
 ## homepilot-listings — VERIFIED ORIGINAL SOURCE
@@ -35,6 +49,142 @@ found alongside its `wrangler.jsonc` in his local project files.
   reconstruction.
 - Folder name is unchanged (`workers/homepilot-listings/`) since this is
   real source — safe to deploy as-is if ever needed.
+
+---
+
+## homepilot-insights — LIVE CODE (downloaded 2026-09-24)
+
+**Downloaded from Cloudflare on 2026-09-24 with `wrangler init --from-dash`;
+this is the live code.** Folder: `workers/homepilot-insights/` (`src/index.js`,
+`wrangler.jsonc`), byte-for-byte as downloaded. Active version at download:
+`7f70a44f` (a secret change on 2026-07-16 over that day's upload `1e471aa3`).
+`src/index.js` is the bundled file Wrangler uploaded; the unbundled original
+was never in git, so its comments are gone.
+
+- Endpoint: `POST` to any path with `{prompt}`. `OPTIONS` answers CORS; other
+  methods get 405.
+- Validation: `prompt` must be a non-empty string of at most 4,000
+  characters, otherwise 400. Nothing checks what the prompt asks for.
+- Sends the prompt to Anthropic unchanged, as the only message, with model
+  `claude-haiku-4-5-20251001` and `max_tokens` 1000 (both fixed in the Worker;
+  a caller cannot change them). Returns Anthropic's JSON on success; any
+  upstream error becomes a 502 `{"error":"AI insights temporarily unavailable"}`.
+- Origin: only a CORS header (`https://myhomepilot.ca`, otherwise `"null"`).
+  Requests from any other origin, or with no Origin at all (curl), are served.
+  `www.myhomepilot.ca` is not in the CORS header.
+- No server-side content rules, no prompt-shape check, no rate limit.
+- Stores nothing (no KV, no database). Logs Anthropic's error text with
+  `console.error`; Workers Logs are not enabled in its config.
+- Expects secret `ANTHROPIC_API_KEY` (set on Cloudflare; checked by name only
+  with `wrangler secret list`). No other bindings. `workers_dev` on,
+  `preview_urls` on, compatibility date 2025-01-01.
+- **Differs from the RECONSTRUCTED copy:** the reconstruction has all the
+  hardening this code lacks: an enforced origin allow-list (403), two required
+  prompt phrases, content rules appended after the caller's text, a per-IP
+  limit (12 an hour, per isolate) and 413 for long prompts. Model and
+  `max_tokens` are the same.
+- **The hardening test does not test this code.**
+  `tests/insights_worker_hardening_test.js` (run by `deploy.yml` and
+  `dev-to-main.yml`) imports only `workers/RECONSTRUCTED_homepilot-insights/index.js`.
+  Run against this live file it fails 14 of 20 checks: every content-rule,
+  origin, prompt-shape and rate-limit check (the long-prompt check fails only
+  on the status, 400 instead of 413). A green run says nothing about
+  production. The "ACTION REQUIRED" section below still stands: the live
+  Worker is an open Anthropic proxy billed to HomePilot.
+- Preview URLs are on. Before relying on a hardened redeploy, turn
+  `preview_urls` off or confirm older versions cannot be reached at their own
+  preview URLs.
+
+---
+
+## homepilot-send-lead — LIVE CODE (downloaded 2026-09-24)
+
+**Downloaded from Cloudflare on 2026-09-24 with `wrangler init --from-dash`;
+this is the live code.** Folder: `workers/homepilot-send-lead/` (`src/index.js`,
+`wrangler.jsonc`), byte-for-byte as downloaded. Active version at download:
+`e6bd64d6` (2026-07-16). Bundled file, like insights. The site stopped calling
+it when the lead form was removed on 2026-09-23, but it is still live and
+still sends email.
+
+- Endpoint: `POST` to any path with a JSON lead. Only `name` and `email` are
+  required (any non-empty value). No format, type or length checks.
+- Where the data goes: an HTML email (values HTML-escaped) sent through the
+  `SEND_EMAIL` binding's `send({to, from, subject, html, replyTo})` to
+  `stakharrealty@gmail.com`, from `leads@myhomepilot.ca`, subject
+  `New HomePilot Lead: <name>`, reply-to set to the lead's email. The email
+  carries name, email, phone, renting/own, timeline, income, down payment,
+  monthly debt, family size, first-time buyer, mortgage rate, work city, work
+  arrangement, and the matched cities with type, price and monthly cost.
+- Stores nothing itself: no KV, no database, no webhook, no Zapier. The only
+  copy is the email, kept as long as it stays in that inbox. Error logs hold
+  only the error message; Workers Logs are not enabled in its config.
+- Origin: only a CORS header (`https://myhomepilot.ca`, otherwise `"null"`).
+  Any caller, curl included, can make it send an email. No rate limit, so it
+  can fill that inbox with any text and any reply-to address.
+- A failed send returns 502 with a `debug` field holding the internal error
+  message.
+- The field names did not match the form: the Worker reads `debt` and
+  `mortgageRate`, the form sent `existingMonthlyDebt` and `mortgageRatePct`
+  (in git since 2026-07-18), so "Monthly debt" and "Mortgage rate used" were
+  blank in every lead email since then. Other fields the form sent (partner
+  income, both buying powers, residency, rebate eligibility, language) were
+  ignored.
+- Bindings/secrets: `SEND_EMAIL` (`send_email`) with no `destination_address`,
+  `allowed_destination_addresses` or `allowed_sender_addresses` set, which
+  answers the `destination_address` TODO in `SECRETS.md`. No secrets.
+  `workers_dev` on, `preview_urls` on, compatibility date 2025-01-01.
+- **Differs from the RECONSTRUCTED copy:** the reconstruction builds a
+  plain-text email with `EmailMessage` and mimetext; the live code passes an
+  object with HTML to `send()`, sets reply-to, returns `debug` on failure,
+  reads `mortgageRate` and `familySize` (the reconstruction reads
+  `mortgageRatePct` and no family size), and has only the apex domain in its
+  CORS header (the reconstruction also allows `www`).
+
+---
+
+## homepilot-scenario-share — LIVE CODE (downloaded 2026-09-24)
+
+**Downloaded from Cloudflare on 2026-09-24 with `wrangler init --from-dash`;
+this is the live code.** Folder: `workers/homepilot-scenario-share/`
+(`src/worker.js`, `wrangler.jsonc`), byte-for-byte as downloaded. Active
+version at download: `179ab44b` (2026-07-18, "Added KV namespace binding
+SCENARIO_KV"). Uploaded unbundled, so `src/worker.js` is the original source
+with its comments (it mentions a `DEPLOY_NOTES.md` that is not in this repo).
+The site's Share feature is being removed, but the Worker is still live.
+
+- Endpoints: `POST /save` with `{inc, dn, dbt, fam, wa, wp, rate}` returns
+  `{ok:true, id}`; `GET /load?id=` returns the stored JSON as-is. Any other
+  path returns a plain 404 `Not found`.
+- Validation: `/save` keeps only those seven keys (400 `empty_payload` if none
+  are left) but never checks their values, so a 1 MB value is accepted and
+  stored. A body of `null` throws (500). `/load` needs an id matching
+  `^[A-Za-z0-9]{4,16}$`, otherwise 400 `invalid_id` (also when the id is
+  missing); an unknown id returns 404 `{ok:false, error:"not_found"}`.
+- IDs: 8 characters from a 57-character alphabet (no 0/O/1/l/I), from
+  `crypto.getRandomValues`, rechecked against KV up to 3 times for collisions.
+- What it stores, and for how long: income, down payment, debt, family size,
+  work arrangement, work postal code and mortgage rate, as JSON in KV
+  `SCENARIO_KV` under the ID, with a 180-day TTL (`expirationTtl` 15,552,000
+  seconds, now confirmed). No name, email or IP address. Anyone with the link
+  can read the entry until it expires. On 2026-09-24 the namespace held 4
+  entries, all with an expiry; the last expires 2027-03-20.
+- Logs: Workers Logs are on, with invocation logs persisted and
+  `redact_query_string: false`, so `/load?id=...` URLs, share IDs included,
+  are kept in Cloudflare's logs. The Worker logs nothing itself, so request
+  bodies are not in them.
+- Origin: only a CORS header (echoes `myhomepilot.ca` or `www.myhomepilot.ca`,
+  otherwise `https://myhomepilot.ca`). No server-side origin check. No rate
+  limit on either endpoint.
+- Bindings/secrets: KV `SCENARIO_KV` (namespace ID
+  `61b15a9ce07d4f2c959271361be82669`). No secrets. `workers_dev` on,
+  `preview_urls` off, compatibility date 2026-07-18.
+- **Differs from the RECONSTRUCTED copy:** same outside contract, but the live
+  code returns 404 (not 200) for an unknown scenario, `invalid_id` (not
+  `missing_id`) when the id is missing, and a plain 404 (not a 200 JSON help
+  message) for other paths. It also checks the id format, retries on
+  collision, uses a different ID alphabet and does not catch KV errors.
+  `tests/kv_integrity_test.js` also reads only the RECONSTRUCTED copy; against
+  this code its "load with no id" check (expects `missing_id`) would fail.
 
 ---
 

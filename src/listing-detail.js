@@ -49,8 +49,10 @@ function buildHomePilotView(listing, profile, budget) {
     isCondo: type === "condo",
     costs: null,
     net: null,
+    netIsOwn: false,       // net is the take-home the buyer typed (2026-09-24, IMPROVEMENT_PLAN.md 2.2), not the estimate
     remaining: null,
-    pctOfIncome: null,     // housing cost as % of take-home income (Section 3)
+    pctOfIncome: null,     // housing cost (plus monthly debt payments, 2026-09-24) as % of take-home income (Section 3)
+    debt: 0,               // the buyer's monthly debt payments, from their saved answers
     mortgageAssumptions: null, // { ratePct, amortMonths, downPayment } (Section 2)
     comfort: null,         // ldComfortPosition() result (Section 4)
     closing: null,         // ldClosingCosts() result (Section 1)
@@ -64,8 +66,13 @@ function buildHomePilotView(listing, profile, budget) {
   if (!computed) return view;
   view.costs = computed.costs;
   view.net = computed.net;
-  view.remaining = computed.net - computed.costs.total;
-  view.pctOfIncome = computed.net > 0 ? (computed.costs.total / computed.net) * 100 : null;
+  view.netIsOwn = profile.takeHomeIsOwn === true && profile.netMonthlyIncome > 0;
+  // The buyer's monthly debt payments count, as on the results (2026-09-24,
+  // IMPROVEMENT_PLAN.md 2.2b (a)): the % and what remains are after housing
+  // AND debt, and the fit label (getFit()) counts it too.
+  view.debt = profile.existingDebt > 0 ? profile.existingDebt : 0;
+  view.remaining = computed.net - computed.costs.total - view.debt;
+  view.pctOfIncome = computed.net > 0 ? ((computed.costs.total + view.debt) / computed.net) * 100 : null;
   view.mortgageAssumptions = {
     ratePct: (profile.mortgageRate || DEFAULT_MORTGAGE_RATE_PCT / 100) * 100,
     amortMonths: ldAmortizationMonths(profile, price),
@@ -84,8 +91,11 @@ function buildHomePilotView(listing, profile, budget) {
 // underlying state comes entirely from ldComfortPosition() (listing-fit.js),
 // which reuses calcBP()'s existing comfortBP/bp -- no new thresholds here.
 function ldComfortSentence(comfort) {
-  if (comfort.state === "within-comfort") return "This home is within your comfort affordability range.";
-  if (comfort.state === "above-comfort-within-bank") return "This home is above your comfort affordability range, though still within what a lender would likely qualify you for.";
+  // The branded name, and no pre-approval ring to it (PHASE #3 review,
+  // 2026-09-24): it said "your comfort affordability range" and "within what a
+  // lender would likely qualify you for".
+  if (comfort.state === "within-comfort") return "This home is within your HomePilot comfort range.";
+  if (comfort.state === "above-comfort-within-bank") return "This home is above your HomePilot comfort range, but within what a bank might lend you, by HomePilot's estimate.";
   return "This home is above what HomePilot's calculator estimates you would qualify for.";
 }
 
@@ -108,13 +118,21 @@ function renderClosingCostsBlock(closing) {
   // Non-resident speculation taxes (2026-09-23, closingcosts.js).
   if (closing.nrst > 0) rows += ldRow("Ontario non-resident speculation tax (25%)", fmtPrice(closing.nrst));
   if (closing.mnrst > 0) rows += ldRow("Toronto non-resident speculation tax (10%)", fmtPrice(closing.mnrst));
+  // Under 20% down (2026-09-24, IMPROVEMENT_PLAN.md 2.2b (b)): it can't go on the mortgage.
+  // The premium it is 8% of, so the figure can be checked (PHASE #3 review).
+  if (closing.premiumSalesTax > 0) rows += ldRow(`Sales tax on mortgage insurance (8% of the ${fmtPrice(closing.premium)} premium)`, fmtPrice(closing.premiumSalesTax));
   rows += ldRow("Legal fees (estimated)", fmtPrice(closing.legal))
     + ldRow("Title insurance (estimated)", fmtPrice(closing.titleIns))
     + ldRow("Home inspection (estimated)", fmtPrice(closing.inspection))
     + ldRow("Moving costs (estimated)", fmtPrice(closing.moving))
     + ldRow("Closing adjustments (estimated)", fmtPrice(closing.adjustments))
     + ldRow("Estimated cash required to purchase", fmtPrice(closing.cashRequired), "ld-total");
-  return `<div class="ld-onetime"><h3>Estimated cash required to purchase</h3><div class="ld-costs">${rows}</div>`
+  // Below the minimum down payment for this price (PHASE #3 review): say so
+  // first. The rows above still show the costs at the buyer's own figure.
+  const short = closing.shortBy > 0
+    ? `<p class="ld-short">This price needs at least ${fmtPrice(closing.minDown)} down. You entered ${fmtPrice(closing.effectiveDn)}, ${fmtPrice(closing.shortBy)} short.</p>`
+    : "";
+  return `<div class="ld-onetime"><h3>Estimated cash required to purchase</h3>${short}<div class="ld-costs">${rows}</div>`
     + `<p class="ld-muted ld-disclosure">These are estimates only and will vary by transaction -- new builds may attract HST. `
     + `Land transfer tax and rebate figures are approximate and not a substitute for a lawyer's calculation. `
     + (closing.firstTimeNoRebate ? `The first-time buyer rebate is not included: it applies only if neither you nor your spouse has ever owned a home anywhere in the world, and you are a Canadian citizen or permanent resident. ` : "")
@@ -242,9 +260,12 @@ function renderHomePilotSection(view) {
     // with exactly the same confidence as a real municipal rate. Say so.
     + (view.marketKnown ? "" : `<p class="ld-muted">HomePilot doesn't have a cost profile for this municipality yet, so the property tax and insurance figures above use Ontario-wide averages rather than local rates. Treat them as rough.</p>`)
     + `<div class="ld-income">`
-    + ldRow("Estimated take-home income", `${fmtPrice(view.net)}/mo`)
-    + (view.pctOfIncome !== null ? ldRow("Housing cost as % of take-home income", `${Math.round(view.pctOfIncome)}%`) : "")
-    + ldRow("Remaining after this home", `${fmtPrice(view.remaining)}/mo`, "ld-remaining")
+    + ldRow(view.netIsOwn ? "Your take-home income" : "Estimated take-home income", `${fmtPrice(view.net)}/mo`)
+    // The debt as its own row, so take-home less this home less the debt is
+    // what remains (PHASE #3 review: the rows didn't add up without it).
+    + (view.debt > 0 ? ldRow("Your monthly debt payments", `${fmtPrice(view.debt)}/mo`) : "")
+    + (view.pctOfIncome !== null ? ldRow(view.debt > 0 ? "Housing and debt payments as % of take-home income" : "Housing cost as % of take-home income", `${Math.round(view.pctOfIncome)}%`) : "")
+    + ldRow(view.debt > 0 ? "Remaining after this home and your debt payments" : "Remaining after this home", `${fmtPrice(view.remaining)}/mo`, "ld-remaining")
     + `</div>`
     + (view.comfort ? `<p class="ld-comfort">${ldComfortSentence(view.comfort)}</p>` : "")
     + (view.closing ? renderClosingCostsBlock(view.closing) : "");
@@ -346,34 +367,9 @@ function renderListingDetail(root, listing, profile, budget) {
   if (back) back.setAttribute("href", ldBackHref(listing));
 }
 
-// This page is normally reached from the listings popup (opened by
-// openListingsWindow in listings-display.js), and navigates inside that same
-// window, so it inherits whatever size the popup happens to have -- which the
-// browser may have left small. When (and only when) this page is running
-// inside a popup that has an opener, resize/move that window to fill the
-// available screen so a listing always shows at full desktop size. resizeTo/
-// moveTo set the OUTER window (unlike window.open's width/height, which only
-// size the content area). A normal browser tab has no opener, so it is never
-// touched; a browser that refuses the resize just leaves the window as it is.
-// Takes the window as a parameter so it can be tested with a stub.
-function ldFillPopupToScreen(w) {
-  try {
-    if (!w.opener || w.opener.closed) return false;
-    const aw = w.screen.availWidth, ah = w.screen.availHeight;
-    if (!(aw > 0 && ah > 0)) return false;
-    if (w.outerWidth >= aw - 8 && w.outerHeight >= ah - 8) return false; // already full
-    w.moveTo(0, 0);
-    w.resizeTo(Math.max(1040, aw), Math.max(840, ah));
-    return true;
-  } catch (e) {
-    return false;
-  }
-}
-
 async function ldInit() {
   const root = document.getElementById("ldRoot");
   if (!root) return;
-  ldFillPopupToScreen(window);
   const params = new URLSearchParams(window.location.search);
   const key = params.get("key");
   const message = (text) => { root.innerHTML = `<div class="listings-error">${escapeHtml(text)}</div>`; };

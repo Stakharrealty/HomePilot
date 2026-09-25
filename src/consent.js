@@ -5,9 +5,9 @@
 // Disclaimer before any affordability result is produced.
 //
 // Deliberately NOT wired inside go() itself:
-//   - go() is called directly by tests/smoke_test.js and by
-//     scenario-share.js (restoring a shared scenario link). Gating go()
-//     would break both.
+//   - go() is called directly by tests/smoke_test.js (and, until Share was
+//     taken off the page on 2026-09-24, by a shared scenario link). Gating
+//     go() would break that.
 //   - The gate belongs at the point of user intent (the button click), not
 //     inside the calculation engine.
 //
@@ -19,7 +19,10 @@
 // recordHomePilotConsent(), requestCalculation(), openConsentModal(),
 // closeConsentModal(), onConsentCheckboxChange(), acceptConsentAndCalculate().
 
-const HP_CONSENT_VERSION = '2026-09-17c';
+// 2026-09-24: the Privacy Policy changed (the lead form gone, Cloudflare Web
+// Analytics, what stays in the browser, what AI Insights sends), so returning
+// visitors are asked again.
+const HP_CONSENT_VERSION = '2026-09-24';
 const HP_CONSENT_KEY = 'hp_consent';
 
 // Fallback for browsers where localStorage throws (Safari private mode,
@@ -53,8 +56,17 @@ function recordHomePilotConsent(){
 
 // Entry point for the Go button. Runs the calculation immediately for anyone
 // who has already accepted the current version; otherwise opens the gate.
+//
+// A buyer who hasn't answered "Work arrangement" or "First-time buyer" (no
+// answer is pre-selected; IMPROVEMENT_PLAN.md 2.5) is shown what's missing
+// before the consent pop-up, not after it. With consent already given, go()
+// makes the same check alongside the other form checks.
 function requestCalculation(){
   if(hasHomePilotConsent()){ go(); return; }
+  if(typeof checkRequiredChoices === 'function' && !checkRequiredChoices()){
+    if(typeof showFirstUnansweredChoice === 'function') showFirstUnansweredChoice();
+    return;
+  }
   openConsentModal();
 }
 

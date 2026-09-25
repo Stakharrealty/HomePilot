@@ -21,7 +21,7 @@ on:
     paths:
       - "workers/homepilot-listings/**"
       - "tests/listing_verified_seal_removed_test.js"
-      - "tests/listings_popup_redesign_test.js"
+      - "tests/listings_open_in_tab_test.js"
       - "tests/listings_property_classification_test.js"
       - "tests/listings_affordability_budget_test.js"
 
@@ -43,8 +43,8 @@ jobs:
       - name: Listing seal/badge removal test (no network required)
         run: node tests/listing_verified_seal_removed_test.js
 
-      - name: Popup redesign test (no network required)
-        run: node tests/listings_popup_redesign_test.js
+      - name: Listings open in a normal tab, no pop-up (no network required)
+        run: node --no-warnings tests/listings_open_in_tab_test.js
 
       - name: Property-type classification test (no network required, real SQLite)
         run: node --no-warnings tests/listings_property_classification_test.js

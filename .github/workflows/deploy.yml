@@ -75,16 +75,51 @@ jobs:
         run: npm run test:footer-contact
 
       # What a buyer actually sees (IMPROVEMENT_PLAN.md 1.6): the real calculator
-      # page in jsdom -- commute limit, #1 card has no warning, the lead equals
-      # the cards on screen. Needs the static server started above.
+      # page in jsdom -- commute limit, #1 card has no warning, the cards the PDF
+      # report and Compare use (shownCards) equal the cards on screen. Needs the
+      # static server started above.
       - name: Results outcome tests
         run: npm run test:results-outcomes
 
-      # The homepage says nothing the product does not back up, in any of its
-      # seven languages, and its example is the engine's real output
-      # (IMPROVEMENT_PLAN.md 1.3).
+      # HomePilot Worth Knowing and the "you're close" page (IMPROVEMENT_PLAN.md
+      # 2.2, 2.0): every tip is checked by running the calculator's own search
+      # again with the answer it changes. Reads the files; no server.
+      - name: Worth Knowing unit tests
+        run: npm run test:worth-knowing
+
+      # The consent pop-up before any result (src/consent.js): the button goes
+      # through it, the agreement is version-stamped so changed legal copy asks
+      # again, and it stays closed while "Work arrangement" or "First-time
+      # buyer" is unanswered (IMPROVEMENT_PLAN.md 2.5). Reads the files; no server.
+      - name: Consent gate test
+        run: npm run test:consent-gate
+
+      # The homepage says nothing the product does not back up, and its
+      # example is the engine's real output (IMPROVEMENT_PLAN.md 1.3).
       - name: Homepage claims test
         run: npm run test:homepage-claims
+
+      # The site is English only (IMPROVEMENT_PLAN.md 2.4b): no language menu
+      # or translated text in any page or script, and after a real search the
+      # results the scripts write are in English too. Needs the static server.
+      - name: English only test
+        run: npm run test:english-only
+
+      # Phone fixes (IMPROVEMENT_PLAN.md 2.10): the homepage example shows on
+      # phones, and the WhatsApp button covers nothing a buyer needs: the footer
+      # scrolls clear of it, its note steps aside on phones, it moves above the
+      # compare bar, and pop-ups sit above it. Needs the static server above.
+      - name: Phone fixes test
+        run: npm run test:phone-fixes
+
+      # Phone length (IMPROVEMENT_PLAN.md 2.10): the results fit in about three
+      # phone screens. Measured in the runner's headless Chrome at 375x812 for
+      # the plan's three buyers, and the three answer cards side by side at
+      # 1240 and 1280px (level, nothing cut off, figures clear of their
+      # labels); says SKIP with a warning, rather than failing, when no Chrome
+      # can be started. Needs the static server above.
+      - name: Phone length test
+        run: npm run test:phone-length
 
       # Everything above must exit 0 or the workflow stops here —
       # GitHub Actions fails the whole run on the first non-zero exit,

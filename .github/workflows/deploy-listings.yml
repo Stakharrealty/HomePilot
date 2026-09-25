@@ -12,9 +12,10 @@ name: Deploy homepilot-listings
 # declared there gets stripped on deploy.
 #
 # Runs the listings tests that survived DDF removal (frontend display,
-# popup redesign, property classification, affordability budget, seal
-# removal) as a safety gate. Does NOT run a metadata-fields test here since
-# there is no ingest pipeline live yet (PropTx not wired in).
+# listings open in a normal tab (no pop-up), property classification,
+# affordability budget, seal removal) as a safety gate. Does NOT run a
+# metadata-fields test here since there is no ingest pipeline live yet
+# (PropTx not wired in).
 
 on:
   workflow_dispatch: {}
@@ -53,7 +54,7 @@ jobs:
       - name: Pre-deploy tests (no network required)
         run: |
           node tests/listing_verified_seal_removed_test.js
-          node tests/listings_popup_redesign_test.js
+          node --no-warnings tests/listings_open_in_tab_test.js
           node --no-warnings tests/listings_property_classification_test.js
           node --no-warnings tests/listings_affordability_budget_test.js
 

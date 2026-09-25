@@ -117,7 +117,7 @@ for (const [inc, dn] of [[100000, 5000], [200000, 20000], [400000, 50000], [4000
 // 6. A missing or unusable cost must never read as the most reassuring label.
 //    getFit() now returns null rather than inventing a tier.
 {
-  run(`netMonthlyIncome=6000;lang='en';`);
+  run(`netMonthlyIncome=6000;`);
   const cls = (expr) => run(`(function(){var f=${expr};return f?f.cls:null;})()`);
   const score = (expr) => run(`(function(){var f=${expr};return f?f.score:null;})()`);
   t('getFit(null) is not "Great fit"', cls(`getFit(null,8333)`) !== 'fg', `got ${cls(`getFit(null,8333)`)}`);
@@ -154,6 +154,37 @@ for (const [inc, dn] of [[100000, 5000], [200000, 20000], [400000, 50000], [4000
   t('an income-limited buyer gets no savings shortfall', funded.downPaymentShortfall === 0);
   t('for an income-limited buyer the two ceilings agree',
     funded.incomeCapBP === funded.bp, `${funded.incomeCapBP} vs ${funded.bp}`);
+
+  // The same figures for the HomePilot comfort range (2026-09-24): the savings
+  // tip ("Your savings are the limit… $X more saved would get you there")
+  // points at the comfort range now, not at the bank's ceiling. Swept densely:
+  // when savings cap the comfort range they cap the bank's figure too and the
+  // two are the same figure; the shortfall is exact; and saving it really
+  // lifts the HomePilot comfort range to the figure promised.
+  {
+    let n = 0, limited = 0, bad = [];
+    for (const ft of [true, false]) {
+      run(`firstTimeBuyer=${ft};`);
+      for (let inc = 40000; inc <= 400000; inc += 20000) for (let dn = 5000; dn <= 150000; dn += 5000) {
+        const c = run(`calcBP(${inc},${dn},0)`); n++;
+        if (!c.comfortDownPaymentLimited) {
+          if (c.comfortDownPaymentShortfall !== 0) bad.push(`${ft}/${inc}/${dn}: shortfall without the limit`);
+          continue;
+        }
+        limited++;
+        if (!(c.downPaymentLimited && c.bp === c.comfortBP)) bad.push(`${ft}/${inc}/${dn}: comfort capped by savings but the bank's figure differs (${c.bp} vs ${c.comfortBP})`);
+        if (!(c.comfortIncomeCapBP >= c.comfortBP)) bad.push(`${ft}/${inc}/${dn}: income-only comfort figure under the capped one`);
+        if (c.comfortDownPaymentShortfall > 0) {
+          const more = dn + c.comfortDownPaymentShortfall;
+          if (!run(`meetsMinDownPayment(${c.comfortIncomeCapBP}, ${more})`) || run(`meetsMinDownPayment(${c.comfortIncomeCapBP}, ${more - 200})`)) bad.push(`${ft}/${inc}/${dn}: shortfall not exact`);
+          const after = run(`calcBP(${inc},${more},0)`);
+          if (after.comfortBP < c.comfortIncomeCapBP) bad.push(`${ft}/${inc}/${dn}: saving ${c.comfortDownPaymentShortfall} more gives ${after.comfortBP}, not ${c.comfortIncomeCapBP}`);
+        }
+      }
+    }
+    run(`firstTimeBuyer=false;`);
+    t(`comfort-range savings figures hold for ${limited} savings-capped buyers of ${n}`, limited > 0 && !bad.length, bad.slice(0, 4).join('; '));
+  }
 
   // minDownPaymentFor must be the exact inverse of maxPriceForDownPayment at
   // every band boundary, or the shortfall drifts at exactly the prices where

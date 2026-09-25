@@ -11,6 +11,11 @@
 // single-column behavior (mobile was already single-column by default,
 // since this grid rule only applies inside the min-width:1024px block).
 //
+// Since 2026-09-24 (IMPROVEMENT_PLAN.md 2.2) #list is the list under "See all
+// places" and stays one column, as checked here. The three answer cards above
+// it (#answers) sit side by side on a computer by the user's decision;
+// tests/results_outcomes_test.js (15z-15aa) checks that layout.
+//
 // Run: node tests/results_single_column_test.js
 
 const fs = require("fs");

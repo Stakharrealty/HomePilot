@@ -167,20 +167,23 @@ function ldOverrides(listing) {
 }
 
 // Runs fn with the engine globals (mortgage rate, first-time-buyer, net
-// income) set from the buyer's profile, then puts them back EXACTLY as they
-// were. On index.html those globals are the live app's state, so this must
-// never leave them changed.
+// income, monthly debt) set from the buyer's profile, then puts them back
+// EXACTLY as they were. On index.html those globals are the live app's state,
+// so this must never leave them changed. The debt (2026-09-24, IMPROVEMENT_PLAN.md
+// 2.2b (a)): getFit() counts it in the fit label, as on the results.
 function ldWithEngine(profile, net, fn) {
-  const saved = { rate: customMortgageRate, ftb: firstTimeBuyer, net: netMonthlyIncome };
+  const saved = { rate: customMortgageRate, ftb: firstTimeBuyer, net: netMonthlyIncome, debt: existingDebt };
   try {
     customMortgageRate = profile.mortgageRate || DEFAULT_MORTGAGE_RATE_PCT / 100;
     firstTimeBuyer = profile.firstTimeBuyer === true;
     netMonthlyIncome = net;
+    existingDebt = profile.existingDebt > 0 ? profile.existingDebt : 0;
     return fn();
   } finally {
     customMortgageRate = saved.rate;
     firstTimeBuyer = saved.ftb;
     netMonthlyIncome = saved.net;
+    existingDebt = saved.debt;
   }
 }
 
@@ -261,12 +264,20 @@ function ldClosingCosts(listing, profile) {
   // Rebate only when the buyer confirmed they qualify; non-resident taxes when
   // they are not a citizen or PR (2026-09-23, closingcosts.js). A bare
   // first-time answer is not enough for the rebate.
-  const cc = calcClosingCosts(cityForLtt, price, profile.lttRebateEligible === true, { foreignBuyer: profile.canadianResident === false });
   const effectiveDn = Math.min(profile.downPayment, price);
+  // The down payment brings in the 8% sales tax on the mortgage-insurance
+  // premium (2026-09-24, IMPROVEMENT_PLAN.md 2.2b (b)), as on the results.
+  const cc = calcClosingCosts(cityForLtt, price, profile.lttRebateEligible === true, { foreignBuyer: profile.canadianResident === false, downPayment: effectiveDn, firstTimeBuyer: profile.firstTimeBuyer === true });
   // A first-time, resident buyer who has not confirmed the rebate rules: the
   // page says why no rebate is shown.
   const firstTimeNoRebate = profile.firstTimeBuyer === true && profile.lttRebateEligible !== true && profile.canadianResident !== false;
-  return { ...cc, effectiveDn, cashRequired: effectiveDn + cc.total, firstTimeNoRebate };
+  // A price the buyer's down payment can't legally buy (PHASE #3 review,
+  // 2026-09-24): the page says how much this price needs, and how short the
+  // buyer is, rather than costing an insurance premium that can't exist
+  // (mortgageInsuranceFor() returns none there).
+  const minDown = Math.ceil(minDownPaymentFor(price));
+  const shortBy = Math.max(0, minDown - profile.downPayment);
+  return { ...cc, effectiveDn, cashRequired: effectiveDn + cc.total, firstTimeNoRebate, minDown, shortBy };
 }
 
 // The fit tier for a listing whose costs are already computed, or null when

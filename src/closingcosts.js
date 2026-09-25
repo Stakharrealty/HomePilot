@@ -6,9 +6,10 @@
 // main inline script, same shared global scope as before.
 //
 // Contains: checkDebtSanity() (flags apparent total-loan-balance entry in the
-// debt field), setFTB() (first-time-buyer toggle), calcLTT() (land transfer
-// tax), calcClosingCosts() (LTT + legal fees + title insurance estimate),
-// toggleCC() (show/hide the closing costs panel).
+// debt field), setFTB() (first-time-buyer toggle), setLttRebateConfirmed() and
+// setResident() (the two answers the land transfer tax depends on), calcLTT()
+// (land transfer tax), calcClosingCosts() (LTT + legal fees + title insurance
+// estimate), toggleCC() (show/hide the closing costs panel).
 
 function checkDebtSanity(){
   // Buyers sometimes type a total loan balance (e.g. "15000" for a car loan) instead
@@ -24,22 +25,44 @@ function checkDebtSanity(){
   const looksTooHigh = dbtVal > 0 && monthlyIncome > 0 && dbtVal > monthlyIncome*0.20;
   warnEl.style.display = looksTooHigh ? 'block' : 'none';
 }
-// Paints a Yes/No button pair.
+// Paints a Yes/No button pair. Anything but true/false paints neither as
+// picked (the first-time question starts unanswered; IMPROVEMENT_PLAN.md 2.5).
 function paintYesNo(yesId, noId, val){
   const yes=document.getElementById(yesId),no=document.getElementById(noId);
   if(!yes||!no)return;
-  if(val){yes.style.background='#1D9E75';yes.style.color='#fff';yes.style.borderColor='#1D9E75';no.style.background='#fff';no.style.color='#555';no.style.borderColor='#e8e8e8';}
+  if(val!==true&&val!==false){[yes,no].forEach(b=>{b.style.background='#fff';b.style.color='#3D4555';b.style.borderColor='#E4E7EC';});}
+  else if(val){yes.style.background='#1D9E75';yes.style.color='#fff';yes.style.borderColor='#1D9E75';no.style.background='#fff';no.style.color='#555';no.style.borderColor='#e8e8e8';}
   else{no.style.background='#1D9E75';no.style.color='#fff';no.style.borderColor='#1D9E75';yes.style.background='#fff';yes.style.color='#555';yes.style.borderColor='#e8e8e8';}
 }
 function setFTB(val){
   firstTimeBuyer=val;paintYesNo('ftb-yes','ftb-no',val);
+  // Answered: clear the "Please choose Yes or No" message (main.js, 2.5).
+  if(val===true||val===false){const fe=document.getElementById('ftb_err');if(fe)fe.style.display='none';}
   // The land transfer tax rebate question only means anything for a
-  // first-time buyer (see lttRebateApplies below).
-  const row=document.getElementById('ltt_rebate_row');if(row)row.style.display=val?'flex':'none';
-  if(!val){lttRebateConfirmed=false;const cb=document.getElementById('lttRebate');if(cb)cb.checked=false;}
+  // first-time buyer (see lttRebateApplies below). Its box is in the
+  // cash-to-close breakdown on the results (2.3a D; costPanelHtml() in
+  // render.js), which offers it only to a first-time buyer.
+  if(!val)lttRebateConfirmed=false;
 }
-function setLttRebateConfirmed(val){ lttRebateConfirmed=val===true; }
-function setResident(val){ canadianResident=val===true; paintYesNo('res-yes','res-no',canadianResident); }
+// The "never owned a home anywhere in the world" box. Since 2026-09-24
+// (IMPROVEMENT_PLAN.md 2.3a D) it sits in the cash-to-close breakdown, so a
+// tick has to show at once: every breakdown that is open is drawn again with
+// the rebate in or out (refreshOpenCostPanels(), render.js). Nothing else on
+// the page uses the rebate; the listing pages read it when they are opened
+// (readLiveBuyerProfile(), buyer-profile.js).
+function setLttRebateConfirmed(val){
+  lttRebateConfirmed=val===true;
+  if(typeof refreshOpenCostPanels==='function')refreshOpenCostPanels();
+}
+// Citizen or permanent resident. Since 2026-09-24 (IMPROVEMENT_PLAN.md 2.3a
+// E) the form asks it as one box, "I'm not a Canadian citizen or permanent
+// resident": ticked means setResident(false), as the old "No" button did.
+// Like the other form answers, it takes effect on the next search.
+function setResident(val){
+  canadianResident=val===true;
+  const cb=document.getElementById('nonResident');if(cb)cb.checked=!canadianResident;
+  const hint=document.getElementById('nonResidentHint');if(hint)hint.style.display=canadianResident?'none':'block';
+}
 
 // ── WHO GETS WHAT (added 2026-09-23, IMPROVEMENT_PLAN.md 1.7) ─────────────
 // "First-time buyer" means two different things, and the app used one answer
@@ -102,6 +125,12 @@ function calcLTT(price,isToronto,ftb){
 // with lttRebateApplies() above, not with the bare first-time answer.
 // opts.foreignBuyer (added 2026-09-23): the buyer is not a Canadian citizen or
 // permanent resident, so the non-resident speculation taxes apply.
+// opts.downPayment (added 2026-09-24, IMPROVEMENT_PLAN.md 2.2b (b)): with it,
+// Ontario's 8% sales tax on the mortgage-insurance premium is part of the
+// cash to close (premiumSalesTax; mortgageInsuranceFor(), mortgage.js). Every
+// buyer with less than 20% down pays it, and it cannot go on the mortgage.
+// opts.firstTimeBuyer: the answer the premium's amortization depends on; the
+// page's own when left out. Without opts.downPayment nothing changes.
 function calcClosingCosts(cityName,price,ftb,opts){
   const torontoCities=['Toronto - Downtown','Toronto - West End','Toronto - East End','Toronto - North York','Toronto - Etobicoke','Toronto - Scarborough'];
   const foreignBuyer=!!(opts&&opts.foreignBuyer);
@@ -116,8 +145,11 @@ function calcClosingCosts(cityName,price,ftb,opts){
   const adjustments=1500;
   const nrst=foreignBuyer?Math.round(price*ONTARIO_NRST_RATE):0;
   const mnrst=foreignBuyer&&isToronto?Math.round(price*TORONTO_MNRST_RATE):0;
-  const total=ltt.total+legal+titleInsAdj+inspection+moving+adjustments+nrst+mnrst;
-  return{ltt,legal,titleIns:titleInsAdj,inspection,moving,adjustments,nrst,mnrst,foreignBuyer,total,isToronto};
+  const dnGiven=opts&&opts.downPayment!==undefined&&opts.downPayment!==null&&Number.isFinite(Number(opts.downPayment));
+  const ins=dnGiven&&typeof mortgageInsuranceFor==='function'?mortgageInsuranceFor(price,Math.min(Number(opts.downPayment),price),opts.firstTimeBuyer):{premium:0,salesTax:0};
+  const premiumSalesTax=ins.salesTax;
+  const total=ltt.total+legal+titleInsAdj+inspection+moving+adjustments+nrst+mnrst+premiumSalesTax;
+  return{ltt,legal,titleIns:titleInsAdj,inspection,moving,adjustments,nrst,mnrst,foreignBuyer,premium:ins.premium,premiumSalesTax,total,isToronto};
 }
 
 function toggleCC(id){

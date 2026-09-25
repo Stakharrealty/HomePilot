@@ -14,7 +14,9 @@
 //     ignoring the comfort range, for cities taken from a DIFFERENT order than
 //     the screen's -- so the lead listed Toronto condos at 53% of take-home
 //     while the buyer was looking at Cambridge and Kitchener (P0-3). The lead
-//     is now built from the cards render() drew (shownCards).
+//     was then built from the cards render() drew (shownCards), as Compare
+//     still is; the lead form itself was removed later
+//     that day.
 //   - renderAnglePicks(): its "Outside Your Comfort Range" box is replaced by
 //     the "Only as a stretch" section render() draws below the main list.
 
@@ -56,14 +58,18 @@ const WHY_ICON = {
   bad:     '<span style="color:#B45309;font-weight:700;flex-shrink:0">!</span>',
 };
 
-function buildWhyRanked(x, c, net, commuteMin, displayPropType, displayPrice) {
+// `lead` (optional, the answer cards only; IMPROVEMENT_PLAN.md 2.2b,
+// 2026-09-24): one line shown first -- why a card carries two or three labels
+// ("Why two labels: ..."), or the "Also worth a look" card's trade. HTML.
+function buildWhyRanked(x, c, net, commuteMin, displayPropType, displayPrice, lead) {
   // Renders bullets as HTML. Logic lives in buildWhyRankedBullets().
   const bullets = buildWhyRankedBullets(x, c, net, commuteMin, displayPropType, displayPrice);
+  if(lead) bullets.unshift({ key: 'lead', tone: 'neutral', text: lead });
   if(!bullets.length) return '';
   return '<div style="margin-top:10px;padding:10px 12px;background:#FAFAFA;border:1px solid #EEEEEE;border-radius:10px">' +
     '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#555;margin-bottom:7px">At a glance</div>' +
     bullets.map(b =>
-      '<div style="font-size:12px;color:#1a1a1a;padding:2px 0;display:flex;align-items:flex-start;gap:6px">' +
+      '<div data-key="' + b.key + '" style="font-size:12px;color:#1a1a1a;padding:2px 0;display:flex;align-items:flex-start;gap:6px">' +
       (WHY_ICON[b.tone] || WHY_ICON.neutral) + '<span>' + b.text + '</span></div>'
     ).join('') +
     '</div>';

@@ -54,7 +54,11 @@ body{
 .w{
   max-width:480px;
   margin:0 auto;
-  padding:1.25rem 1rem 3rem;
+  /* 6rem at the bottom on phones (IMPROVEMENT_PLAN.md 2.10): the WhatsApp
+     button sits 20px from the bottom and is 56px tall, so with 3rem it sat over
+     the bottom of the footer. Now the footer scrolls 20px clear of it. The
+     600px and 1024px rules below keep 3rem, as before. */
+  padding:1.25rem 1rem 6rem;
 }
 @media(min-width:600px){.w{max-width:600px;padding:1.5rem 1.25rem 3rem}}
 @media(min-width:780px){.w{max-width:740px}}
@@ -154,31 +158,6 @@ body{
   .hdr-nav-cta:hover{opacity:0.9}
 }
 
-/* ── LANGUAGE SELECTOR ──────────────────────────────────────── */
-.lang-sel{
-  font-size:12px;
-  padding:6px 10px;
-  border-radius:var(--radius-sm);
-  border:1px solid var(--border);
-  background:var(--card);
-  color:var(--ink);
-  cursor:pointer;
-  outline:none;
-  min-width:0;
-  flex-shrink:0;
-}
-@media(min-width:480px){
-  .lang-sel{
-    background:var(--surface);
-    border-color:var(--border);
-    color:var(--ink);
-    font-size:12px;
-    padding:6px 9px;
-    max-width:110px;
-    margin-left:0;
-  }
-}
-
 /* ── HERO ────────────────────────────────────────────────────── */
 /* ===== Hero v2 — fintech-style two-column hero (mobile-first, desktop grid at 1024px) ===== */
 .hero2{margin-bottom:2rem}
@@ -198,7 +177,32 @@ body{
 .hero2-statsbar .stat .val{font-size:19px;font-weight:800;color:var(--navy-mid)}
 .hero2-statsbar .stat .lbl{font-size:11px;color:var(--ink-faint);margin-top:2px}
 
-.hero2-example{display:none}
+/* The example panel shows at every width (IMPROVEMENT_PLAN.md 2.10). Until
+   2026-09-24 it was display:none below 1024px and all of its styles lived in
+   the desktop block, so phone visitors never saw what results look like. On a
+   phone it stacks under the "See What I Can Afford" button, in the same
+   style as the desktop panel. tests/phone_fixes_test.js keeps it showing. */
+.hero2-example{
+  display:block;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  padding:20px;
+  margin-top:24px;
+}
+.hero2-example-lbl{font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:12px}
+.hero2-example-buyer{font-size:12px;color:var(--ink-soft);line-height:1.45;margin:-6px 0 12px}
+.lb-list{display:flex;flex-direction:column;gap:10px}
+.lb-row{display:flex;align-items:flex-start;gap:12px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;transition:border-color 0.15s,box-shadow 0.15s}
+.lb-row:hover{border-color:var(--green);box-shadow:var(--shadow)}
+.lb-rank{flex-shrink:0;width:26px;height:26px;border-radius:50%;background:var(--navy);color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;margin-top:1px}
+.lb-body{flex:1;min-width:0}
+.lb-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px}
+.lb-city{font-size:14.5px;font-weight:700;color:var(--ink)}
+.lb-badge{font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap}
+.lb-meta{font-size:12.5px;color:var(--ink-soft);margin-bottom:8px}
+.lb-bar{height:5px;border-radius:999px;background:var(--border);overflow:hidden}
+.lb-bar-fill{height:100%;border-radius:999px}
 
 @media(min-width:1024px){
   .hero2-grid{display:grid;grid-template-columns:1.1fr 1fr;gap:56px;align-items:center}
@@ -206,26 +210,8 @@ body{
   .hero2-left h1{font-size:42px}
   .hero2-sub{max-width:520px;text-align:left}
   .hero2-benefits{max-width:none;margin-left:0;margin-right:0;text-align:left}
-  .hero2-example{
-    display:block;
-    background:var(--surface);
-    border:1px solid var(--border);
-    border-radius:var(--radius-lg);
-    padding:20px;
-  }
-  .hero2-example-lbl{font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:12px}
-  .hero2-example-buyer{font-size:12px;color:var(--ink-soft);line-height:1.45;margin:-6px 0 12px}
-  .lb-list{display:flex;flex-direction:column;gap:10px}
-  .lb-row{display:flex;align-items:flex-start;gap:12px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;transition:border-color 0.15s,box-shadow 0.15s}
-  .lb-row:hover{border-color:var(--green);box-shadow:var(--shadow)}
-  .lb-rank{flex-shrink:0;width:26px;height:26px;border-radius:50%;background:var(--navy);color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;margin-top:1px}
-  .lb-body{flex:1;min-width:0}
-  .lb-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px}
-  .lb-city{font-size:14.5px;font-weight:700;color:var(--ink)}
-  .lb-badge{font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap}
-  .lb-meta{font-size:12.5px;color:var(--ink-soft);margin-bottom:8px}
-  .lb-bar{height:5px;border-radius:999px;background:var(--border);overflow:hidden}
-  .lb-bar-fill{height:100%;border-radius:999px}
+  /* side by side with the text here, so no gap above it */
+  .hero2-example{margin-top:0}
   .hero2-statsbar{grid-template-columns:repeat(4,1fr);max-width:900px;margin:40px auto 0}
 }
 
@@ -353,10 +339,10 @@ body{
 .ft-copyright{font-size:11px;color:rgba(255,255,255,0.3)}
 .ft-disclaimer{font-size:11px;color:rgba(255,255,255,0.3);line-height:1.6;max-width:560px}
 
-.ft-contact-line{font-size:13px;color:rgba(255,255,255,0.6);line-height:1.6;margin-top:10px}
-.ft-contact-reco{font-size:11px;color:rgba(255,255,255,0.3);margin-top:8px}
 @media(min-width:600px){
-  .ft-top{grid-template-columns:1fr 1fr 1fr 1fr 1fr}
+  /* Four columns: the empty "Contact" column was removed on 2026-09-24
+     (IMPROVEMENT_PLAN.md 6.3); the contact details are in .ft-tm-info. */
+  .ft-top{grid-template-columns:1fr 1fr 1fr 1fr}
   .ft-brand{grid-column:auto}
   .ft-tm-row{flex-direction:row;align-items:flex-start;justify-content:space-between;gap:32px}
   .ft-tm-info{flex-shrink:0}
@@ -415,7 +401,7 @@ body{
 }
 
 /* ── INPUTS ─────────────────────────────────────────────────── */
-input[type=number],select,input[type=text],input[type=email],input[type=tel]{
+input[type=number],select,input[type=text]{
   width:100%;
   font-family:var(--font);
   font-size:15px;
@@ -430,7 +416,7 @@ input[type=number],select,input[type=text],input[type=email],input[type=tel]{
   -webkit-appearance:none;
 }
 input[type=number]:focus,select:focus,
-input[type=text]:focus,input[type=email]:focus,input[type=tel]:focus{
+input[type=text]:focus{
   border-color:var(--green);
   background:#fff;
   box-shadow:0 0 0 3px rgba(29,158,117,0.12);
@@ -658,6 +644,13 @@ select{
 }
 .cmp-sticky-btn:hover{background:#F2F0E9}
 
+/* ── WHATSAPP BUTTON (IMPROVEMENT_PLAN.md 2.10) ──────────────── */
+/* #waWrap (bottom of the page) is as wide as its 210px note, so while the
+   note showed, the empty strip beside the round button took taps meant for
+   what was under it. Only the note and the button itself take taps now. */
+#waWrap{pointer-events:none}
+#waWrap > *{pointer-events:auto}
+
 /* ── TOP PICKS TOGGLE ───────────────────────────────────────── */
 .tp-toggle{
   display:flex;align-items:center;justify-content:space-between;
@@ -764,101 +757,6 @@ select{
   font-family:var(--font);
 }
 #rateSlider{width:100%;accent-color:var(--green);cursor:pointer;margin-top:4px}
-
-/* ── SHARE / SCENARIO BAR ────────────────────────────────────── */
-#shareBar{display:none;margin:0 0 10px 0;gap:8px}
-#scenarioBtn,#shareBtn{
-  flex:1;
-  background:var(--card);color:var(--green);
-  border:1.5px solid var(--green);
-  border-radius:var(--radius-sm);
-  padding:10px 8px;
-  font-family:var(--font);
-  font-size:12px;font-weight:700;cursor:pointer;
-  display:inline-flex;align-items:center;justify-content:center;gap:5px;
-  white-space:nowrap;
-  transition:background 0.15s,box-shadow 0.15s;
-}
-#shareBar button{
-  flex:1;
-  background:var(--card);color:var(--green);
-  border:1.5px solid var(--green);
-  border-radius:var(--radius-sm);
-  padding:10px 8px;
-  font-family:var(--font);
-  font-size:12px;font-weight:700;cursor:pointer;
-  display:inline-flex;align-items:center;justify-content:center;gap:5px;
-  white-space:nowrap;
-  transition:background 0.15s;
-}
-#shareBar button:hover{background:var(--green-light)}
-
-/* ── SCENARIO PANEL ──────────────────────────────────────────── */
-#scenarioPanel{
-  display:none;
-  margin:0 0 16px;
-  background:#FAF8FE;
-  border:1.5px solid #D9C9F0;
-  border-radius:var(--radius-lg);
-  padding:18px;
-  box-shadow:var(--shadow-sm);
-}
-.scn-wa-btn{
-  flex:1;background:#fff;color:#5B3A7E;
-  border:1.5px solid #D9C9F0;border-radius:var(--radius-sm);
-  padding:8px;font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;
-  transition:background 0.15s,border-color 0.15s;
-}
-.scn-wa-btn:hover{background:#F3EEF9;border-color:#B8A0DC}
-.scn-wa-btn.on{background:#5B3A7E;color:#fff;border-color:#5B3A7E}
-
-/* ── LEAD CAPTURE ────────────────────────────────────────────── */
-.cap{
-  background:var(--card);
-  border:1px solid var(--border);
-  border-radius:var(--radius-lg);
-  padding:24px 20px;
-  display:none;margin-top:24px;
-  box-shadow:var(--shadow-md);
-}
-.cap h3{font-size:20px;font-weight:800;color:var(--ink);margin-bottom:8px;letter-spacing:-0.3px}
-.cap p{font-size:14px;color:var(--ink-soft);margin-bottom:20px;line-height:1.6}
-.fld{margin-bottom:14px}
-.sub-btn{
-  width:100%;padding:14px;
-  font-family:var(--font);
-  font-size:15px;font-weight:700;
-  border-radius:var(--radius-sm);
-  border:none;background:var(--green);color:#fff;
-  cursor:pointer;margin-top:8px;
-  transition:background 0.15s,box-shadow 0.15s,transform 0.1s;
-  box-shadow:var(--shadow-green);
-  letter-spacing:0.01em;
-}
-.sub-btn:hover{background:var(--green-dark);transform:translateY(-1px);box-shadow:0 6px 20px rgba(29,158,117,0.32)}
-.sub-btn:active{transform:translateY(0)}
-
-/* ── DONE STATE ──────────────────────────────────────────────── */
-.done{
-  text-align:center;padding:2.5rem 1.5rem;display:none;
-  background:var(--card);border-radius:var(--radius-lg);
-  margin-top:24px;box-shadow:var(--shadow-md);
-  border:1px solid var(--border);
-}
-.done-icon{
-  width:60px;height:60px;
-  background:var(--green-light);border-radius:50%;
-  display:flex;align-items:center;justify-content:center;
-  margin:0 auto 18px;font-size:28px;
-}
-.done h3{font-size:20px;font-weight:800;color:var(--ink);margin-bottom:8px;letter-spacing:-0.3px}
-.done p{font-size:14px;color:var(--ink-soft);line-height:1.7}
-.done .phone{
-  display:inline-block;margin-top:14px;
-  font-size:17px;font-weight:800;
-  color:var(--green);text-decoration:none;
-  letter-spacing:-0.2px;
-}
 
 /* ── TOOLTIP / INFO BTN ──────────────────────────────────────── */
 .info-btn{
@@ -1030,181 +928,8 @@ select{
 /* ── BR TICK ─────────────────────────────────────────────────── */
 .br-tick.active{color:var(--green)!important;font-weight:700!important}
 
-/* ── TRANSPARENCY MODAL ──────────────────────────────────────── */
-#transparencyModalOverlay{
-  display:none;position:fixed;inset:0;
-  background:rgba(0,0,0,0.55);
-  z-index:10000;
-  align-items:center;justify-content:center;padding:20px;
-}
-#transparencyModalOverlay > div{
-  background:var(--card);
-  border-radius:var(--radius-lg);
-  max-width:400px;width:100%;
-  padding:28px 24px 24px;
-  box-shadow:0 24px 64px rgba(0,0,0,0.35);
-}
-
-/* ── PRINT STYLES ────────────────────────────────────────────── */
 </style>
 
-<style id="printStyles">
-@media print {
-  body * { visibility: hidden; }
-  #printReport, #printReport * { visibility: visible; }
-  #printReport {
-    display: block !important;
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    width: 100% !important;
-  }
-  @page {
-    margin: 15mm 12mm;
-    size: A4 portrait;
-  }
-  .pr-page-break { page-break-before: always; }
-}
-
-#printReport {
-  display: none;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  max-width: 700px;
-  margin: 0 auto;
-  color: #1a1a1a;
-}
-
-.pr-header {
-  border-bottom: 3px solid #1D9E75;
-  padding-bottom: 16px;
-  margin-bottom: 20px;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-}
-
-.pr-logo {
-  font-size: 22px;
-  font-weight: 800;
-  color: #1D9E75;
-  letter-spacing: -0.5px;
-}
-
-.pr-logo span { color: #1a1a1a; }
-
-.pr-date {
-  font-size: 11px;
-  color: #999;
-}
-
-.pr-section-title {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #999;
-  margin: 0 0 10px;
-}
-
-.pr-profile {
-  background: #f4fdf9;
-  border: 1px solid #c8edd9;
-  border-radius: 10px;
-  padding: 14px 16px;
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 12px;
-  margin-bottom: 24px;
-}
-
-.pr-profile-item {}
-.pr-profile-lbl { font-size: 10px; color: #999; text-transform: uppercase; letter-spacing: 0.06em; }
-.pr-profile-val { font-size: 14px; font-weight: 700; color: #1a1a1a; margin-top: 2px; }
-
-.pr-city-card {
-  border: 1px solid #e0e0e0;
-  border-radius: 12px;
-  margin-bottom: 16px;
-  overflow: hidden;
-}
-
-.pr-city-header {
-  background: #1D9E75;
-  padding: 12px 16px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.pr-city-name { font-size: 18px; font-weight: 800; color: #fff; }
-.pr-city-badge { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
-.pr-badge-g { background: #E1F5EE; color: #085041; }
-.pr-badge-b { background: #E6F1FB; color: #0C447C; }
-.pr-badge-a { background: #FAEEDA; color: #633806; }
-.pr-badge-r { background: #FCEBEB; color: #791F1F; }
-
-.pr-city-sub {
-  font-size: 12px;
-  color: rgba(255,255,255,0.85);
-  margin-top: 3px;
-}
-
-.pr-city-body { padding: 14px 16px; }
-
-.pr-range-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  margin-bottom: 12px;
-}
-
-.pr-range-lbl { font-size: 11px; color: #999; text-transform: uppercase; letter-spacing: 0.06em; }
-.pr-range-val { font-size: 17px; font-weight: 800; color: #1a1a1a; }
-
-.pr-bullets { margin-bottom: 12px; }
-.pr-bullet { display: flex; gap: 6px; font-size: 12px; color: #444; margin-bottom: 5px; }
-.pr-bullet-check { color: #1D9E75; font-weight: 700; flex-shrink: 0; }
-
-.pr-ladder { border-top: 1px solid #f0f0f0; padding-top: 10px; }
-.pr-ladder-title { font-size: 10px; color: #999; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; }
-.pr-ladder-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 5px 0;
-  border-bottom: 1px solid #f5f5f5;
-  font-size: 12px;
-}
-.pr-ladder-row:last-child { border-bottom: none; }
-.pr-ladder-type { color: #555; }
-.pr-ladder-right { display: flex; gap: 10px; align-items: center; }
-.pr-ladder-cost { font-weight: 700; color: #1a1a1a; }
-.pr-ladder-pct { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 10px; }
-
-.pr-disclaimer {
-  font-size: 10px;
-  color: #aaa;
-  line-height: 1.6;
-  margin-top: 24px;
-  border-top: 1px solid #f0f0f0;
-  padding-top: 12px;
-}
-
-.pr-agent {
-  margin-top: 20px;
-  background: #f4fdf9;
-  border: 1px solid #c8edd9;
-  border-radius: 10px;
-  padding: 14px 16px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.pr-agent-name { font-size: 15px; font-weight: 800; color: #1D9E75; }
-.pr-agent-sub  { font-size: 11px; color: #555; margin-top: 2px; }
-.pr-agent-contact { text-align: right; font-size: 11px; color: #555; }
-</style>
 </head>
 <body>
 <div class="w">
@@ -1222,20 +947,10 @@ select{
     <div class="hdr-right">
       <div class="hdr-nav" id="hdrNav">
         <a class="hdr-nav-link" href="#how-it-works" id="navHow">How It Works</a>
-        <a class="hdr-nav-link" href="#cities" id="navCities">Cities</a>
-        <a class="hdr-nav-link" href="#faq" id="navFaq">FAQ</a>
-        <a class="hdr-nav-cta" id="hdrCtaBtn" href="calculator.html" target="_blank" rel="noopener"><span id="hdrCtaText">See What I Can Afford</span></a>
+        <a class="hdr-nav-link" href="#cities">Cities</a>
+        <a class="hdr-nav-link" href="#faq">FAQ</a>
+        <a class="hdr-nav-cta" id="hdrCtaBtn" href="calculator.html" target="_blank" rel="noopener"><span>See What I Can Afford</span></a>
       </div>
-      <select class="lang-sel" onchange="setLang(this.value)">
-        <option value="" disabled>🌐 Language</option>
-        <option value="en" selected>English</option>
-        <option value="fr">Français</option>
-        <option value="zh">中文</option>
-        <option value="pa">ਪੰਜਾਬੀ</option>
-        <option value="hi">हिंदी</option>
-        <option value="ur">اردو</option>
-        <option value="es">Español</option>
-      </select>
     </div>
   </div>
 
@@ -1244,26 +959,26 @@ select{
       <div class="hero2-left">
         <div class="hero2-badge">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--green-mid)"><path d="M12 2C8 2 5 5.5 5 9.5c0 5.5 7 12.5 7 12.5s7-7 7-12.5C19 5.5 16 2 12 2z"/><circle cx="12" cy="9.5" r="2.5"/></svg>
-          <span id="heroBadge">Ontario Homebuyers</span>
+          <span>Ontario Homebuyers</span>
         </div>
         <h1 id="heroHeading">Find out how much home you can <span class="accent">actually afford</span> in Ontario.</h1>
-        <p class="hero2-sub" id="heroSub">HomePilot helps you understand your homebuying options by looking at your income, debt, down payment and commute, and the full monthly cost of owning in each city.</p>
+        <p class="hero2-sub">HomePilot helps you understand your homebuying options by looking at your income, debt, down payment and commute, and the full monthly cost of owning in each city.</p>
         <ul class="hero2-benefits">
-          <li><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="8" fill="var(--green)"/><path d="M4.5 8.2L6.8 10.5L11.5 5.5" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span id="heroB1">Built from your own income, debt and down payment</span></li>
-          <li><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="8" fill="var(--green)"/><path d="M4.5 8.2L6.8 10.5L11.5 5.5" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span id="heroB2">Compares 55 places across Ontario by affordability</span></li>
-          <li><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="8" fill="var(--green)"/><path d="M4.5 8.2L6.8 10.5L11.5 5.5" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span id="heroB3">Shows full monthly costs: mortgage, tax, utilities</span></li>
-          <li><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="8" fill="var(--green)"/><path d="M4.5 8.2L6.8 10.5L11.5 5.5" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span id="heroB4">Filters by commute time from your workplace</span></li>
+          <li><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="8" fill="var(--green)"/><path d="M4.5 8.2L6.8 10.5L11.5 5.5" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Built from your own income, debt and down payment</span></li>
+          <li><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="8" fill="var(--green)"/><path d="M4.5 8.2L6.8 10.5L11.5 5.5" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Compares 55 places across Ontario by affordability</span></li>
+          <li><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="8" fill="var(--green)"/><path d="M4.5 8.2L6.8 10.5L11.5 5.5" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Shows full monthly costs: mortgage, tax, utilities</span></li>
+          <li><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="8" fill="var(--green)"/><path d="M4.5 8.2L6.8 10.5L11.5 5.5" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Filters by commute time from your workplace</span></li>
         </ul>
         <a class="hero2-cta" id="heroCtaBtn" href="calculator.html" target="_blank" rel="noopener">
-          <span id="heroCtaText">See What I Can Afford</span>
+          <span>See What I Can Afford</span>
           <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </a>
-        <p class="hero2-note" id="heroNote">Free to use · No mortgage broker · No financial advice</p>
+        <p class="hero2-note">Free to use · No mortgage broker · No financial advice</p>
       </div>
 
       <div class="hero2-example">
         <p class="hero2-example-lbl" id="heroExampleLbl">EXAMPLE · REAL RESULTS FOR ONE SAMPLE BUYER</p>
-        <p class="hero2-example-buyer" id="heroExampleBuyer">$150K household income · $100K down · first-time buyers · work in Toronto 2–4 days a week</p>
+        <p class="hero2-example-buyer" id="heroExampleBuyer">$150K household income ($90K + $60K) · $100K down · first-time buyers · work in Toronto 2–4 days a week</p>
         <!-- Filled by src/homepage-example.js with the real engine's top results for the buyer above
              (IMPROVEMENT_PLAN.md 1.3). These rows used to be typed by hand: Barrie detached at $681K
              against the engine's own $800K, Milton at $845K against $1,075,000. -->
@@ -1272,23 +987,23 @@ select{
     </div>
 
     <div class="hero2-statsbar" id="heroStats">
-      <div class="stat"><p class="val">55</p><p class="lbl" id="statLbl1">Ontario places compared</p></div>
+      <div class="stat"><p class="val">55</p><p class="lbl">Ontario places compared</p></div>
       <!-- Every figure here is checkable in the product (2026-09-23, IMPROVEMENT_PLAN.md 1.3).
            It used to read "9,900+ live MLS listings" (hardcoded; the feed now carries
            ~37,000) and "<2 min average analysis time" (nothing measures it).
            "5+": every monthly estimate has mortgage, property tax, insurance, utilities
            and upkeep, plus the condo fee for a condo (calcCosts in src/mortgage.js). -->
-      <div class="stat"><p class="val">5+</p><p class="lbl" id="statLbl2">Costs in every monthly estimate</p></div>
-      <div class="stat"><p class="val">$0</p><p class="lbl" id="statLbl3">Free to use</p></div>
-      <div class="stat"><p class="val">0</p><p class="lbl" id="statLbl4">Accounts or bank logins needed</p></div>
+      <div class="stat"><p class="val">5+</p><p class="lbl">Costs in every monthly estimate</p></div>
+      <div class="stat"><p class="val">$0</p><p class="lbl">Free to use</p></div>
+      <div class="stat"><p class="val">0</p><p class="lbl">Accounts or bank logins needed</p></div>
     </div>
   </section>
 
   <section class="hiw" id="how-it-works" aria-labelledby="hiwHeading">
     <div class="hiw-head">
-      <p class="hiw-eyebrow" id="hiwEyebrow">HOW HOMEPILOT WORKS</p>
+      <p class="hiw-eyebrow">HOW HOMEPILOT WORKS</p>
       <h2 id="hiwHeading">From your finances to the places that fit</h2>
-      <p class="hiw-sub" id="hiwSub">HomePilot is not a mortgage calculator. It's an Ontario home affordability analysis that estimates where you can buy and what it would cost each month.</p>
+      <p class="hiw-sub">HomePilot is not a mortgage calculator. It's an Ontario home affordability analysis that estimates where you can buy and what it would cost each month.</p>
     </div>
     <div class="hiw-grid">
       <div class="hiw-card">
@@ -1296,81 +1011,81 @@ select{
           <span class="hiw-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="8" y2="10"/><line x1="12" y1="10" x2="12" y2="10"/><line x1="16" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="8" y2="14"/><line x1="12" y1="14" x2="12" y2="14"/><line x1="16" y1="14" x2="16" y2="14"/><line x1="8" y1="18" x2="8" y2="18"/><line x1="12" y1="18" x2="12" y2="18"/></svg></span>
           <span class="hiw-num">01</span>
         </div>
-        <h3 id="hiw1Title">Tell us about your finances</h3>
-        <p id="hiw1Desc">Enter your household income, existing monthly debt and down payment savings. No bank login required.</p>
-        <div class="hiw-detail" id="hiw1Detail">Income · Debt · Down payment</div>
+        <h3>Tell us about your finances</h3>
+        <p>Enter your household income, existing monthly debt and down payment. No bank login required.</p>
+        <div class="hiw-detail">Income · Debt · Down payment</div>
       </div>
       <div class="hiw-card">
         <div class="hiw-card-top">
           <span class="hiw-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><polygon points="1,6 1,22 8,18 16,22 23,18 23,2 16,6 8,2"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg></span>
           <span class="hiw-num">02</span>
         </div>
-        <h3 id="hiw2Title">Set your commute preferences</h3>
-        <p id="hiw2Desc">Tell us where you work, how often you go in, and the longest drive you'd accept. Places past it are set aside, using estimated rush-hour drive times.</p>
-        <div class="hiw-detail" id="hiw2Detail">Work city · Days in the office · Longest drive</div>
+        <h3>Set your commute preferences</h3>
+        <p>Tell us where you work, how often you go in, and the longest drive you'd accept. Places past it are set aside, using estimated rush-hour drive times.</p>
+        <div class="hiw-detail">Work city · Days in the office · Longest drive</div>
       </div>
       <div class="hiw-card">
         <div class="hiw-card-top">
           <span class="hiw-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><line x1="4" y1="20" x2="4" y2="12"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="20" y1="20" x2="20" y2="8"/></svg></span>
           <span class="hiw-num">03</span>
         </div>
-        <h3 id="hiw3Title">Get your affordability range</h3>
-        <p id="hiw3Desc">We estimate your price range using the debt ratios Canadian lenders use (GDS/TDS), a market mortgage rate you can adjust, each city's property tax rate, and typical utility and upkeep costs.</p>
-        <div class="hiw-detail" id="hiw3Detail">Comfortable price range · Monthly cost breakdown</div>
+        <h3>Get your affordability range</h3>
+        <p>We estimate your price range using the debt ratios Canadian lenders use (GDS/TDS), a market mortgage rate you can adjust, each city's property tax rate, and typical utility and upkeep costs.</p>
+        <div class="hiw-detail">Comfortable price range · Monthly cost breakdown</div>
       </div>
       <div class="hiw-card">
         <div class="hiw-card-top">
           <span class="hiw-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg></span>
           <span class="hiw-num">04</span>
         </div>
-        <h3 id="hiw4Title">Explore matching cities &amp; listings</h3>
-        <p id="hiw4Desc">See a ranked list of the Ontario places that fit your budget, then browse real listings in each one, priced within your range.</p>
-        <div class="hiw-detail" id="hiw4Detail">55 Ontario places · Real listing data</div>
+        <h3>Explore matching cities &amp; listings</h3>
+        <p>See a ranked list of the Ontario places that fit your budget, then browse real listings in each one, priced within your range.</p>
+        <div class="hiw-detail">55 Ontario places · Real listing data</div>
       </div>
     </div>
   </section>
 
   <section class="wd" id="why-different" aria-labelledby="wdHeading">
     <div class="wd-head">
-      <p class="wd-eyebrow" id="wdEyebrow">WHY IT'S DIFFERENT</p>
+      <p class="wd-eyebrow">WHY IT'S DIFFERENT</p>
       <h2 id="wdHeading">Not a mortgage calculator. Not a real estate search. Something better.</h2>
-      <p class="wd-sub" id="wdSub">HomePilot is an Ontario homebuying decision platform. Here's how it compares to the tools you've already tried.</p>
+      <p class="wd-sub">HomePilot is an Ontario homebuying decision platform. Here's how it compares to the tools you've already tried.</p>
     </div>
     <div class="wd-table">
       <div class="wd-row wd-row-head">
-        <div class="wd-cell" id="wdColFeature">Feature</div>
-        <div class="wd-cell" id="wdColGeneric">Basic Mortgage Calculators</div>
-        <div class="wd-cell wd-cell-hl" id="wdColHp">HomePilot</div>
+        <div class="wd-cell">Feature</div>
+        <div class="wd-cell">Basic Mortgage Calculators</div>
+        <div class="wd-cell wd-cell-hl">HomePilot</div>
       </div>
       <div class="wd-row">
-        <div class="wd-cell wd-topic" id="wdR1Topic">What you get</div>
-        <div class="wd-cell wd-no"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span id="wdR1No">A monthly payment number based on a mortgage formula</span></div>
-        <div class="wd-cell wd-yes wd-cell-hl"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span id="wdR1Yes">Full affordability picture: price, tax, utilities, commute</span></div>
+        <div class="wd-cell wd-topic">What you get</div>
+        <div class="wd-cell wd-no"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span>A monthly payment number based on a mortgage formula</span></div>
+        <div class="wd-cell wd-yes wd-cell-hl"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Full affordability picture: price, tax, utilities, commute</span></div>
       </div>
       <div class="wd-row">
-        <div class="wd-cell wd-topic" id="wdR2Topic">Geography</div>
-        <div class="wd-cell wd-no"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span id="wdR2No">You pick the city, it crunches numbers</span></div>
-        <div class="wd-cell wd-yes wd-cell-hl"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span id="wdR2Yes">We recommend which Ontario cities fit your budget</span></div>
+        <div class="wd-cell wd-topic">Geography</div>
+        <div class="wd-cell wd-no"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span>You pick the city, it crunches numbers</span></div>
+        <div class="wd-cell wd-yes wd-cell-hl"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Shows which Ontario cities fit your budget</span></div>
       </div>
       <div class="wd-row">
-        <div class="wd-cell wd-topic" id="wdR3Topic">Commute</div>
-        <div class="wd-cell wd-no"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span id="wdR3No">Not considered at all</span></div>
-        <div class="wd-cell wd-yes wd-cell-hl"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span id="wdR3Yes">Your longest acceptable drive sets far places aside</span></div>
+        <div class="wd-cell wd-topic">Commute</div>
+        <div class="wd-cell wd-no"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span>Not considered at all</span></div>
+        <div class="wd-cell wd-yes wd-cell-hl"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Your longest acceptable drive sets far places aside</span></div>
       </div>
       <div class="wd-row">
-        <div class="wd-cell wd-topic" id="wdR4Topic">Real costs</div>
-        <div class="wd-cell wd-no"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span id="wdR4No">Principal + interest only</span></div>
-        <div class="wd-cell wd-yes wd-cell-hl"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span id="wdR4Yes">Mortgage + property tax + utilities + insurance</span></div>
+        <div class="wd-cell wd-topic">Real costs</div>
+        <div class="wd-cell wd-no"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span>Principal + interest only</span></div>
+        <div class="wd-cell wd-yes wd-cell-hl"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Mortgage + property tax + utilities + insurance</span></div>
       </div>
       <div class="wd-row">
-        <div class="wd-cell wd-topic" id="wdR5Topic">Listings</div>
-        <div class="wd-cell wd-no"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span id="wdR5No">None — just a number</span></div>
-        <div class="wd-cell wd-yes wd-cell-hl"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span id="wdR5Yes">Real Ontario listings that match your affordability</span></div>
+        <div class="wd-cell wd-topic">Listings</div>
+        <div class="wd-cell wd-no"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span>None — just a number</span></div>
+        <div class="wd-cell wd-yes wd-cell-hl"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Real Ontario listings that match your affordability</span></div>
       </div>
       <div class="wd-row">
-        <div class="wd-cell wd-topic" id="wdR6Topic">Who it helps</div>
-        <div class="wd-cell wd-no"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span id="wdR6No">People who already know what city and price they want</span></div>
-        <div class="wd-cell wd-yes wd-cell-hl"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span id="wdR6Yes">People who need to figure out where and what is realistic</span></div>
+        <div class="wd-cell wd-topic">Who it helps</div>
+        <div class="wd-cell wd-no"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span>People who already know what city and price they want</span></div>
+        <div class="wd-cell wd-yes wd-cell-hl"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>People who need to figure out where and what is realistic</span></div>
       </div>
     </div>
   </section>
@@ -1378,88 +1093,88 @@ select{
   <section class="faq" id="faq" aria-labelledby="faqHeading">
     <div class="faq-grid">
       <div class="faq-left">
-        <p class="faq-eyebrow" id="faqEyebrow">FAQ</p>
+        <p class="faq-eyebrow">FAQ</p>
         <h2 id="faqHeading">Common questions about HomePilot</h2>
-        <p class="faq-sub" id="faqSub">Everything you need to know about Ontario home affordability analysis, how it works, and what HomePilot is (and is not).</p>
+        <p class="faq-sub">Everything you need to know about Ontario home affordability analysis, how it works, and what HomePilot is (and is not).</p>
         <div class="faq-cta-box">
-          <p class="faq-cta-title" id="faqCtaTitle">Still have questions?</p>
-          <p class="faq-cta-sub" id="faqCtaSub">Message us on WhatsApp — the button is at the bottom right of your screen.</p>
+          <p class="faq-cta-title">Still have questions?</p>
+          <p class="faq-cta-sub">Message us on WhatsApp — the button is at the bottom right of your screen.</p>
         </div>
       </div>
       <div class="faq-right">
         <div class="faq-item open">
           <button type="button" class="faq-q" onclick="toggleFaq(this)">
-            <span id="faqQ1">How is HomePilot different from a mortgage calculator?</span>
+            <span>How is HomePilot different from a mortgage calculator?</span>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
           </button>
-          <div class="faq-a"><p id="faqA1">A mortgage calculator takes a home price you already know and tells you the monthly payment. HomePilot works the opposite way — it starts from your income, debt and down payment, then estimates how much home you can afford and which Ontario places have homes in that range. It also factors in property tax, utilities and your commute.</p></div>
+          <div class="faq-a"><p>A mortgage calculator takes a home price you already know and tells you the monthly payment. HomePilot works the opposite way — it starts from your income, debt and down payment, then estimates how much home you can afford and which Ontario places have homes in that range. It also factors in property tax, utilities and your commute.</p></div>
         </div>
         <div class="faq-item">
           <button type="button" class="faq-q" onclick="toggleFaq(this)">
-            <span id="faqQ2">Is HomePilot a mortgage broker or financial advisor?</span>
+            <span>Is HomePilot a mortgage broker or financial advisor?</span>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
           </button>
-          <div class="faq-a"><p id="faqA2">No. HomePilot is an Ontario homebuying decision and affordability platform. We do not originate loans, provide mortgage pre-approvals, or give financial advice. All estimates are for informational purposes to help you understand your options before speaking with a licensed professional.</p></div>
+          <div class="faq-a"><p>No. HomePilot is an Ontario homebuying decision and affordability platform. We do not originate loans, provide mortgage pre-approvals, or give financial advice. All estimates are for informational purposes to help you understand your options before speaking with a licensed professional.</p></div>
         </div>
         <div class="faq-item">
           <button type="button" class="faq-q" onclick="toggleFaq(this)">
-            <span id="faqQ3">How accurate is the affordability analysis?</span>
+            <span>How accurate is the affordability analysis?</span>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
           </button>
-          <div class="faq-a"><p id="faqA3">HomePilot uses a market mortgage rate (which you can adjust), each municipality's property tax rate, regional utility cost estimates, and the GDS/TDS ratio guidelines Canadian lenders use. Results are estimates — your actual approved amount may vary based on your credit score, lender policies and other factors.</p></div>
+          <div class="faq-a"><p>HomePilot uses a market mortgage rate (which you can adjust), each municipality's property tax rate, regional utility cost estimates, and the GDS/TDS ratio guidelines Canadian lenders use. Results are estimates — your actual approved amount may vary based on your credit score, lender policies and other factors.</p></div>
         </div>
         <div class="faq-item">
           <button type="button" class="faq-q" onclick="toggleFaq(this)">
-            <span id="faqQ4">Does HomePilot require my banking or credit information?</span>
+            <span>Does HomePilot require my banking or credit information?</span>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
           </button>
-          <div class="faq-a"><p id="faqA4">No. HomePilot never asks for your bank login, SIN or credit report. You simply enter your gross income, existing monthly debt payments and the down payment you've saved. No sensitive data is required.</p></div>
+          <div class="faq-a"><p>No. HomePilot never asks for your bank login, SIN or credit report. You simply enter your gross income, existing monthly debt payments and your down payment. No sensitive data is required.</p></div>
         </div>
         <div class="faq-item" id="cities">
           <button type="button" class="faq-q" onclick="toggleFaq(this)">
-            <span id="faqQ5">Which Ontario cities does HomePilot cover?</span>
+            <span>Which Ontario cities does HomePilot cover?</span>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
           </button>
-          <div class="faq-a"><p id="faqA5">HomePilot covers 55 places across Ontario: 49 cities and towns, plus six areas of Toronto, from Niagara to Ottawa. They include the GTA, Hamilton, Kitchener-Waterloo, Guelph, Barrie, Oshawa, St. Catharines, Kingston and Ottawa.</p></div>
+          <div class="faq-a"><p>HomePilot covers 55 places across Ontario: 49 cities and towns, plus six areas of Toronto, from Niagara to Ottawa. They include the GTA, Hamilton, Kitchener-Waterloo, Guelph, Barrie, Oshawa, St. Catharines, Kingston and Ottawa.</p></div>
         </div>
         <div class="faq-item">
           <button type="button" class="faq-q" onclick="toggleFaq(this)">
-            <span id="faqQ6">How does the commute filter work?</span>
+            <span>How does the commute filter work?</span>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
           </button>
-          <div class="faq-a"><p id="faqA6">You tell us where you work, whether you go in every day or a few days a week, and the longest drive you'd accept each way. HomePilot sets aside places whose estimated rush-hour drive is longer, and ranks the rest. Drive times are estimates from highway travel times; HomePilot does not use transit schedules.</p></div>
+          <div class="faq-a"><p>You tell us where you work, whether you go in every day or a few days a week, and the longest drive you'd accept each way. HomePilot sets aside places whose estimated rush-hour drive is longer, and ranks the rest. Drive times are estimates from highway travel times; HomePilot does not use transit schedules.</p></div>
         </div>
         <div class="faq-item" id="listings">
           <button type="button" class="faq-q" onclick="toggleFaq(this)">
-            <span id="faqQ7">Are the property listings real?</span>
+            <span>Are the property listings real?</span>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
           </button>
-          <div class="faq-a"><p id="faqA7">Yes. HomePilot integrates real Ontario listing data, filtered to your affordability range and preferred cities. Listings are updated daily. Note that HomePilot is not a real estate brokerage and does not facilitate offers or purchases.</p></div>
+          <div class="faq-a"><p>Yes. HomePilot integrates real Ontario listing data, filtered to your affordability range and preferred cities. Listings are updated daily. Note that HomePilot is not a real estate brokerage and does not facilitate offers or purchases.</p></div>
         </div>
         <div class="faq-item">
           <button type="button" class="faq-q" onclick="toggleFaq(this)">
-            <span id="faqQ8">Is HomePilot free to use?</span>
+            <span>Is HomePilot free to use?</span>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
           </button>
-          <div class="faq-a"><p id="faqA8">Yes. The affordability analysis, city results and listings are free. HomePilot does not charge buyers and never requires an account.</p></div>
+          <div class="faq-a"><p>Yes. The affordability analysis, city results and listings are free. HomePilot does not charge buyers and never requires an account.</p></div>
         </div>
       </div>
     </div>
   </section>
 
   <section class="fcta" aria-labelledby="fctaHeading">
-    <p class="fcta-eyebrow" id="fctaEyebrow">START YOUR ANALYSIS</p>
+    <p class="fcta-eyebrow">START YOUR ANALYSIS</p>
     <h2 id="fctaHeading">Find out where you can afford to live in Ontario — right now.</h2>
-    <p class="fcta-sub" id="fctaSub">Stop guessing. Stop searching random cities. Get an Ontario home affordability analysis built from your own numbers — income, debt, down payment and commute.</p>
+    <p class="fcta-sub">Stop guessing. Stop searching random cities. Get an Ontario home affordability analysis built from your own numbers — income, debt, down payment and commute.</p>
     <a class="fcta-btn" href="calculator.html" target="_blank" rel="noopener">
-      <span id="fctaBtnText">Start My Home Analysis</span>
+      <span>Start My Home Analysis</span>
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 6 15 12 9 18"/></svg>
     </a>
     <div class="fcta-trust">
-      <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg><span id="fctaTrust1">Free to use, no account required</span></span>
-      <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg><span id="fctaTrust2">No mortgage broker, no pressure</span></span>
-      <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg><span id="fctaTrust3">Ontario-specific data</span></span>
-      <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg><span id="fctaTrust4">55 Ontario places</span></span>
+      <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg><span>Free to use, no account required</span></span>
+      <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg><span>No mortgage broker, no pressure</span></span>
+      <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg><span>Ontario-specific data</span></span>
+      <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg><span>55 Ontario places</span></span>
     </div>
   </section>
 
@@ -1470,20 +1185,20 @@ select{
           <span class="ft-brand-icon"><svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 2L2 8v8h5v-5h4v5h5V8L9 2z" fill="white"/></svg></span>
           <span class="ft-brand-name">HomePilot</span>
         </div>
-        <p class="ft-brand-desc" id="ftBrandDesc">Ontario home affordability and homebuying decision platform.</p>
-        <p class="ft-brand-loc" id="ftBrandLoc">Based in Ontario, Canada</p>
+        <p class="ft-brand-desc">Ontario home affordability and homebuying decision platform.</p>
+        <p class="ft-brand-loc">Based in Ontario, Canada</p>
       </div>
       <div class="ft-col">
-        <p class="ft-col-title" id="ftColPlatform">Platform</p>
+        <p class="ft-col-title">Platform</p>
         <ul>
-          <li><a href="#how-it-works" id="ftLinkHow">How It Works</a></li>
-          <li><a href="#cities" id="ftLinkCityDisc">City Discovery</a></li>
-          <li><a href="#listings" id="ftLinkListings">Listings</a></li>
-          <li><a href="#faq" id="ftLinkFaq">FAQ</a></li>
+          <li><a href="#how-it-works">How It Works</a></li>
+          <li><a href="#cities">City Discovery</a></li>
+          <li><a href="#listings">Listings</a></li>
+          <li><a href="#faq">FAQ</a></li>
         </ul>
       </div>
       <div class="ft-col">
-        <p class="ft-col-title" id="ftColCities">Ontario Cities</p>
+        <p class="ft-col-title">Ontario Cities</p>
         <ul>
           <li><a href="#cities">Hamilton</a></li>
           <li><a href="#cities">Kitchener</a></li>
@@ -1494,15 +1209,12 @@ select{
         </ul>
       </div>
       <div class="ft-col">
-        <p class="ft-col-title" id="ftColLegal">Legal</p>
+        <p class="ft-col-title">Legal</p>
         <ul>
-          <li><a href="/privacy-policy.html" target="_blank" rel="noopener" id="ftLinkPrivacy">Privacy Policy</a></li>
-          <li><a href="/terms-of-use.html" target="_blank" rel="noopener" id="ftLinkTerms">Terms of Use</a></li>
-          <li><a href="/disclaimer.html" target="_blank" rel="noopener" id="ftLinkDisclaimer">Disclaimer</a></li>
+          <li><a href="/privacy-policy.html" target="_blank" rel="noopener">Privacy Policy</a></li>
+          <li><a href="/terms-of-use.html" target="_blank" rel="noopener">Terms of Use</a></li>
+          <li><a href="/disclaimer.html" target="_blank" rel="noopener">Disclaimer</a></li>
         </ul>
-      </div>
-      <div class="ft-col">
-        <p class="ft-col-title" id="ftColContact">Contact</p>
       </div>
     </div>
     <div class="ft-trademark">
@@ -1537,15 +1249,10 @@ select{
 <script src="src/explainability.js"></script>
 <script src="src/ranking.js"></script>
 <script src="src/i18n.js"></script>
-<script src="src/i18n-homepage.js"></script>
-<script src="src/scenario-share.js"></script>
-<script src="src/leadform.js"></script>
 <script src="src/ai.js"></script>
 <script src="src/utils.js"></script>
 <script src="src/closingcosts.js"></script>
 <script src="src/compare.js"></script>
-<script src="src/scenario-sandbox.js"></script>
-<script src="src/report.js"></script>
 <script src="src/ui-helpers.js"></script>
 <script src="src/render-support.js"></script>
 <script src="src/main.js"></script>

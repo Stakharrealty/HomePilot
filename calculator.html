@@ -90,6 +90,10 @@ body{
   }
   /* header is fixed/overlaid at this width, so the page needs room at the top */
   .w{padding-top:5.5rem}
+  /* After a search the page scrolls the top section to the top of the
+     window, under the fixed 72px header, which hid both box labels and the top
+     of both figures (PHASE #3 review, 2026-09-24). */
+  #bpBox{scroll-margin-top:88px}
 }
 
 /* ── LOGO ───────────────────────────────────────────────────── */
@@ -149,31 +153,6 @@ body{
     white-space:nowrap;
   }
   .hdr-nav-cta:hover{opacity:0.9}
-}
-
-/* ── LANGUAGE SELECTOR ──────────────────────────────────────── */
-.lang-sel{
-  font-size:12px;
-  padding:6px 10px;
-  border-radius:var(--radius-sm);
-  border:1px solid var(--border);
-  background:var(--card);
-  color:var(--ink);
-  cursor:pointer;
-  outline:none;
-  min-width:0;
-  flex-shrink:0;
-}
-@media(min-width:480px){
-  .lang-sel{
-    background:var(--surface);
-    border-color:var(--border);
-    color:var(--ink);
-    font-size:12px;
-    padding:6px 9px;
-    max-width:110px;
-    margin-left:0;
-  }
 }
 
 /* ── HERO ────────────────────────────────────────────────────── */
@@ -349,10 +328,10 @@ body{
 .ft-copyright{font-size:11px;color:rgba(255,255,255,0.3)}
 .ft-disclaimer{font-size:11px;color:rgba(255,255,255,0.3);line-height:1.6;max-width:560px}
 
-.ft-contact-line{font-size:13px;color:rgba(255,255,255,0.6);line-height:1.6;margin-top:10px}
-.ft-contact-reco{font-size:11px;color:rgba(255,255,255,0.3);margin-top:8px}
 @media(min-width:600px){
-  .ft-top{grid-template-columns:1fr 1fr 1fr 1fr 1fr}
+  /* Four columns: the empty "Contact" column was removed on 2026-09-24
+     (IMPROVEMENT_PLAN.md 6.3); the contact details are in .ft-tm-info. */
+  .ft-top{grid-template-columns:1fr 1fr 1fr 1fr}
   .ft-brand{grid-column:auto}
   .ft-tm-row{flex-direction:row;align-items:flex-start;justify-content:space-between;gap:32px}
   .ft-tm-info{flex-shrink:0}
@@ -364,6 +343,14 @@ body{
   .mainFooter{padding:52px 40px 28px}
   .ft-top{gap:40px}
   .ft-bottom{flex-direction:row;align-items:center;justify-content:space-between}
+}
+/* Phones (IMPROVEMENT_PLAN.md 2.10): on this page the footer is the last
+   thing on the page (it sits outside .w) and ran to the very bottom, where
+   the WhatsApp button (20px up, 56px tall) sat over its last lines, the
+   PROPTX notice and the copyright. 96px of room below it lets the footer
+   scroll 20px clear of the button. Wider screens are unchanged. */
+@media(max-width:599px){
+  .mainFooter{margin-bottom:96px}
 }
 
 /* ── CALCULATOR SECTION REVEAL ──────────────────────────────── */
@@ -411,7 +398,7 @@ body{
 }
 
 /* ── INPUTS ─────────────────────────────────────────────────── */
-input[type=number],select,input[type=text],input[type=email],input[type=tel]{
+input[type=number],select,input[type=text]{
   width:100%;
   font-family:var(--font);
   font-size:15px;
@@ -426,7 +413,7 @@ input[type=number],select,input[type=text],input[type=email],input[type=tel]{
   -webkit-appearance:none;
 }
 input[type=number]:focus,select:focus,
-input[type=text]:focus,input[type=email]:focus,input[type=tel]:focus{
+input[type=text]:focus{
   border-color:var(--green);
   background:#fff;
   box-shadow:0 0 0 3px rgba(29,158,117,0.12);
@@ -451,6 +438,15 @@ select{
   border-color:var(--green);background:#fff;
   box-shadow:0 0 0 3px rgba(29,158,117,0.12);
 }
+
+/* ── SHORTER FORM (2026-09-24, IMPROVEMENT_PLAN.md 2.3a) ────────
+   Built from what the form already uses: the grey 11px hint under a
+   question, the green .link-btn, the 12.5px checkbox row. */
+.form-sublbl{margin-bottom:5px;font-weight:500}
+.form-hint{font-size:11px;color:#9CA3AF;margin-top:6px;line-height:1.45}
+.link-btn.form-line-btn{display:block;font-size:12.5px;margin-top:8px;text-align:left}
+.form-check{display:flex;align-items:flex-start;gap:8px;margin:4px 2px 12px;font-size:12.5px;color:#3D4555;line-height:1.45;cursor:pointer}
+.form-check input{margin-top:2px;flex-shrink:0}
 
 /* ── MAIN CTA BUTTON ────────────────────────────────────────── */
 .go-btn{
@@ -483,31 +479,73 @@ select{
 @keyframes sp{to{transform:rotate(360deg)}}
 
 /* ── BUY POWER BOX ──────────────────────────────────────────── */
+/* Readable white text (PHASE #3 review, 2026-09-24): the gradient starts a
+   shade darker (#168562, was var(--green) #1D9E75), so full white clears
+   4.5:1 across the box; white on #1D9E75 is only 3.4:1, and with the text at
+   75-90% the small lines measured 2.3-2.9:1. */
 .bp-box{
-  background:linear-gradient(135deg,var(--green) 0%,var(--green-mid) 100%);
+  background:linear-gradient(135deg,#168562 0%,var(--green-mid) 100%);
   border-radius:var(--radius-lg);
   padding:22px 20px;
   margin-top:20px;margin-bottom:16px;
   display:none;color:#fff;
   box-shadow:0 8px 28px rgba(29,158,117,0.28);
 }
-.bp-lbl{
-  font-size:11px;text-transform:uppercase;letter-spacing:0.09em;
-  opacity:0.8;margin-bottom:6px;font-weight:700;
+/* The two boxes (2026-09-24, IMPROVEMENT_PLAN.md 2.2b), as in the mockup the
+   user approved: the bank's figure, and the HomePilot comfort range beside it,
+   highlighted (a white edge, a bigger figure). Side by side down to a 368px
+   phone; on a smaller one they stack, the HomePilot comfort range first.
+   Since the PHASE #3 review both boxes are a little darker than the green,
+   not lighter, and the highlighted one the darkest: the lighter highlight
+   took its own figure down to 3.0:1. */
+.bp-pair{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px}
+.bp-cell{flex:1 1 140px;min-width:0;background:rgba(0,0,0,0.10);border:1.5px solid transparent;border-radius:12px;padding:12px 14px}
+.bp-comfort{background:rgba(0,0,0,0.18);border-color:#fff}
+.bp-cell-lbl{font-size:10px;text-transform:uppercase;letter-spacing:0.07em;font-weight:700}
+.bp-cell-val{font-size:26px;font-weight:800;margin-top:4px;letter-spacing:-0.3px}
+.bp-comfort .bp-cell-val{font-size:30px}
+.bp-cell-sub{font-size:12px;font-weight:500;margin-top:4px;line-height:1.4}
+.bp-comfort .bp-cell-sub{font-weight:700}
+.bp-cell-note{font-size:11px;margin-top:3px;line-height:1.4}
+.bp-cell-note:empty{display:none}
+@media(max-width:599px){
+  .bp-cell{padding:10px 11px}
+  .bp-cell-val{font-size:21px}
+  .bp-comfort .bp-cell-val{font-size:23px}
 }
-.bp-val{font-size:32px;font-weight:800;margin-bottom:4px;letter-spacing:-0.5px}
-.bp-row{display:flex;gap:12px;margin-top:12px}
-.bp-stat{
-  flex:1;
-  background:rgba(255,255,255,0.15);
-  backdrop-filter:blur(4px);
-  border-radius:var(--radius-sm);
-  padding:12px 14px;
-  border:1px solid rgba(255,255,255,0.1);
+/* Side by side on a phone, both labels take two lines, so the two figures
+   stay level (only "YOUR HOMEPILOT COMFORT RANGE" wrapped, 440-599px).
+   Stacked (under 368px) each label has the full width: one line. */
+@media(min-width:368px) and (max-width:599px){
+  .bp-cell-lbl{min-height:2.6em}
 }
-.bp-stat-lbl{font-size:10px;text-transform:uppercase;letter-spacing:0.07em;opacity:0.75;margin-bottom:5px;font-weight:700}
-.bp-stat-val{font-size:18px;font-weight:800;letter-spacing:-0.2px}
-.bp-sub{font-size:12.5px;opacity:0.8;line-height:1.55;margin-top:10px}
+/* A figure of ten characters ($1,640,000) ran past its box on 368-407px
+   phones: those figures a size smaller (renderTopSection() sets .bp-long). */
+@media(max-width:419px){
+  .bp-cell-val.bp-long,.bp-comfort .bp-cell-val.bp-long{font-size:18px}
+}
+@media(max-width:367px){
+  .bp-pair{flex-direction:column}
+  .bp-comfort{order:-1}
+}
+/* The top section (2026-09-24, IMPROVEMENT_PLAN.md 2.2): the two figures,
+   then one small line each. Built from what the box already used: the
+   translucent inner boxes, the form's .link-btn (white here) and .err. The
+   small text is full white since the PHASE #3 review (it was 75-90%). */
+.bp-breathe{font-size:13px;font-weight:600}
+.bp-lines{margin-top:12px}
+.bp-line{font-size:12.5px;line-height:1.55;margin-top:5px}
+.bp-box .link-btn{color:#fff}
+.bp-fine{font-size:11.5px;line-height:1.5;margin-top:12px}
+.bp-inner{margin-top:10px;background:rgba(255,255,255,0.18);border-radius:10px;padding:10px 12px}
+.bp-inner label{display:block;font-size:12px;font-weight:700;margin-bottom:6px}
+.bp-takehome-row{display:flex;gap:8px;align-items:center}
+.bp-takehome-row input[type=number]{width:auto;flex:0 1 160px;min-width:0;padding:8px 12px;font-size:14px}
+.bp-takehome-row .link-btn{font-size:12.5px;white-space:nowrap}
+.bp-apply-btn{flex-shrink:0;white-space:nowrap;background:#fff;color:#1D9E75;border:1.5px solid #fff;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font)}
+.bp-inner .err{margin-top:8px}
+.bp-details{font-size:11.5px;line-height:1.55}
+.bp-details p{margin:0 0 6px;opacity:0.9}
 
 /* ── SECTION TITLE ──────────────────────────────────────────── */
 .sec-title{
@@ -529,7 +567,113 @@ select{
 .card-headline{font-size:12.5px;color:var(--ink-mid);margin-top:3px;font-weight:600;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .fit-pill{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px}
 .more-section{margin-top:18px}
-.lead-field-err{display:none;color:#b91c1c;font-size:13px;margin-top:10px;text-align:center}
+
+/* ── THREE ANSWERS, SEE ALL PLACES (2026-09-24, IMPROVEMENT_PLAN.md 2.2) ──
+   The answer cards are today's .city cards, unchanged, each under a small
+   label in the site's eyebrow style (.hiw-eyebrow, .faq-eyebrow). Phones and
+   narrow windows: stacked at full width, as the first cards always were.
+   Computers: side by side. From 1150px a third of the width each, whether
+   there are one, two or three answers (PHASE #3 review, 2026-09-24: one card
+   stretched to 752px at 1280 and 1392px at 1920, its "Monthly cost" 1,250px
+   from its figure). From 1024 to 1149px two answers sit a half each and three
+   stack (PHASE #3 D6: three across there squeezed the form until it cut its
+   own words). A card is about 222px at 1150-1239 (the narrowed form, further
+   down), 236-241px at 1280, about 270px at 1366. "See all places" is the
+   listings page's outlined "Load more" button (.listings-load-more).
+   Side by side, the cards start level (2026-09-24): the labels share one row
+   through a subgrid, so a label that wraps ("Most home · Shortest commute")
+   no longer pushes its card below the others, and each question stays on
+   one line (.answer-q). A home-type row that no longer fits its narrow card
+   puts its % and label on a second line instead of cutting off the chevron
+   under the list's overflow:hidden. */
+.answer-grid{display:grid;grid-template-columns:minmax(0,1fr);column-gap:14px}
+.answer-label{font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--green-mid);margin:4px 2px 8px;text-align:center}
+.answer-q{white-space:nowrap}
+.answer-grid [id^="pt-row-"]:not([id$="-chevron"]):not(.ac-row){flex-wrap:wrap;row-gap:4px}
+.answer-grid [id^="pt-row-"]:not([id$="-chevron"]):not(.ac-row) > div:first-child{flex-grow:1;flex-shrink:1;flex-basis:min-content}
+.answer-grid [id^="pt-row-"]:not([id$="-chevron"]):not(.ac-row) > div:last-child{flex:0 0 auto;margin-left:auto}
+/* The answer cards' home-type rows (the user, 2026-09-24): the type with its
+   price on the right (and the arrow); the fit label under the type with the %
+   on the right; the monthly cost under the %. Today's row sizes and colours. */
+.ac-row{position:relative;padding:10px 24px 10px 12px;cursor:pointer;transition:background 0.15s}
+.ac-row-top{display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:700;color:#2a2a2a}
+.ac-row-price{white-space:nowrap}
+/* The arrow sits in the row's right margin, so the price, the % and the
+   monthly cost all end at the same edge. */
+.ac-row-chev{position:absolute;right:10px;top:10px;font-size:13px;font-weight:400;color:#bbb;transition:transform 0.2s}
+.ac-row-line{display:flex;justify-content:space-between;align-items:center;margin-top:4px}
+/* The fit label sat 8px under the type but the % only 4px under the price,
+   so the label read as low (measured 2026-09-24). Even gaps: */
+.ac-row-top + .ac-row-line{margin-top:1px}
+.ac-row-pct{font-size:17px;font-weight:800;color:#222}
+.ac-row-sub{justify-content:flex-end;font-size:11px;color:#999;margin-top:2px}
+/* The answer cards' top (the user, 2026-09-24, these three cards only): one
+   item per line -- the place, then "Monthly cost" with $X/mo on the right,
+   then the home ("Condo") on the left with "% of take-home" under the
+   figure. The home's price and fit
+   label are its row under At a glance, not repeated here. No commute badge:
+   the drive is At a glance's first line. The figures and their styles are
+   the card's own. */
+.ac-cost{display:flex;align-items:baseline;justify-content:space-between;gap:6px;white-space:nowrap;margin-top:4px}
+.ac-cost-lbl{font-size:10px;color:#555;font-weight:700;text-transform:uppercase;letter-spacing:0.05em}
+.ac-cost-v{font-size:17px;font-weight:800;color:#1D9E75}
+.ac-pct{display:flex;justify-content:space-between;align-items:baseline;gap:6px;font-size:11px;color:#777;margin-top:2px;text-align:right}
+.ac-type{font-size:12.5px;font-weight:600;color:var(--ink-mid);text-align:left}
+/* Split into .ac-sec parts, the AI Insights row's bottom margin would add to
+   the Compare line's top margin instead of overlapping it (10px + 10px).
+   Dropping it keeps the gap at today's 10px, open or closed. */
+.ac-ai .ai-insights-trigger,.ac-ai .ai-insights{margin-bottom:0!important}
+/* The answer cards' AI Insights tab: "AI Insights" with the place under it,
+   both centred in the tab (the user, 2026-09-24). The arrow keeps its place
+   at the right edge, out of the flow, so the text centres on the tab itself. */
+.ac-ai .ai-insights-trigger{position:relative;justify-content:center!important}
+.ac-ai-title{display:flex;flex-direction:column;align-items:center;text-align:center;font-size:13px;font-weight:700;color:#5B3A7E;padding:0 14px}
+.ac-ai-city{margin-top:2px}
+/* The words "AI Insights" are what is centred over the place (the user,
+   2026-09-24): the ✨ hangs just left of them, out of the flow, so its width
+   no longer pushes the words right of centre. */
+.ac-ai-words{position:relative}
+.ac-ai-spark{position:absolute;right:100%;margin-right:4px}
+.ac-ai [id^="ai-trigger-chevron-"]{position:absolute;right:12px;top:50%;margin-top:-9px}
+@media(min-width:1024px){
+  .answer-grid{align-items:start;row-gap:14px}
+  .answer-grid-2{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(7,auto);row-gap:0}
+  .answer-grid-2 > .answer-slot{display:grid;grid-row:span 7;grid-template-rows:subgrid}
+  .answer-grid-2 > .answer-slot > .answer-label{align-self:end}
+  .answer-grid-2 > .answer-slot > .city{grid-row:span 6;display:grid;grid-template-rows:subgrid;grid-template-columns:minmax(0,1fr)}
+  .answer-grid-2 > .answer-slot > .city > .city-body{grid-row:span 5;display:grid;grid-template-rows:subgrid;grid-template-columns:minmax(0,1fr)}
+  .answer-grid-2 > .answer-slot > .city > .view-btn{display:flex;align-items:center;justify-content:center}
+}
+/* Side by side, every part of the answer cards lines up across them (the
+   user, 2026-09-24), however many home types each card lists: the label, the
+   top, At a glance, the home-type list, AI Insights, Compare and "View
+   Available Homes" are seven rows every slot shares (nested subgrids), so
+   each part starts at the same height on every card. Open a breakdown in one
+   card and the parts below it move down on all three.
+   Three across from 1150px (PHASE #3 D6, the user, 2026-09-24). It was from
+   1024px (2.2b "laptop widths", option b), with the form narrowed to fit, but
+   at 1024 that left the form 255px and it cut its own words ("Hybrid (2-4
+   days/we", "All GTA and surround"); nothing is cut from 1150. From 1150 to
+   1239px the form column still narrows (the .calc-layout rule further down),
+   so each card keeps about 222px. One or two answers take a third each too. */
+@media(min-width:1150px){
+  .answer-grid-1,.answer-grid-2{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .answer-grid-3{grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(7,auto);row-gap:0}
+  .answer-grid-3 > .answer-slot{display:grid;grid-row:span 7;grid-template-rows:subgrid}
+  .answer-grid-3 > .answer-slot > .answer-label{align-self:end}
+  .answer-grid-3 > .answer-slot > .city{grid-row:span 6;display:grid;grid-template-rows:subgrid;grid-template-columns:minmax(0,1fr)}
+  .answer-grid-3 > .answer-slot > .city > .city-body{grid-row:span 5;display:grid;grid-template-rows:subgrid;grid-template-columns:minmax(0,1fr)}
+  .answer-grid-3 > .answer-slot > .city > .view-btn{display:flex;align-items:center;justify-content:center}
+}
+#seeAllBody{margin-top:18px}
+/* HomePilot Worth Knowing (2026-09-24, IMPROVEMENT_PLAN.md 2.2 and 2.0), under
+   the answer cards: the "At a glance" box every card already has
+   (buildWhyRanked(), src/render-support.js) -- the same grey panel, border,
+   radius, small uppercase heading and dotted 12px lines -- as classes. */
+.wk-box{margin:4px 0 0;padding:10px 12px;background:#FAFAFA;border:1px solid #EEEEEE;border-radius:10px}
+.wk-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#555;margin-bottom:7px}
+.wk-tip{font-size:12px;color:#1a1a1a;padding:2px 0;display:flex;align-items:flex-start;gap:6px}
+.wk-lead{font-size:12px;color:#1a1a1a;padding:2px 0;font-weight:600}
 
 /* ── FILTER PILLS ────────────────────────────────────────────── */
 .filters{display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap;align-items:center}
@@ -664,6 +808,20 @@ select{
 }
 .cmp-sticky-btn:hover{background:#F2F0E9}
 
+/* ── WHATSAPP BUTTON (IMPROVEMENT_PLAN.md 2.10) ──────────────── */
+/* #waWrap (bottom of the page) is as wide as its 210px note, so while the
+   note showed, the empty strip beside the round button took taps meant for
+   what was under it (the Compare button, filter chips). Only the note and
+   the button itself take taps now. */
+#waWrap{pointer-events:none}
+#waWrap > *{pointer-events:auto}
+/* The compare bar above has its Compare button on the right, exactly where
+   the WhatsApp button sits, and both are z-index 9999, so WhatsApp covered
+   Compare. While the bar is up (compare.js sets body.cmp-bar-open), the
+   WhatsApp button moves up above the 66px bar. !important because #waWrap's
+   bottom:20px is an inline style. */
+body.cmp-bar-open #waWrap{bottom:80px!important}
+
 /* ── TOP PICKS TOGGLE ───────────────────────────────────────── */
 .tp-toggle{
   display:flex;align-items:center;justify-content:space-between;
@@ -771,101 +929,6 @@ select{
 }
 #rateSlider{width:100%;accent-color:var(--green);cursor:pointer;margin-top:4px}
 
-/* ── SHARE / SCENARIO BAR ────────────────────────────────────── */
-#shareBar{display:none;margin:0 0 10px 0;gap:8px}
-#scenarioBtn,#shareBtn{
-  flex:1;
-  background:var(--card);color:var(--green);
-  border:1.5px solid var(--green);
-  border-radius:var(--radius-sm);
-  padding:10px 8px;
-  font-family:var(--font);
-  font-size:12px;font-weight:700;cursor:pointer;
-  display:inline-flex;align-items:center;justify-content:center;gap:5px;
-  white-space:nowrap;
-  transition:background 0.15s,box-shadow 0.15s;
-}
-#shareBar button{
-  flex:1;
-  background:var(--card);color:var(--green);
-  border:1.5px solid var(--green);
-  border-radius:var(--radius-sm);
-  padding:10px 8px;
-  font-family:var(--font);
-  font-size:12px;font-weight:700;cursor:pointer;
-  display:inline-flex;align-items:center;justify-content:center;gap:5px;
-  white-space:nowrap;
-  transition:background 0.15s;
-}
-#shareBar button:hover{background:var(--green-light)}
-
-/* ── SCENARIO PANEL ──────────────────────────────────────────── */
-#scenarioPanel{
-  display:none;
-  margin:0 0 16px;
-  background:#FAF8FE;
-  border:1.5px solid #D9C9F0;
-  border-radius:var(--radius-lg);
-  padding:18px;
-  box-shadow:var(--shadow-sm);
-}
-.scn-wa-btn{
-  flex:1;background:#fff;color:#5B3A7E;
-  border:1.5px solid #D9C9F0;border-radius:var(--radius-sm);
-  padding:8px;font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;
-  transition:background 0.15s,border-color 0.15s;
-}
-.scn-wa-btn:hover{background:#F3EEF9;border-color:#B8A0DC}
-.scn-wa-btn.on{background:#5B3A7E;color:#fff;border-color:#5B3A7E}
-
-/* ── LEAD CAPTURE ────────────────────────────────────────────── */
-.cap{
-  background:var(--card);
-  border:1px solid var(--border);
-  border-radius:var(--radius-lg);
-  padding:24px 20px;
-  display:none;margin-top:24px;
-  box-shadow:var(--shadow-md);
-}
-.cap h3{font-size:20px;font-weight:800;color:var(--ink);margin-bottom:8px;letter-spacing:-0.3px}
-.cap p{font-size:14px;color:var(--ink-soft);margin-bottom:20px;line-height:1.6}
-.fld{margin-bottom:14px}
-.sub-btn{
-  width:100%;padding:14px;
-  font-family:var(--font);
-  font-size:15px;font-weight:700;
-  border-radius:var(--radius-sm);
-  border:none;background:var(--green);color:#fff;
-  cursor:pointer;margin-top:8px;
-  transition:background 0.15s,box-shadow 0.15s,transform 0.1s;
-  box-shadow:var(--shadow-green);
-  letter-spacing:0.01em;
-}
-.sub-btn:hover{background:var(--green-dark);transform:translateY(-1px);box-shadow:0 6px 20px rgba(29,158,117,0.32)}
-.sub-btn:active{transform:translateY(0)}
-
-/* ── DONE STATE ──────────────────────────────────────────────── */
-.done{
-  text-align:center;padding:2.5rem 1.5rem;display:none;
-  background:var(--card);border-radius:var(--radius-lg);
-  margin-top:24px;box-shadow:var(--shadow-md);
-  border:1px solid var(--border);
-}
-.done-icon{
-  width:60px;height:60px;
-  background:var(--green-light);border-radius:50%;
-  display:flex;align-items:center;justify-content:center;
-  margin:0 auto 18px;font-size:28px;
-}
-.done h3{font-size:20px;font-weight:800;color:var(--ink);margin-bottom:8px;letter-spacing:-0.3px}
-.done p{font-size:14px;color:var(--ink-soft);line-height:1.7}
-.done .phone{
-  display:inline-block;margin-top:14px;
-  font-size:17px;font-weight:800;
-  color:var(--green);text-decoration:none;
-  letter-spacing:-0.2px;
-}
-
 /* ── TOOLTIP / INFO BTN ──────────────────────────────────────── */
 .info-btn{
   display:inline-flex;align-items:center;justify-content:center;
@@ -924,7 +987,7 @@ select{
 }
 
 /* ── FTB TOGGLE BUTTONS ──────────────────────────────────────── */
-#ftb-yes,#ftb-no,#res-yes,#res-no{
+#ftb-yes,#ftb-no{
   flex:1;padding:10px;
   border-radius:999px;
   font-family:var(--font);
@@ -1021,7 +1084,7 @@ select{
 .listing-realtor-badge-logo{flex-shrink:0;display:block}
 .listing-realtor-badge-mark{flex:1}
 .listing-realtor-badge-arrow{color:var(--green)}
-.listings-load-more{
+.listings-load-more,.see-all-btn{
   display:block;width:100%;margin-top:14px;padding:11px;
   font-family:var(--font);
   font-size:13px;font-weight:700;
@@ -1030,7 +1093,7 @@ select{
   background:var(--card);color:var(--green);cursor:pointer;
   transition:background 0.15s;
 }
-.listings-load-more:hover{background:var(--green-light)}
+.listings-load-more:hover,.see-all-btn:hover{background:var(--green-light)}
 .listings-load-more:disabled{opacity:0.55;cursor:default}
 .listings-trademark{
   font-size:10px;color:var(--ink-faint);
@@ -1041,181 +1104,8 @@ select{
 /* ── BR TICK ─────────────────────────────────────────────────── */
 .br-tick.active{color:var(--green)!important;font-weight:700!important}
 
-/* ── TRANSPARENCY MODAL ──────────────────────────────────────── */
-#transparencyModalOverlay{
-  display:none;position:fixed;inset:0;
-  background:rgba(0,0,0,0.55);
-  z-index:10000;
-  align-items:center;justify-content:center;padding:20px;
-}
-#transparencyModalOverlay > div{
-  background:var(--card);
-  border-radius:var(--radius-lg);
-  max-width:400px;width:100%;
-  padding:28px 24px 24px;
-  box-shadow:0 24px 64px rgba(0,0,0,0.35);
-}
-
-/* ── PRINT STYLES ────────────────────────────────────────────── */
 </style>
 
-<style id="printStyles">
-@media print {
-  body * { visibility: hidden; }
-  #printReport, #printReport * { visibility: visible; }
-  #printReport {
-    display: block !important;
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    width: 100% !important;
-  }
-  @page {
-    margin: 15mm 12mm;
-    size: A4 portrait;
-  }
-  .pr-page-break { page-break-before: always; }
-}
-
-#printReport {
-  display: none;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  max-width: 700px;
-  margin: 0 auto;
-  color: #1a1a1a;
-}
-
-.pr-header {
-  border-bottom: 3px solid #1D9E75;
-  padding-bottom: 16px;
-  margin-bottom: 20px;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-}
-
-.pr-logo {
-  font-size: 22px;
-  font-weight: 800;
-  color: #1D9E75;
-  letter-spacing: -0.5px;
-}
-
-.pr-logo span { color: #1a1a1a; }
-
-.pr-date {
-  font-size: 11px;
-  color: #999;
-}
-
-.pr-section-title {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #999;
-  margin: 0 0 10px;
-}
-
-.pr-profile {
-  background: #f4fdf9;
-  border: 1px solid #c8edd9;
-  border-radius: 10px;
-  padding: 14px 16px;
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 12px;
-  margin-bottom: 24px;
-}
-
-.pr-profile-item {}
-.pr-profile-lbl { font-size: 10px; color: #999; text-transform: uppercase; letter-spacing: 0.06em; }
-.pr-profile-val { font-size: 14px; font-weight: 700; color: #1a1a1a; margin-top: 2px; }
-
-.pr-city-card {
-  border: 1px solid #e0e0e0;
-  border-radius: 12px;
-  margin-bottom: 16px;
-  overflow: hidden;
-}
-
-.pr-city-header {
-  background: #1D9E75;
-  padding: 12px 16px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.pr-city-name { font-size: 18px; font-weight: 800; color: #fff; }
-.pr-city-badge { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
-.pr-badge-g { background: #E1F5EE; color: #085041; }
-.pr-badge-b { background: #E6F1FB; color: #0C447C; }
-.pr-badge-a { background: #FAEEDA; color: #633806; }
-.pr-badge-r { background: #FCEBEB; color: #791F1F; }
-
-.pr-city-sub {
-  font-size: 12px;
-  color: rgba(255,255,255,0.85);
-  margin-top: 3px;
-}
-
-.pr-city-body { padding: 14px 16px; }
-
-.pr-range-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  margin-bottom: 12px;
-}
-
-.pr-range-lbl { font-size: 11px; color: #999; text-transform: uppercase; letter-spacing: 0.06em; }
-.pr-range-val { font-size: 17px; font-weight: 800; color: #1a1a1a; }
-
-.pr-bullets { margin-bottom: 12px; }
-.pr-bullet { display: flex; gap: 6px; font-size: 12px; color: #444; margin-bottom: 5px; }
-.pr-bullet-check { color: #1D9E75; font-weight: 700; flex-shrink: 0; }
-
-.pr-ladder { border-top: 1px solid #f0f0f0; padding-top: 10px; }
-.pr-ladder-title { font-size: 10px; color: #999; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; }
-.pr-ladder-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 5px 0;
-  border-bottom: 1px solid #f5f5f5;
-  font-size: 12px;
-}
-.pr-ladder-row:last-child { border-bottom: none; }
-.pr-ladder-type { color: #555; }
-.pr-ladder-right { display: flex; gap: 10px; align-items: center; }
-.pr-ladder-cost { font-weight: 700; color: #1a1a1a; }
-.pr-ladder-pct { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 10px; }
-
-.pr-disclaimer {
-  font-size: 10px;
-  color: #aaa;
-  line-height: 1.6;
-  margin-top: 24px;
-  border-top: 1px solid #f0f0f0;
-  padding-top: 12px;
-}
-
-.pr-agent {
-  margin-top: 20px;
-  background: #f4fdf9;
-  border: 1px solid #c8edd9;
-  border-radius: 10px;
-  padding: 14px 16px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.pr-agent-name { font-size: 15px; font-weight: 800; color: #1D9E75; }
-.pr-agent-sub  { font-size: 11px; color: #555; margin-top: 2px; }
-.pr-agent-contact { text-align: right; font-size: 11px; color: #555; }
-</style>
 </head>
 <style>
   /* This page has no marketing hero above it — the calculator is the whole
@@ -1231,6 +1121,28 @@ select{
     .calc-layout{display:grid;grid-template-columns:420px 1fr;gap:28px;align-items:start}
     #calculatorSection{position:sticky;top:24px;max-height:calc(100vh - 48px);overflow-y:auto;padding-right:4px}
     #calculatorSection .card{margin-bottom:12px}
+  }
+  /* Laptop widths, 1150-1239px (2026-09-24, IMPROVEMENT_PLAN.md 2.2b, option
+     b; from 1150, not 1024, since PHASE #3 D6): the three answer cards sit
+     side by side, so the results column keeps 686px (three cards of about
+     222px and two 10px gaps), the gap beside it is 20px, and the form takes
+     what is left, up to its usual 420px: about 396px at 1150, 420px from
+     1174 (less a scrollbar where the browser shows one). The page's side
+     margins go from 40px to 24px at these widths to leave the form more
+     room, and the header's with them, so the logo and the "Back to
+     HomePilot" button line up with the page (they were 16px off). */
+  @media(min-width:1150px) and (max-width:1239px){
+    .w{padding-left:24px;padding-right:24px}
+    .hdr{padding-left:24px;padding-right:24px}
+    .calc-layout{grid-template-columns:min(420px, calc(100% - 706px)) minmax(0,1fr);gap:20px}
+    .answer-grid{column-gap:10px}
+  }
+  /* Three across, a card is 222-240px wide up to 1279px: there "Monthly cost
+     $4,606/mo" ran 1px past the card (measured 2026-09-24 at 1024 and 1100),
+     so the figure is a point smaller and 4px from its label. */
+  @media(min-width:1150px) and (max-width:1279px){
+    .answer-grid-3 .ac-cost{gap:4px}
+    .answer-grid-3 .ac-cost-v{font-size:16px}
   }
 
   /* Empty state for the results column — shown until the user submits the
@@ -1286,16 +1198,6 @@ select{
         <a class="hdr-nav-link" href="/#faq">FAQ</a>
         <a class="hdr-nav-cta" id="hdrCtaBtn" href="/">Back to HomePilot</a>
       </div>
-      <select class="lang-sel" onchange="setLang(this.value)">
-        <option value="" disabled>🌐 Language</option>
-        <option value="en" selected>English</option>
-        <option value="fr">Français</option>
-        <option value="zh">中文</option>
-        <option value="pa">ਪੰਜਾਬੀ</option>
-        <option value="hi">हिंदी</option>
-        <option value="ur">اردو</option>
-        <option value="es">Español</option>
-      </select>
     </div>
   </div>
 
@@ -1307,29 +1209,32 @@ select{
   </button>
   <div class="card">
     <label class="lbl" style="display:flex;align-items:center;gap:6px;">
-      <span id="l1">Your income (before tax)</span>
+      <span>Household income (before tax)</span>
       <button type="button" class="info-btn" onclick="toggleTooltip(event,'inc-tooltip')" aria-label="Income info">ⓘ</button>
     </label>
     <!-- Two boxes, not one combined figure (2026-09-23, IMPROVEMENT_PLAN.md 3.3):
-         lenders add the incomes together, but each person is taxed separately. -->
+         lenders add the incomes together, but each person is taxed separately.
+         One "Household income" heading over both boxes (2026-09-24, 2.3a L1/L2). -->
     <div class="tooltip-box" id="inc-tooltip">
       <div>Your yearly income before taxes. Buying with a partner? Put their income in the second box.</div>
       <div style="margin-top:4px">Lenders add the two together. Take-home pay is worked out for each person separately, because that is how Canada taxes income, so two incomes leave more take-home pay than one income of the same total.</div>
       <div style="margin-top:4px;color:#1D9E75;font-weight:600">Example: you earn $80K and your partner earns $60K. Enter 80000, then 60000.</div>
     </div>
+    <label class="lbl form-sublbl" for="inc">Your income</label>
     <input type="number" id="inc" placeholder="e.g. 120000" min="0" oninput="checkDebtSanity()">
+    <div class="form-hint" id="incHint">Your yearly salary before tax, as on your job offer or T4, not what reaches your bank account.</div>
     <div style="margin-top:10px;">
-      <label class="lbl" for="inc2" style="margin-bottom:5px;"><span id="l1b">Partner's income (before tax)</span> <span id="l1b_opt" style="color:#bbb;font-weight:400">(optional)</span></label>
+      <label class="lbl form-sublbl" for="inc2"><span id="l1b">Partner's income</span> <span style="color:#bbb;font-weight:400">(optional)</span></label>
       <input type="number" id="inc2" placeholder="Leave blank if buying alone" min="0" oninput="checkDebtSanity()">
     </div>
   </div>
   <div class="card">
     <label class="lbl" style="display:flex;align-items:center;gap:6px;">
-      <span id="l2">Down payment saved</span>
+      <span>Down payment (closing costs are extra)</span>
       <button type="button" class="info-btn" onclick="toggleTooltip(event,'dwn-tooltip')" aria-label="Down payment info">ⓘ</button>
     </label>
     <div class="tooltip-box" id="dwn-tooltip">
-      <div>The amount of cash you have saved and ready to put toward a home purchase.</div>
+      <div>The amount you'll put down on the home itself. Closing costs (land transfer tax, legal fees, moving and so on) come on top of it: each city's cost breakdown shows the cash you'd need in total.</div>
       <div style="margin-top:4px">Minimum in Canada: 5% of the first $500K, 10% of the portion from $500K to $1.5M, and 20% of the whole price at $1.5M or more</div>
       <div style="margin-top:4px;color:#1D9E75;font-weight:600">More down payment = lower mortgage = lower monthly costs</div>
     </div>
@@ -1337,98 +1242,103 @@ select{
   </div>
   <div class="card">
     <label class="lbl" style="display:flex;align-items:center;gap:6px;">
-      <span id="l3">Existing monthly debt payments</span>
+      <span>Household monthly debt payments</span>
       <button type="button" class="info-btn" onclick="toggleTooltip(event,'debt-tooltip')" aria-label="Debt info">ⓘ</button>
     </label>
     <div class="tooltip-box" id="debt-tooltip">
-      <div id="l3_inc">Include: car loan, student loan, credit card minimums, personal loans</div>
-      <div style="margin-top:4px" id="l3_exc">Do NOT include: rent, groceries, phone, utilities — only debts on your credit report</div>
-      <div style="margin-top:6px;color:#1D9E75;font-weight:600" id="l3_zero">No existing debts? Leave it as Zero</div>
+      <div>Include: car loan, student loan, credit card minimums, personal loans</div>
+      <div style="margin-top:4px">Do NOT include: rent, groceries, phone, utilities — only debts on your credit report</div>
+      <div style="margin-top:6px;color:#1D9E75;font-weight:600">No existing debts? Leave it as Zero</div>
     </div>
     <input type="number" id="dbt" placeholder="0" min="0" value="0" oninput="checkDebtSanity()">
+    <!-- Banks count both people's debts (2026-09-24, IMPROVEMENT_PLAN.md 2.3a L3). -->
+    <div class="form-hint" id="dbtHint">Car loans, credit cards, student loans, for both of you.</div>
     <div id="dbt-warning" style="display:none;margin-top:6px;font-size:12px;color:#92400E;background:#FFFBEB;border:1px solid #FDE68A;border-radius:6px;padding:8px 10px;line-height:1.4">
       ⚠ That looks high for a <em>monthly</em> payment. Please enter your monthly debt payment (e.g. $400), not your total loan balance — a large number here will incorrectly reduce how much home you qualify for.
     </div>
   </div>
 
   <div class="card" id="workArrangementCard">
-    <label class="lbl" id="wa_lbl">Work arrangement</label>
-    <select id="waSelect" onchange="setWorkArrangement(this.value)">
-      <option value="remote" selected>Remote</option>
+    <label class="lbl" for="waSelect">Work arrangement</label>
+    <!-- No answer is pre-selected (2026-09-24, IMPROVEMENT_PLAN.md 2.5): the buyer must pick one,
+         and go() stops with wa_err until they do. autocomplete="off" stops the browser refilling
+         an old answer on reload that the page never received. -->
+    <select id="waSelect" onchange="setWorkArrangement(this.value)" autocomplete="off">
+      <option value="" disabled selected>Choose one</option>
+      <option value="remote">Remote</option>
       <option value="hybrid">Hybrid (2–4 days/week)</option>
       <option value="daily">Daily (5+ days/week)</option>
     </select>
+    <div class="err" id="wa_err" role="alert">Please choose one: remote, hybrid or daily.</div>
+    <!-- Shorter form (2026-09-24, IMPROVEMENT_PLAN.md 2.3a C): the work postal code starts as a
+         link, "+ add postal code", which opens the same box (openFormField() in main.js). The
+         commute limit and the preferred area are plain drop-downs again (the user, 2026-09-24:
+         "· change" lines looked unprofessional); they start at 60 minutes and All areas. -->
     <div id="workLocationFields" style="display:none;" class="work-location-fields">
       <div style="margin-top:12px;">
-        <label class="lbl" id="wc_lbl" style="margin-bottom:5px;">Work city</label>
+        <label class="lbl" for="workCity" style="margin-bottom:5px;">Work city</label>
         <input type="text" id="workCity" placeholder="e.g. Brampton">
+        <button type="button" class="link-btn form-line-btn" id="workPostalAdd" onclick="openFormField('workPostalAdd','workPostalField','workPostal')">+ add postal code for a more accurate commute</button>
       </div>
-      <div style="margin-top:10px;">
-        <label class="lbl" id="wp_lbl" style="margin-bottom:5px;">Work postal code <span style="color:#bbb;font-weight:400">(optional)</span></label>
+      <div id="workPostalField" style="display:none;margin-top:10px;">
+        <label class="lbl" for="workPostal" style="margin-bottom:5px;">Work postal code <span style="color:#bbb;font-weight:400">(optional)</span></label>
         <input type="text" id="workPostal" placeholder="e.g. L6Y 0A1" maxlength="7" style="text-transform:uppercase;">
       </div>
       <!-- A hard limit, not a weight (2026-09-23, IMPROVEMENT_PLAN.md 1.4): places past it are set
-           aside before ranking. Defaults to 60 for daily and 90 for hybrid (setWorkArrangement). -->
-      <div style="margin-top:10px;">
-        <label class="lbl" id="mc_lbl" for="maxCommute" style="margin-bottom:5px;">Longest commute you'd accept (one way)</label>
+           aside before ranking. Defaults to 60 for daily and hybrid alike (setWorkArrangement; 2.2a). -->
+      <div id="maxCommuteField" style="margin-top:10px;">
+        <label class="lbl" for="maxCommute" style="margin-bottom:5px;">Longest commute you'd accept (one way)</label>
         <select id="maxCommute" onchange="setMaxCommute(this.value)">
           <option value="30">30 minutes</option>
           <option value="45">45 minutes</option>
-          <option value="60">60 minutes</option>
+          <option value="60" selected>60 minutes</option>
           <option value="75">75 minutes</option>
           <option value="90">90 minutes</option>
-          <option value="none" selected>No limit</option>
+          <option value="none">No limit</option>
         </select>
       </div>
     </div>
-    <div style="font-size:11px;color:#9CA3AF;margin-top:8px;" id="wa_hint">Remote workers get recommendations ranked purely by affordability.</div>
-  </div>
-  <div class="card">
-    <label class="lbl" style="display:flex;align-items:center;gap:6px;">
-      <span id="l4">Preferred area</span>
-      <button type="button" class="info-btn" onclick="toggleTooltip(event,'area-tooltip')" aria-label="Area info">ⓘ</button>
-    </label>
-    <div class="tooltip-box" id="area-tooltip">
-      <div>Select the region you'd like to buy in. Choose "All GTA and surrounding areas" to see every city we cover.</div>
-      <div style="margin-top:4px;color:#1D9E75;font-weight:600">Tip: Smaller cities outside the GTA often offer significantly better value for your budget</div>
+    <!-- Empty until the buyer answers: setWorkArrangement() writes the hint for the answer given (2.5).
+         Right under the commute limit it describes, above the area line (it sat under the area). -->
+    <div style="font-size:11px;color:#9CA3AF;margin-top:8px;" id="wa_hint"></div>
+    <div id="areaField" style="margin-top:12px;">
+      <label class="lbl" for="area" style="display:flex;align-items:center;gap:6px;">
+        <span>Preferred area</span>
+        <button type="button" class="info-btn" onclick="toggleTooltip(event,'area-tooltip')" aria-label="Area info">ⓘ</button>
+      </label>
+      <div class="tooltip-box" id="area-tooltip">
+        <div>Select the region you'd like to buy in. Choose "All GTA and surrounding areas" to see every city we cover.</div>
+        <div style="margin-top:4px;color:#1D9E75;font-weight:600">Tip: Smaller cities outside the GTA often offer significantly better value for your budget</div>
+      </div>
+      <select id="area">
+        <option value="all">All GTA and surrounding areas</option>
+        <option value="gta">City of Toronto + Peel</option>
+        <option value="west">West of Toronto (Halton / Wellington)</option>
+        <option value="east">East of Toronto (Durham)</option>
+        <option value="north">North of Toronto (York / Simcoe)</option>
+        <option value="duff">Dufferin / Orangeville area</option>
+        <option value="niag">Niagara / Hamilton</option>
+        <option value="wloo">Waterloo Region</option>
+        <option value="east2">Eastern Ontario</option>
+      </select>
     </div>
-    <select id="area">
-      <option value="all">All GTA and surrounding areas</option>
-      <option value="gta">City of Toronto + Peel</option>
-      <option value="west">West of Toronto (Halton / Wellington)</option>
-      <option value="east">East of Toronto (Durham)</option>
-      <option value="north">North of Toronto (York / Simcoe)</option>
-      <option value="duff">Dufferin / Orangeville area</option>
-      <option value="niag">Niagara / Hamilton</option>
-      <option value="wloo">Waterloo Region</option>
-      <option value="east2">Eastern Ontario</option>
-    </select>
   </div>
-  <div class="card">
-    <div class="lbl" id="ftb_lbl">Are you a first-time home buyer?</div>
+  <div class="card" id="ftbCard">
+    <div class="lbl">Are you a first-time home buyer?</div>
+    <!-- Neither Yes nor No starts selected (2026-09-24, IMPROVEMENT_PLAN.md 2.5); go() stops with ftb_err until one is picked. -->
     <div style="display:flex;gap:10px;margin-top:8px">
       <button id="ftb-yes" onclick="setFTB(true)" style="flex:1;padding:10px;border-radius:999px;border:1.5px solid #E4E7EC;background:#fff;color:#3D4555;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;font-family:var(--font)">Yes</button>
-      <button id="ftb-no" onclick="setFTB(false)" style="flex:1;padding:10px;border-radius:999px;border:1.5px solid #1D9E75;background:#1D9E75;color:#fff;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;font-family:var(--font)">No</button>
+      <button id="ftb-no" onclick="setFTB(false)" style="flex:1;padding:10px;border-radius:999px;border:1.5px solid #E4E7EC;background:#fff;color:#3D4555;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;font-family:var(--font)">No</button>
     </div>
-    <div style="font-size:11px;color:#9CA3AF;margin-top:6px" id="ftb_hint">First-time buyers may qualify for a 30-year mortgage and land transfer tax rebates</div>
-    <!-- The rebates have a stricter rule than the 30-year mortgage (2026-09-23, IMPROVEMENT_PLAN.md 1.7;
-         see closingcosts.js). Unticked by default, so no rebate is shown to someone who owned a home abroad. -->
-    <label id="ltt_rebate_row" style="display:none;align-items:flex-start;gap:8px;margin-top:10px;font-size:12.5px;color:#3D4555;line-height:1.45;cursor:pointer">
-      <input type="checkbox" id="lttRebate" onchange="setLttRebateConfirmed(this.checked)" style="margin-top:2px;flex-shrink:0">
-      <span id="ltt_lbl">Neither I nor my spouse has ever owned a home, anywhere in the world (including outside Canada)</span>
-    </label>
-  </div>
-  <div class="card" id="residencyCard">
-    <div class="lbl" id="res_lbl">Are you a Canadian citizen or permanent resident?</div>
-    <div style="display:flex;gap:10px;margin-top:8px">
-      <button id="res-yes" onclick="setResident(true)" style="flex:1;padding:10px;border-radius:999px;border:1.5px solid #1D9E75;background:#1D9E75;color:#fff;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;font-family:var(--font)">Yes</button>
-      <button id="res-no" onclick="setResident(false)" style="flex:1;padding:10px;border-radius:999px;border:1.5px solid #E4E7EC;background:#fff;color:#3D4555;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;font-family:var(--font)">No</button>
-    </div>
-    <div style="font-size:11px;color:#9CA3AF;margin-top:6px" id="res_hint">If not: extra taxes apply, and most non-Canadians can't buy a home here until 2027.</div>
+    <div class="err" id="ftb_err" role="alert">Please choose Yes or No.</div>
+    <div style="font-size:11px;color:#9CA3AF;margin-top:6px">First-time buyers may qualify for a 30-year mortgage and land transfer tax rebates</div>
+    <!-- The "never owned a home anywhere in the world" box moved to the cash-to-close breakdown on
+         the results, next to the rebate it decides (2026-09-24, IMPROVEMENT_PLAN.md 2.3a D;
+         costPanelHtml() in render.js). -->
   </div>
   <div class="card">
     <label class="lbl" style="display:flex;align-items:center;gap:6px;">
-      <span id="l5">Family size</span>
+      <span>Family size</span>
       <button type="button" class="info-btn" onclick="toggleTooltip(event,'fam-tooltip')" aria-label="Family size info">ⓘ</button>
     </label>
     <div class="tooltip-box" id="fam-tooltip">
@@ -1442,6 +1352,14 @@ select{
       <option value="5">5+ people</option>
     </select>
   </div>
+  <!-- Citizenship as one small box (2026-09-24, IMPROVEMENT_PLAN.md 2.3a E); it replaced a Yes/No
+       card. Ticked is the old "No": non-resident taxes and the federal-ban note (setResident() in
+       closingcosts.js). autocomplete="off": a box the browser re-ticks on reload would not tell the page. -->
+  <label class="form-check" id="nonResidentRow" for="nonResident">
+    <input type="checkbox" id="nonResident" onchange="setResident(!this.checked)" autocomplete="off">
+    <span>I'm not a Canadian citizen or permanent resident</span>
+  </label>
+  <div class="form-hint" id="nonResidentHint" style="display:none;margin:0 0 10px 25px">Extra taxes apply, and most non-Canadians can't buy a home here until 2027.</div>
 
   <button class="go-btn" id="goBtn" onclick="requestCalculation()">
     <span id="bt">Show Me What I Can Afford</span>
@@ -1455,18 +1373,45 @@ select{
       <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-6"/></svg>
     </div>
     <h3>Your results will appear here</h3>
-    <p>Fill in your details on the left and click "Show Me What I Can Afford" to see your buying power and ranked Ontario cities.</p>
+    <p>Fill in your details on the left and click "Show Me What I Can Afford" to see your HomePilot comfort range and the Ontario places that fit it.</p>
   </div>
+  <!-- The top section (2026-09-24, IMPROVEMENT_PLAN.md 2.2 and 2.2b): two boxes side by side,
+       the bank's figure and the HomePilot comfort range, which is the one highlighted, in the
+       wording of the mockup the user approved (_private/mockup-full-page-*.png); what it is based
+       on; the estimated take-home the buyer can replace with their own; and one visible line of
+       small print ("Based on 4.39% rate, stress tested at 6.39% · Estimate only, not a
+       pre-approval · How we calculated this") whose details open below it. #bpBankV, #bpBankSub,
+       #bpBankNote, #bpV, #bpSub and #bpRateLine are written by renderTopSection() in src/main.js. -->
   <div class="bp-box" id="bpBox">
-    <div class="bp-lbl" id="bp_lbl">Your estimated buying power</div>
-    <div class="bp-val" id="bpV"></div>
-    <div class="bp-sub" id="bpSub" style="font-size:13px;line-height:1.5"></div>
-    <div class="bp-sub" id="bp_sub_txt" style="margin-top:6px;opacity:0.7">This is an estimate of the most a lender might approve — not a pre-approval. Tap any city below to see the full monthly cost breakdown.</div>
-    <div id="rateNote" style="font-size:11px;color:rgba(255,255,255,0.6);margin-top:6px;line-height:1.5">Based on 4.19% mortgage rate · Stress tested at 6.19% · Educational estimate only — not a mortgage pre-approval.</div>
+    <div class="bp-pair">
+      <div class="bp-cell bp-bank" id="bpBank">
+        <div class="bp-cell-lbl">A bank might lend up to</div>
+        <div class="bp-cell-val" id="bpBankV"></div>
+        <div class="bp-cell-sub" id="bpBankSub"></div>
+        <div class="bp-cell-note" id="bpBankNote"></div>
+      </div>
+      <div class="bp-cell bp-comfort" id="bpComfort">
+        <div class="bp-cell-lbl">Your HomePilot comfort range</div>
+        <div class="bp-cell-val" id="bpV"></div>
+        <div class="bp-cell-sub bp-breathe">Stay here to breathe financially</div>
+        <div class="bp-cell-note">We keep it to 32%, then check every home against your take-home pay</div>
+      </div>
+    </div>
+    <div class="bp-lines" id="bpSub"></div>
+    <div class="bp-fine" id="bpFine"><span id="bpRateLine"></span> · Estimate only, not a pre-approval · <button type="button" class="link-btn" id="calcDetailsBtn" onclick="toggleCalcDetails()" aria-expanded="false" aria-controls="calcDetails">How we calculated this</button></div>
+    <!-- The small print that was two paragraphs, all of it kept. 32% / 38% and 39% / 44% are
+         calcBP()'s ratios in src/mortgage.js (tests/results_outcomes_test.js checks they match). -->
+    <div class="bp-inner bp-details" id="calcDetails" style="display:none">
+      <p>Your HomePilot comfort range is the most a home can cost while its housing costs (the mortgage at the stress-test rate, property tax and heating) stay within 32% of your before-tax income, and those plus your other debt payments within 38%. A bank goes up to 39% and 44%, so it may lend more. Both are also held to the price your down payment can legally buy.</p>
+      <p>Estimated take-home is your pay after income tax, CPP, EI and the Ontario Health Premium, worked out for each person. It doesn't know about workplace pension contributions, benefit premiums or union dues, which lower it, or the Canada Child Benefit and tax refunds, which raise it. If you know your actual monthly pay, "Change it" uses it for every % of take-home and every Great / Good / Stretch label. Your HomePilot comfort range and the bank's figure stay the same, because banks go by income before tax.</p>
+      <p id="calcDebtNote">Every % of take-home, and every Great / Good / Stretch label, includes your monthly debt payments: it is the home's monthly cost plus your debt payments, as a share of your take-home pay.</p>
+      <p>Both figures are estimates, not a pre-approval. Tap any city below to see the full monthly cost breakdown.</p>
+      <div id="rateNote" style="font-size:11px;color:rgba(255,255,255,0.75);line-height:1.5">Based on 4.39% mortgage rate · Stress tested at 6.39% · Educational estimate only — not a mortgage pre-approval.</div>
+    </div>
   </div>
 
   <div class="results-section" id="res">
-    <div class="sec-title" id="cities_title_el">Cities you can afford</div>
+    <div class="sec-title" id="resTitle">Your HomePilot results</div>
     <div class="count" id="cnt"></div>
     <div class="rank-notes" id="rankNotes"></div>
     </div>
@@ -1480,31 +1425,24 @@ select{
         <button id="pt-detached" onclick="filtProp('detached',this)" class="fb">Detached</button>
       </div>
     </div>
-    <!-- One ranking, three orders (2026-09-23, IMPROVEMENT_PLAN.md 1.4). See rankCities() in src/ranking.js. -->
-    <div class="filter-group" id="sortBar" style="display:none">
-      <div class="filter-label">Sort by</div>
-      <div class="filters">
-        <button id="sort-home"    onclick="setResultsSort('home')"    class="fb on">Most home</button>
-        <button id="sort-commute" onclick="setResultsSort('commute')" class="fb">Shortest commute</button>
-        <button id="sort-cost"    onclick="setResultsSort('cost')"    class="fb">Lowest monthly cost</button>
-      </div>
-    </div>
-    <div id="topPicks"></div>
+    <!-- The sort switch that stood here went into "See all places" below (2026-09-24,
+         IMPROVEMENT_PLAN.md 2.2): the three answer cards answer the three orders instead.
+         The empty #topPicks box that stood here too, cleared on every search and never
+         filled, is gone. -->
 
-    <div id="printReport"></div>
 
     <div id="rateBar" style="display:none;margin:0 0 14px 0;background:#fff;border:1px solid #E4E7EC;border-radius:12px;padding:16px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#3D4555;display:flex;align-items:center;gap:4px">Mortgage Rate<button type="button" class="info-btn" onclick="toggleTooltip(event,'rate-tooltip')" aria-label="Mortgage rate info">ⓘ</button></div>
         <div style="display:flex;align-items:center;gap:6px">
-          <input id="rateInput" type="number" min="1" max="15" step="0.05"
+          <input id="rateInput" type="number" min="1" max="15" step="0.01"
             style="width:72px;font-size:15px;font-weight:800;color:#1D9E75;border:1.5px solid #E4E7EC;border-radius:8px;padding:4px 8px;text-align:center;outline:none;font-family:var(--font)"
             oninput="syncRate(this.value,'input')" />
           <span style="font-size:14px;font-weight:700;color:#1D9E75">%</span>
         </div>
       </div>
-      <div class="tooltip-box" id="rate-tooltip">This estimate assumes a fixed rate. Variable rates may start lower but can rise over your term — your buying power above is already stress-tested for that possibility (qualified at the higher of 5.25% or your rate + 2%), so it won't change based on which you eventually choose.</div>
-      <input id="rateSlider" type="range" min="1" max="15" step="0.05" value="4.19"
+      <div class="tooltip-box" id="rate-tooltip">This estimate assumes a fixed rate. Variable rates may start lower but can rise over your term. Move the rate and everything on this page follows it: the two figures above, the monthly costs and the places. Both figures are stress-tested (qualified at the higher of 5.25% or your rate + 2%).</div>
+      <input id="rateSlider" type="range" min="1" max="15" step="0.01" value="4.39"
         style="width:100%;accent-color:#1D9E75;cursor:pointer"
         oninput="syncRate(this.value,'slider')" />
       <div style="display:flex;justify-content:space-between;margin-top:4px">
@@ -1513,102 +1451,47 @@ select{
         <span style="font-size:10px;color:#9CA3AF">15%</span>
       </div>
     </div>
-    <div id="shareBar" style="display:none;margin:0 0 10px 0;gap:8px">
-      <button id="scenarioBtn" onclick="openScenarioSandbox()"
-        style="flex:1;background:#fff;color:#1D9E75;border:1.5px solid #1D9E75;border-radius:8px;padding:10px 8px;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap;font-family:var(--font)">
-        <span>Scenarios</span>
-      </button>
-      <button id="shareBtn" onclick="shareScenario()"
-        style="flex:1;background:#fff;color:#1D9E75;border:1.5px solid #1D9E75;border-radius:8px;padding:10px 8px;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap;font-family:var(--font)">
-        <span id="shareBtnLbl">Share</span>
-      </button>
-      <button onclick="downloadReport()"
-        style="flex:1;background:#fff;color:#1D9E75;border:1.5px solid #1D9E75;border-radius:8px;padding:10px 8px;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap;font-family:var(--font)">
-        <span>Download Report</span>
-      </button>
+    <!-- Three answers, then "See all places" (2026-09-24, IMPROVEMENT_PLAN.md 2.2; drawn by
+         render() and renderSeeAll() in src/render.js). #answers: today's cards, one per question
+         (Lowest monthly cost, Shortest commute, Most home; one card for a home that answers
+         several, and "Also worth a look" in a card left free), each under its label; when nothing
+         within the commute limit fits, the three closest options, labelled Stretch or above the
+         HomePilot comfort range (IMPROVEMENT_PLAN.md
+         2.0). #worthKnowing: HomePilot Worth Knowing (src/worth-knowing.js), between the answers and
+         "See all places"; empty when no tip is worth showing. #seeAllBody: the rest of the places
+         (#list) in the order picked in its "Sort by", then "Only as a stretch" and "Past your commute
+         limit" (#listMore). -->
+    <div id="answers"></div>
+    <div id="worthKnowing"></div>
+    <div id="seeAll">
+      <button type="button" class="see-all-btn" id="seeAllBtn" onclick="toggleSeeAll()" aria-expanded="false" aria-controls="seeAllBody" style="display:none">Show All Cities</button>
+      <div id="seeAllBody" style="display:none">
+        <div class="filter-group" id="seeAllSort" style="display:none">
+          <div class="filter-label">Sort by</div>
+          <div class="filters">
+            <button type="button" id="seeAllSort-home"    onclick="setResultsSort('home')"    class="fb on">Most home</button>
+            <button type="button" id="seeAllSort-commute" onclick="setResultsSort('commute')" class="fb">Shortest commute</button>
+            <button type="button" id="seeAllSort-cost"    onclick="setResultsSort('cost')"    class="fb">Lowest monthly cost</button>
+          </div>
+        </div>
+        <div class="rank-notes" id="seeAllRule" style="display:none"></div>
+        <div id="list"></div>
+        <div id="listMore"></div>
+      </div>
     </div>
-    <div id="scenarioPanel" style="display:none;margin:0 0 16px 0;background:#FAF8FE;border:1.5px solid #D9C9F0;border-radius:14px;padding:18px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-        <div style="font-size:13px;font-weight:800;color:#5B3A7E">🔮 What If...</div>
-        <button onclick="closeScenarioSandbox()" style="background:none;border:none;color:#8B6CA8;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font)">Close</button>
-      </div>
-
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
-        <div>
-          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#8B6CA8;margin-bottom:4px">Income</div>
-          <input id="scnInc" type="number" style="width:100%;font-size:14px;font-weight:700;color:#5B3A7E;border:1.5px solid #D9C9F0;border-radius:8px;padding:7px 10px;outline:none;font-family:var(--font)" oninput="scenarioPreview()" />
-        </div>
-        <div>
-          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#8B6CA8;margin-bottom:4px">Down Payment</div>
-          <input id="scnDn" type="number" style="width:100%;font-size:14px;font-weight:700;color:#5B3A7E;border:1.5px solid #D9C9F0;border-radius:8px;padding:7px 10px;outline:none;font-family:var(--font)" oninput="scenarioPreview()" />
-        </div>
-      </div>
-
-      <div style="margin-bottom:14px">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#8B6CA8;margin-bottom:6px">Work Style</div>
-        <div style="display:flex;gap:6px">
-          <button id="scnWaDaily"  onclick="setScenarioWA('daily')"  class="scn-wa-btn">Daily</button>
-          <button id="scnWaHybrid" onclick="setScenarioWA('hybrid')" class="scn-wa-btn">Hybrid</button>
-          <button id="scnWaRemote" onclick="setScenarioWA('remote')" class="scn-wa-btn">Remote</button>
-        </div>
-      </div>
-
-      <button onclick="runScenarioComparison()" style="width:100%;background:#5B3A7E;color:#fff;border:none;border-radius:10px;padding:11px;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--font)">Compare</button>
-
-      <div id="scenarioResults" style="margin-top:16px"></div>
-    </div>
-    <div id="list"></div>
-    <div id="listMore"></div>
   </div>
 
   <button class="cmp-btn" id="cmpBtn" onclick="buildCompare()">📊 Compare Selected</button>
   <div id="cmpTable"></div>
   <div class="cmp-sticky" id="cmpSticky">
     <div>
-      <div class="cmp-sticky-left" id="cmpStickyLabel">2 cities selected</div>
+      <div class="cmp-sticky-left" id="cmpStickyLabel">2 selected</div>
       <div class="cmp-sticky-sub">Tap to compare side by side</div>
     </div>
     <button class="cmp-sticky-btn" onclick="buildCompare()">📊 Compare</button>
   </div>
   </div>
   </div>
-  <div class="cap" id="cap">
-    <h3 id="ctt">Ready to see real homes in your budget?</h3>
-    <p id="ctp">Sandeep will send you a curated list of homes matching your budget across the cities that fit. No pressure, no spam — just real homes.</p>
-    <div class="fld"><label class="lbl" id="fn_lbl" for="nm">Full name</label><input type="text" id="nm" placeholder="Your name" required aria-required="true" autocomplete="name"></div>
-    <div class="fld"><label class="lbl" id="em_lbl" for="em">Email address</label><input type="email" id="em" placeholder="you@email.com" required aria-required="true" autocomplete="email"></div>
-    <div class="fld"><label class="lbl" id="ph_lbl">Phone number</label><input type="tel" id="ph" placeholder="416-000-0000"></div>
-    <div class="fld">
-      <label class="lbl" id="q1_lbl">Are you currently renting or do you own?</label>
-      <select id="status">
-        <option value="">Select your situation</option>
-        <option value="renting">I'm renting</option>
-        <option value="own">I own and want to move</option>
-        <option value="family">Living with family</option>
-      </select>
-    </div>
-    <div class="fld">
-      <label class="lbl" id="q2_lbl">When are you hoping to make a move?</label>
-      <select id="timeline">
-        <option value="">Select a timeline</option>
-        <option value="6months">Within 6 months</option>
-        <option value="1year">6 months – 1 year</option>
-        <option value="2years">1 – 2 years</option>
-        <option value="exploring">Just exploring</option>
-      </select>
-    </div>
-    <button class="sub-btn" id="subBtn" onclick="showTransparencyModal()"><span id="st">Send me homes in my budget</span></button>
-    <p id="leadFieldErr" class="lead-field-err" role="alert"></p>
-    <p id="leadErr" style="display:none;color:#b91c1c;font-size:13px;margin-top:10px;text-align:center;">Something went wrong sending your info. Please try again, or reach out directly.</p>
-  </div>
-
-  <div class="done" id="done">
-    <div class="done-icon">✓</div>
-    <h3 id="dtt">You're all set!</h3>
-    <p id="dtp">Sandeep will be in touch within 24 hours with real homes in your budget. He speaks English, Punjabi, Hindi and Urdu.</p>
-    <a class="phone" href="tel:4167258087">416-725-8087</a>
-  </div>
-
   <div class="pw">Powered by HomePilot · Built for Ontario home buyers</div>
 
   <footer class="mainFooter">
@@ -1649,9 +1532,6 @@ select{
           <li><a href="/disclaimer.html" target="_blank" rel="noopener">Disclaimer</a></li>
         </ul>
       </div>
-      <div class="ft-col">
-        <p class="ft-col-title">Contact</p>
-      </div>
     </div>
     <div class="ft-trademark">
       <div class="ft-trademark-logos">
@@ -1677,17 +1557,6 @@ select{
     </div>
   </footer>
 </div>
-<div id="transparencyModalOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:10000;align-items:center;justify-content:center;padding:20px">
-  <div style="background:#fff;border-radius:16px;max-width:400px;width:100%;padding:28px 24px 24px;box-shadow:0 24px 64px rgba(0,0,0,0.35)">
-    <div style="font-size:32px;margin-bottom:10px">👋</div>
-    <div style="font-size:15px;font-weight:700;color:#111318;margin-bottom:8px">In the spirit of transparency</div>
-    <div style="font-size:14px;color:#3D4555;line-height:1.55;margin-bottom:20px">This information goes directly to <strong>Sandeep Takhar</strong>, a licensed RE/MAX real estate agent. No call centers, no lead marketplaces — just honest advice and help understanding your options.</div>
-    <div style="display:flex;gap:10px">
-      <button onclick="closeTransparencyModal()" style="flex:1;padding:12px;border-radius:10px;border:1.5px solid #E4E7EC;background:#fff;color:#3D4555;font-size:14px;font-weight:600;cursor:pointer;font-family:var(--font)">Cancel</button>
-      <button onclick="confirmSendLead()" style="flex:1.4;padding:12px;border-radius:10px;border:none;background:#1D9E75;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--font)">Got it — send it</button>
-    </div>
-  </div>
-</div>
 <!-- Pre-calculation consent gate -->
 <div id="consentModalOverlay" role="dialog" aria-modal="true" aria-labelledby="consentModalTitle" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:10001;align-items:center;justify-content:center;padding:20px">
   <div style="background:#fff;border-radius:16px;max-width:460px;width:100%;padding:28px 24px 24px;box-shadow:0 24px 64px rgba(0,0,0,0.35);max-height:90vh;overflow-y:auto">
@@ -1711,19 +1580,16 @@ select{
 <script src="src/explainability.js"></script>
 <script src="src/ranking.js"></script>
 <script src="src/i18n.js"></script>
-<script src="src/scenario-share.js"></script>
-<script src="src/leadform.js"></script>
 <script src="src/ai.js"></script>
 <script src="src/utils.js"></script>
 <script src="src/closingcosts.js"></script>
 <script src="src/compare.js"></script>
-<script src="src/scenario-sandbox.js"></script>
-<script src="src/report.js"></script>
 <script src="src/ui-helpers.js"></script>
 <script src="src/consent.js"></script>
 <script src="src/render-support.js"></script>
 <script src="src/main.js"></script>
 <script src="src/render.js"></script>
+<script src="src/worth-knowing.js"></script>
 <script src="src/buyer-profile.js"></script>
 <script src="src/listing-fit.js"></script>
 <script src="src/listings-display.js"></script>
@@ -1762,25 +1628,23 @@ document.addEventListener('keydown',function(e){
   }
 });
 
-// Restores a shared scenario from ?s=<id> (scenario-share.js). This call was
-// lost when the calculator moved off index.html, which silently broke every
-// share link the product had ever generated (audit, 2026-09-22). It must run
-// last, after every module has loaded.
-loadScenarioFromURL();
 </script>
-<!-- How this works info modal -->
-<div id="tourOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9500;align-items:center;justify-content:center;padding:20px">
+<!-- How this works info modal. z-index 10000 (was 9500, under the WhatsApp
+     button's 9999): on a phone the WhatsApp note sat over the modal's "Got it"
+     button. Like the consent modal (10001), it now covers the WhatsApp button
+     while it is open (IMPROVEMENT_PLAN.md 2.10). -->
+<div id="tourOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:10000;align-items:center;justify-content:center;padding:20px">
   <div style="background:#fff;border-radius:16px;max-width:440px;width:100%;max-height:85vh;overflow-y:auto;padding:28px 24px 24px;box-shadow:0 24px 64px rgba(0,0,0,0.35)">
     <div style="font-size:15px;font-weight:700;color:#111318;margin-bottom:14px">How this works</div>
     <ul style="margin:0 0 20px;padding:0;list-style:none;display:flex;flex-direction:column;gap:12px">
       <li><strong style="font-size:13px;color:#111318">Income</strong><div style="font-size:13px;color:#3D4555;line-height:1.55">Your household income before taxes, one box per person: yours, and your partner's if you're buying together. Lenders add the two together; take-home pay is worked out for each person separately, because that is how Canada taxes income.</div></li>
-      <li><strong style="font-size:13px;color:#111318">Down payment</strong><div style="font-size:13px;color:#3D4555;line-height:1.55">How much you've saved toward a down payment. This affects your mortgage insurance and monthly costs.</div></li>
-      <li><strong style="font-size:13px;color:#111318">Existing debt</strong><div style="font-size:13px;color:#3D4555;line-height:1.55">Car loans, credit cards, other monthly payments. Leave at 0 if none — this affects how much a lender would qualify you for.</div></li>
+      <li><strong style="font-size:13px;color:#111318">Down payment</strong><div style="font-size:13px;color:#3D4555;line-height:1.55">The amount you'll put down on the home. Closing costs are extra, on top of it; each city's breakdown shows them. The down payment affects your mortgage insurance and monthly costs.</div></li>
+      <li><strong style="font-size:13px;color:#111318">Existing debt</strong><div style="font-size:13px;color:#3D4555;line-height:1.55">Car loans, credit cards, other monthly payments. Leave at 0 if none. It lowers how much a lender would lend, and it counts in every % of take-home and every Great / Good / Stretch label.</div></li>
       <li><strong style="font-size:13px;color:#111318">How you work</strong><div style="font-size:13px;color:#3D4555;line-height:1.55">Remote workers get ranked purely by affordability. Hybrid or daily commuters get cities filtered by the longest commute they'll accept, using estimated drive times.</div></li>
       <li><strong style="font-size:13px;color:#111318">Area</strong><div style="font-size:13px;color:#3D4555;line-height:1.55">Narrow results to a specific part of Ontario, or leave it broad to see everything you can afford.</div></li>
       <li><strong style="font-size:13px;color:#111318">First-time buyer</strong><div style="font-size:13px;color:#3D4555;line-height:1.55">This can unlock different programs and incentives that affect what you can afford.</div></li>
       <li><strong style="font-size:13px;color:#111318">Household size</strong><div style="font-size:13px;color:#3D4555;line-height:1.55">Used to estimate realistic living costs and space needs for your household.</div></li>
-      <li><strong style="font-size:13px;color:#111318">Results</strong><div style="font-size:13px;color:#3D4555;line-height:1.55">Once you're ready, tap "See your results" to see your buying power and ranked Ontario cities on the right.</div></li>
+      <li><strong style="font-size:13px;color:#111318">Results</strong><div style="font-size:13px;color:#3D4555;line-height:1.55">Once you're ready, tap "Show Me What I Can Afford" to see your HomePilot comfort range and the Ontario places that fit it, on the right.</div></li>
     </ul>
     <button type="button" onclick="endTour()" style="width:100%;padding:12px;border-radius:10px;border:none;background:#1D9E75;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--font)">Got it</button>
   </div>

@@ -12,11 +12,7 @@
 // INCOM removed entirely 2026-07-22 (CITY_GEO, INCOM_PROP, buildIncomUrl()) --
 // all "View Available Homes" buttons now link directly to real DDF/CREA
 // listings via listings-display.js, per Sandeep's explicit decision.
-//
-// Note: the actual loadScenarioFromURL() CALL (as opposed to its definition,
-// which lives in scenario-share.js) intentionally stays at the very end of
-// index.html's own inline script — it's real init code that must run last,
-// after every module has loaded, not a definition to relocate.
+
 
 function fc(n){return new Intl.NumberFormat('en-CA',{style:'currency',currency:'CAD',maximumFractionDigits:0}).format(n);}
 

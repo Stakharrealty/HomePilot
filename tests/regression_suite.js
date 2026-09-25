@@ -32,7 +32,7 @@ while ((m = scriptTagRe.exec(html)) !== null) {
 const mkEl = () => ({ style:{display:''}, classList:{add(){},remove(){},toggle(){},contains(){return false}}, addEventListener(){}, setAttribute(){}, appendChild(){}, innerHTML:'', textContent:'', value:'', checked:false, dataset:{}, querySelectorAll(){return[]}, querySelector(){return mkEl()}, focus(){}, blur(){}, click(){}, scrollIntoView(){}, disabled:false });
 // Stateful element store: getElementById returns the SAME object on repeated calls
 // for a given id, so tests can set .value / read back .style.display / .disabled
-// after calling functions like sub() that read/write form state across multiple
+// after calling functions that read/write form state across multiple
 // getElementById calls. Existing tests never depended on fresh-object-per-call
 // behavior (they drive logic via direct global assignment through run()), so this
 // is a safe upgrade, not a behavior change for Suites 1-6.
@@ -40,13 +40,9 @@ const __elStore = {};
 const getElById = (id) => { if(!__elStore[id]) __elStore[id] = mkEl(); return __elStore[id]; };
 const document = { getElementById:getElById, querySelectorAll(){return[]}, querySelector(){return mkEl()}, addEventListener(){}, createElement(){return mkEl()}, body:mkEl(), documentElement:mkEl() };
 const windowObj = { addEventListener(){}, location:{href:'',search:''}, navigator:{}, open(){return null}, matchMedia(){return{matches:false,addEventListener(){}}}, innerWidth:400 };
-let __fetchCalls = [];
-let __fetchBehavior = 'success'; // 'success' | 'httpfail' | 'appfail' | 'networkerror'
-function __mockFetch(url, opts){
-  __fetchCalls.push({url, opts});
-  if(__fetchBehavior === 'networkerror') return Promise.reject(new Error('network down'));
-  if(__fetchBehavior === 'httpfail') return Promise.resolve({ ok:false, json: async () => ({ok:false}) });
-  if(__fetchBehavior === 'appfail') return Promise.resolve({ ok:true, json: async () => ({ok:false, error:'send failed'}) });
+// Stands in for the network. Nothing in these suites checks what is sent;
+// the lead-delivery tests that did went with the lead form (2026-09-23).
+function __mockFetch(){
   return Promise.resolve({ ok:true, json: async () => ({ok:true}) });
 }
 const ctx = { console, Math, JSON, Object, Array, Number, String, parseInt, parseFloat, isNaN, Intl, encodeURIComponent, decodeURIComponent, setTimeout(){}, clearTimeout(){}, document, window:windowObj, navigator:{share:null,clipboard:{}}, location:windowObj.location, btoa:s=>Buffer.from(s).toString('base64'), atob:s=>Buffer.from(s,'base64').toString(), URLSearchParams, print(){}, alert(){}, history:{replaceState(){}}, fetch:(...a)=>__mockFetch(...a) };
@@ -68,7 +64,8 @@ function setup(income, dn, wa, workCityName){
       grossMonthlyIncome = ${income}/12;
       netMonthlyIncome = estimateOntarioNetAnnual(${income})/12;
       firstTimeBuyer = false;
-      customMortgageRate = 0.0414;
+      // The product's rate (4.39% since 2026-09-24; this said 0.0414).
+      customMortgageRate = DEFAULT_MORTGAGE_RATE_PCT / 100;
       workArrangement = ${JSON.stringify(wa)};
       workZone = (${JSON.stringify(wa)} === 'remote') ? null : (FSA_TO_WORK_ZONE['L6P'] || 'brampton_ne');
       var __bp = calcBP(${income}, ${dn}, 0);
@@ -85,7 +82,9 @@ suite('Core');
   t('BP returns bp and comfortBP', typeof bp.bp==='number' && typeof bp.comfortBP==='number');
   t('comfortBP < bp', bp.comfortBP < bp.bp);
   t('BP 250k/150k in plausible range (0.9M–1.4M)', bp.bp>900000 && bp.bp<1400000);
-  t('matches known-good snapshot ($1.18M/$990K, post CMHC-modeling fix)', bp.bp===1180000 && bp.comfortBP===990000);
+  // At the 4.39% rate since 2026-09-24 (IMPROVEMENT_PLAN.md 3.5a); it was
+  // $1.18M/$990K at 4.19%.
+  t('matches known-good snapshot ($1.16M/$970K at 4.39%, post CMHC-modeling fix)', run('DEFAULT_MORTGAGE_RATE_PCT')===4.39 && bp.bp===1160000 && bp.comfortBP===970000);
   const bpLow = run('calcBP(80000,40000,0)');
   t('BP scales with income', bpLow.bp < bp.bp);
   const bpDebt = run('calcBP(250000,150000,1500)');
@@ -119,15 +118,36 @@ suite('Core');
   const qDetachedType = run(`typeof qualifiesForProperty(80000, 30000, 0, ${PT['Welland'].detached}, 'detached', 'Welland')`);
   t('detached (no condo fee weighting) still returns a valid boolean', qDetachedType === 'boolean');
 
+  // King City's detached price is above the $1.5M insured cap, so it needs a
+  // true 20% down. Worked out from the price table (since 2026-09-24 it comes
+  // from the listings, not the typed $1.65M), with an income high enough that
+  // only the down payment decides. Exactly 20% of the price: the listing
+  // prices are to the $10,000 since PHASE #3 (2026-09-24), as buying power is,
+  // so exactly 20% down buys it. (To the $1,000 they refused exactly 20% on
+  // 10 of the 11 prices above $1.5M, and this test had been bent to 20% of
+  // the price rounded up to $10,000.)
+  const kcPrice = PT['King City'].detached, kc20 = kcPrice * 0.20, kcInc = 1500000;
+  t('King City detached is above the $1.5M insured cap (so the 20% rule applies)', kcPrice > 1500000);
   t('getPriceForTypeStrict blocks King City detached (above $1.5M cap) under true 20% down', (()=>{
-    run(`dn_selected=150000; grossMonthlyIncome=250000/12; netMonthlyIncome=estimateOntarioNetAnnual(250000)/12; existingDebt=0; var __b=calcBP(250000,150000,0); buyPower=__b.bp;`);
+    run(`dn_selected=${kc20 - 5000}; grossMonthlyIncome=${kcInc}/12; netMonthlyIncome=estimateOntarioNetAnnual(${kcInc})/12; existingDebt=0; var __b=calcBP(${kcInc},${kc20 - 5000},0); buyPower=__b.bp;`);
     return run(`getPriceForTypeStrict('King City','detached',buyPower)`) === null;
   })());
-  t('getPriceForTypeStrict allows King City detached at true 20% down ($330k)', (()=>{
-    run(`dn_selected=330000; grossMonthlyIncome=400000/12; netMonthlyIncome=estimateOntarioNetAnnual(400000)/12; var __b=calcBP(400000,330000,0); buyPower=__b.bp;`);
+  t('getPriceForTypeStrict allows King City detached at true 20% down ($' + kc20.toLocaleString('en-CA') + ')', (()=>{
+    run(`dn_selected=${kc20}; grossMonthlyIncome=${kcInc}/12; netMonthlyIncome=estimateOntarioNetAnnual(${kcInc})/12; var __b=calcBP(${kcInc},${kc20},0); buyPower=__b.bp;`);
     return run(`getPriceForTypeStrict('King City','detached',buyPower)`) === PT['King City'].detached;
   })());
   t('existingDebt is visible outside go() (module-scope wiring works)', run('typeof existingDebt') === 'number');
+  // Every price above $1.5M, not only King City's: exactly 20% down buys it
+  // (PHASE #3 review, 2026-09-24).
+  const over = [];
+  for (const [place, row] of Object.entries(PT)) for (const [type, price] of Object.entries(row)) {
+    if (!(price >= 1500000)) continue;
+    const dn = price * 0.20;
+    run(`dn_selected=${dn}; grossMonthlyIncome=${kcInc}/12; netMonthlyIncome=estimateOntarioNetAnnual(${kcInc})/12; existingDebt=0; var __b=calcBP(${kcInc},${dn},0); buyPower=__b.bp;`);
+    over.push({ place, type, price, ok: run(`getPriceForTypeStrict(${JSON.stringify(place)},${JSON.stringify(type)},buyPower)`) === price });
+  }
+  t('exactly 20% down buys every home priced $1.5M or more (' + over.length + ' prices)' + (over.some((o) => !o.ok) ? ': refused ' + over.filter((o) => !o.ok).map((o) => o.place + ' ' + o.type).join(', ') : ''),
+    over.length > 0 && over.every((o) => o.ok));
 }
 {
   // Scenario updated 2026-09-22: this previously used 150k income / 30k down,
@@ -191,9 +211,9 @@ suite('Core');
     netMonthlyIncome=estimateOntarioNetAnnual(150000)/12; existingDebt=0; firstTimeBuyer=true;
     var __b=calcBP(150000,100000,0); buyPower=__b.bp; comfortBuyPower=__b.comfortBP;
   `);
-  // getLeadSummaryForCity() was removed 2026-09-23: the lead is now built from
-  // the cards on screen (shownCards), and every card comes from a rankCities()
-  // entry. These pin what an entry carries instead.
+  // getLeadSummaryForCity() was removed 2026-09-23: the PDF report and Compare
+  // are built from the cards on screen (shownCards), and every card comes from
+  // a rankCities() entry. These pin what an entry carries instead.
   const bramptonEntry = run(`(function(){ var r = rankCities([M.find(c=>c.n==='Brampton')], {sort:'home'}); var e = r.ranked[0]||r.stretchOnly[0]; return e ? {n:e.n, type:e.type, price:e.price, total:e.costs.total} : null; })()`);
   t('a ranked entry carries city/type/price/monthly cost for a qualifying city', bramptonEntry && bramptonEntry.n==='Brampton' && typeof bramptonEntry.price==='number' && typeof bramptonEntry.total==='number');
   t('the entry price is the real PT table price for that type', bramptonEntry && PT['Brampton'][bramptonEntry.type]===bramptonEntry.price);
@@ -215,16 +235,26 @@ suite('Core');
   t('resident, eligible: no speculation tax, rebates up to $8,475 in Toronto', res.nrst === 0 && res.mnrst === 0 && res.ltt.totalRebate === 8475);
 }
 {
-  const gapInc=145000, gapDn=50800;
-  run(`
-    fam_selected="3"; dn_selected=${gapDn}; grossMonthlyIncome=${gapInc}/12;
-    netMonthlyIncome=estimateOntarioNetAnnual(${gapInc})/12; existingDebt=0; firstTimeBuyer=false;
-    var __b=calcBP(${gapInc},${gapDn},0); buyPower=__b.bp; comfortBuyPower=__b.comfortBP;
+  // The gap: a Toronto Downtown condo under the buyer's buying power, with the
+  // minimum down payment met, that full qualification still refuses (its
+  // condo fee). The income is found by search at $50,800 down, so a new price
+  // table can't make the scenario vanish (it was a fixed $145,000 until
+  // 2026-09-24, and the listing prices moved the gap).
+  const gapDn=50800, condoPrice = PT['Toronto - Downtown'].condo;
+  const setGap = (inc) => run(`
+    fam_selected="3"; dn_selected=${gapDn}; grossMonthlyIncome=${inc}/12;
+    netMonthlyIncome=estimateOntarioNetAnnual(${inc})/12; existingDebt=0; firstTimeBuyer=false;
+    var __b=calcBP(${inc},${gapDn},0); buyPower=__b.bp; comfortBuyPower=__b.comfortBP;
   `);
-  const condoPrice = PT['Toronto - Downtown'].condo;
+  let gapInc = null;
+  for (let inc = 60000; inc <= 400000 && gapInc === null; inc += 500) {
+    setGap(inc);
+    if (condoPrice <= run('buyPower') && run(`meetsMinDownPayment(${condoPrice},${gapDn})`) && !run(`qualifiesForProperty(${inc},${gapDn},0,${condoPrice},'condo','Toronto - Downtown')`)) gapInc = inc;
+  }
+  setGap(gapInc || 145000);
   const oldWayWouldPass = condoPrice <= run('buyPower') && run(`meetsMinDownPayment(${condoPrice},${gapDn})`);
   const actuallyQualifies = run(`qualifiesForProperty(${gapInc},${gapDn},0,${condoPrice},'condo','Toronto - Downtown')`);
-  t('sanity: this scenario is the exact gap (old check would pass, real qualification fails)', oldWayWouldPass===true && actuallyQualifies===false);
+  t('sanity: this scenario is the exact gap (old check would pass, real qualification fails)' + (gapInc ? ' @ $' + gapInc.toLocaleString('en-CA') : ' (no income found)'), gapInc !== null && oldWayWouldPass===true && actuallyQualifies===false);
 
   const strictResult = run(`getPriceForTypeStrict('Toronto - Downtown','condo',buyPower)`);
   t('default-view qualification path blocks the same condo getPriceForTypeStrict blocks', strictResult === null);
@@ -310,10 +340,11 @@ suite('Core');
   t('Brampton semi allowed at 150k DP', semi === PT['Brampton'].semi);
   setup(250000, 150000, 'daily', 'Brampton');
   const kingBlocked = run(`getPriceForTypeStrict('King City','detached',buyPower)`);
-  t('King City detached ($1.65M, above cap) blocked at 150k DP (needs $330k = 20%)', kingBlocked === null);
-  setup(400000, 330000, 'daily', 'Brampton');
+  const kingDet = PT['King City'].detached, king20 = kingDet * 0.20; // exactly 20%, as kc20 above
+  t('King City detached ($' + kingDet.toLocaleString('en-CA') + ', above cap) blocked at 150k DP (needs 20%)', kingBlocked === null);
+  setup(1500000, king20, 'daily', 'Brampton');
   const kingUnlocked = run(`getPriceForTypeStrict('King City','detached',buyPower)`);
-  t('King City detached unlocks at true 20% down ($330k)', kingUnlocked === PT['King City'].detached);
+  t('King City detached unlocks at true 20% down ($' + king20.toLocaleString('en-CA') + ')', kingUnlocked === PT['King City'].detached);
   setup(60000, 15000, 'daily', 'Brampton');
   const con = run(`getPriceForTypeStrict('Toronto - Downtown','condo',buyPower)`);
   t('low BP blocks expensive condo', con === null);
@@ -427,7 +458,10 @@ suite('Ranking');
   t('the hidden desirability ranking is gone (DESIRABILITY, TIER_WEIGHTS, homePilotSort)',
     run(`typeof DESIRABILITY`) === 'undefined' && run(`typeof TIER_WEIGHTS`) === 'undefined' && run(`typeof homePilotSort`) === 'undefined');
   const dmc = run('DEFAULT_MAX_COMMUTE');
-  t('default commute limits: 60 min daily, 90 min hybrid, none for remote', dmc.daily === 60 && dmc.hybrid === 90 && !dmc.remote);
+  // 2.2a (2026-09-24): 60 for hybrid too (it was 90); 75 and 90 stay in the list.
+  t('default commute limits: 60 min daily, 60 min hybrid, none for remote', dmc.daily === 60 && dmc.hybrid === 60 && !dmc.remote);
+  const mcc = run('MAX_COMMUTE_CHOICES');
+  t('75 and 90 minutes can still be picked', mcc.includes(75) && mcc.includes(90));
   t('the three sorts: most home, shortest commute, lowest monthly cost', JSON.stringify(run('RESULT_SORTS')) === JSON.stringify(['home','commute','cost']));
   t('all 55 cities present in M', M.length === 55);
   t('Bolton and Caledon both exist (same municipality)', !!M.find(c=>c.n==='Bolton') && !!M.find(c=>c.n==='Caledon'));
@@ -444,25 +478,86 @@ suite('Ranking');
 suite('PropertyTable');
 {
   t('PT covers all 55 cities', Object.keys(PT).length >= 55);
+  // Since 2026-09-24 (IMPROVEMENT_PLAN.md 3.1a, PHASE #3 D1) a price is the
+  // 40th-percentile asking price of the place's listings x 0.97, to the
+  // nearest $10,000, where it has 10 or more of that type (PT_LISTED, written
+  // by tools/city-prices.mjs), else the typed 2025 table (PT_TYPED, kept as it
+  // was), which also keeps five detached prices on purpose (KEEP_TYPED in the
+  // tool). The typed table keeps its checks; real listings need not ascend
+  // condo < town < semi < detached (a semi often asks less than a townhouse),
+  // so that order is the typed table's only, and nothing in the app may
+  // depend on it (the Explainability suite checks the one line that did).
+  const PT_TYPED = run('PT_TYPED'), PT_LISTED = run('PT_LISTED'), PT_SOURCE = run('PT_SOURCE'), RUN = run('CITY_PRICES_RUN');
   let orderOk = true, bad = null;
-  for(const [city,tiers] of Object.entries(PT)){
+  for(const [city,tiers] of Object.entries(PT_TYPED)){
     const seq = ['condo','town','semi','detached'].map(k=>tiers[k]).filter(v=>v);
     for(let i=1;i<seq.length;i++) if(seq[i] <= seq[i-1]) { orderOk=false; bad=city; }
   }
-  t('tier prices strictly ascending in every city'+(bad?' (bad: '+bad+')':''), orderOk);
-  t('Welland condo $299k', PT['Welland'].condo === 299000);
-  t('Fort Erie condo $340k', PT['Fort Erie'].condo === 340000);
-  t('Brampton detached $1,025k', PT['Brampton'].detached === 1025000);
+  t('typed table: tier prices strictly ascending in every city'+(bad?' (bad: '+bad+')':''), orderOk);
+  t('typed table kept as it was: Welland condo $299k', PT_TYPED['Welland'].condo === 299000);
+  t('typed table kept as it was: Fort Erie condo $340k', PT_TYPED['Fort Erie'].condo === 340000);
+  t('typed table kept as it was: Brampton detached $1,025k', PT_TYPED['Brampton'].detached === 1025000);
+  t('the listings run is recorded: date, 40th percentile, 0.97 sale-to-list, to the $10,000, at least 10 listings', !!RUN && /^\d{4}-\d{2}-\d{2}$/.test(RUN.date) && RUN.percentile === 0.4 && RUN.saleToList === 0.97 && RUN.priceStep === 10000 && RUN.minListings === 10);
+  const cellsOk = Object.keys(PT_TYPED).every((p) => ['condo','town','semi','detached'].every((ty) => {
+    const cell = (PT_LISTED[p] || {})[ty], src = PT_SOURCE[p] && PT_SOURCE[p][ty];
+    return cell && cell.price > 0 ? src === 'listings' && PT[p][ty] === cell.price && cell.n >= RUN.minListings && cell.price % RUN.priceStep === 0
+      : src === 'typed' && PT[p][ty] === PT_TYPED[p][ty];
+  }));
+  t('every price is the listings figure (10+ listings, to the $10,000) where there is one, else the typed one, and its source says which', cellsOk);
+  // The owner's five (PHASE #3 D1): the typed detached price, whatever the
+  // listings say, where it matched recent sold prices and the listings didn't.
+  const KEEP = ['Erin', 'Grand Valley', 'Scugog', 'Halton Hills', 'Toronto - East End'];
+  t('the five kept prices are the typed detached ones (Erin, Grand Valley, Scugog, Halton Hills, Toronto - East End)',
+    KEEP.every((p) => PT_SOURCE[p].detached === 'typed' && PT[p].detached === PT_TYPED[p].detached && PT_TYPED[p].detached > 0 && !(PT_LISTED[p] || {}).detached));
+  // Types the typed table hides show wherever the listings have 10+ of them
+  // (PHASE #3 D2, the owner: "show them all"), and stay hidden elsewhere.
+  const unhidden = [], stillHidden = [];
+  for (const p of Object.keys(PT_TYPED)) for (const ty of ['condo','town','semi','detached']) if (PT_TYPED[p][ty] === null) ((PT_LISTED[p] || {})[ty] ? unhidden : stillHidden).push(p + ' ' + ty);
+  t('a type the typed table hides shows where the listings have 10+ (' + unhidden.length + ' today), and is null everywhere else',
+    unhidden.length > 0 && unhidden.every((k) => { const [p, ty] = [k.slice(0, k.lastIndexOf(' ')), k.slice(k.lastIndexOf(' ') + 1)]; return PT[p][ty] === PT_LISTED[p][ty].price && PT_SOURCE[p][ty] === 'listings'; })
+      && stillHidden.every((k) => { const [p, ty] = [k.slice(0, k.lastIndexOf(' ')), k.slice(k.lastIndexOf(' ') + 1)]; return PT[p][ty] === null; }));
   t('Toronto Downtown has condo', !!PT['Toronto - Downtown'].condo);
-  t('all prices sane (>100k, <3M)', Object.values(PT).every(tr=>Object.values(tr).every(v=>!v || (v>100000 && v<3000000))));
+  // The tool's own bounds: the listings page's $75,000 floor and its $10M
+  // ceiling (a weekly refresh may pass $3M; the review found this bound would
+  // break on it).
+  t('all prices sane ($75,000 to $10M, as tools/city-prices.mjs checks)', Object.values(PT).every(tr=>Object.values(tr).every(v=>!v || (v>=75000 && v<=10000000))));
   t('every PT city exists in M', Object.keys(PT).every(n=>M.some(c=>c.n===n)));
   t('every M city exists in PT', M.every(c=>PT[c.n]));
+  t('no place is filtered out below its cheapest home: every M entry price is at or under its cheapest PT price',
+    M.every((c) => { const ps = Object.values(PT[c.n]).filter((v) => v > 0); return !ps.length || c.min <= Math.min(...ps); }));
   t('King City exists in PT', !!PT['King City']);
-  t('known gap: King City condo/town missing (backlog)', !PT['King City'].condo && !PT['King City'].town);
+  // (King City's condo and townhouse were pinned here as "from the listings";
+  // the townhouse rests on 10 listings exactly and can drop out on any
+  // refresh, so the rule above checks every hidden type instead.)
 }
 
 suite('Explainability');
 {
+  const spanBad = [];
+  let spanSeen = 0;
+  for (const [inc, dn, dbt] of [[90000, 60000, 0], [150000, 100000, 0], [210000, 300000, 0], [120000, 80000, 900], [300000, 400000, 0]]) {
+    setup(inc, dn, 'remote', 'Brampton');
+    run('existingDebt = ' + dbt + ';');
+    const r = run(`(function(){ var bad = [], seen = 0;
+      M.forEach(function(city){
+        var opts = ['condo','town','semi','detached'].map(function(tp){ return qualifyingOption(city, tp); }).filter(Boolean);
+        if (opts.length < 2) return;
+        var pcts = opts.map(function(o){ return takeHomePct(o.costs.total); });
+        var lo = Math.min.apply(null, pcts), hi = Math.max.apply(null, pcts);
+        var b = buildWhyRankedBullets(city, opts[0].costs, netMonthlyIncome, null, opts[0].type, opts[0].price).find(function(x){ return x.key === 'affordability'; });
+        if (!b) return;
+        seen++;
+        var m = /(\\d+)% to (\\d+)%|at (\\d+)%|take (\\d+)% of/.exec(b.text);
+        var got = m ? (m[1] ? [+m[1], +m[2]] : [+(m[3] || m[4]), +(m[3] || m[4])]) : null;
+        if (!got || got[0] !== lo || got[1] !== hi || (existingDebt > 0) !== /^With your debt payments/.test(b.text)) bad.push(city.n + ': ' + b.text + ' vs ' + lo + '-' + hi);
+      });
+      return { bad: bad.slice(0, 4), seen: seen }; })()`);
+    spanSeen += r.seen;
+    spanBad.push(...r.bad);
+  }
+  run('existingDebt = 0;');
+  t('"Homes here from X% to Y%" is the lowest and highest % of the place\'s own options, for every place and five buyers (' + spanSeen + ' lines), and says "With your debt payments" exactly when there is debt' + (spanBad.length ? ': ' + spanBad.join(' | ') : ''),
+    spanSeen > 100 && spanBad.length === 0);
   setup(150000, 100000, 'daily', 'Brampton');
   const bulletsRes = run(`
     (function(){
@@ -598,7 +693,7 @@ suite('Commute');
 // REPLACED 2026-09-23 (IMPROVEMENT_PLAN.md 1.4). This suite tested
 // getAnglePicks(), a third weighted ranking behind the What-If scenarios, and
 // renderAnglePicks()'s "Outside Your Comfort Range" box. Both are gone:
-// rankCities() is the one ranking for the screen, the lead and the scenarios,
+// rankCities() is the one ranking for the screen and the scenarios,
 // and the stretch-only cities get their own section in render(). Same five
 // buyer profiles, same questions, asked of the one ranking.
 suite('OneRanking');
@@ -656,6 +751,44 @@ suite('OneRanking');
     t('"Shortest commute" order is shortest first @'+inc, o.drive);
     t('the three sorts reorder the same cities, never change which ones @'+inc, o.same);
   }
+  // The answer cards (2026-09-24, IMPROVEMENT_PLAN.md 2.2 and 2.2b): each
+  // answer is its sort's #1, in the order Lowest monthly cost, Shortest
+  // commute, Most home; identical homes share a card, labelled in that order;
+  // never more than three, never a commute answer without a commute. A card
+  // left free is no longer filled with the runner-up for most home (2.2b):
+  // answerPicks() returns the answers only, and "Also worth a look" comes from
+  // HomePilot Worth Knowing (tests/worth_knowing_test.js checks it).
+  for(const [inc,dn,wa] of [[160000,100000,'daily'],[150000,100000,'hybrid'],[175000,120000,'daily'],[200000,150000,'remote'],[300000,250000,'remote']]){
+    setup(inc, dn, wa, 'Brampton');
+    const a = run(`(function(){
+      var r = answerPicks(M, {maxCommute:60}), picks = r.picks, keys = picks.map(function(p){ return homeKey(p.entry); });
+      var first = { home: r.byHome.ranked[0], commute: r.byCommute && r.byCommute.ranked[0], cost: r.byCost.ranked[0] };
+      var winnersOk = ['home','commute','cost'].every(function(q){
+        var holders = picks.filter(function(p){ return p.answers.indexOf(q) >= 0; });
+        return first[q] ? holders.length === 1 && homeKey(holders[0].entry) === homeKey(first[q]) : holders.length === 0;
+      });
+      var order = ['cost','commute','home'];
+      var firstOf = function(p){ return order.indexOf(p.answers[0]); };
+      var distinct = new Set(['cost','commute','home'].filter(function(q){ return first[q]; }).map(function(q){ return homeKey(first[q]); })).size;
+      return {
+        n: picks.length, unique: new Set(keys).size === keys.length, winnersOk: winnersOk,
+        // No 'also' among the answers, one card per distinct winning home.
+        answersOnly: picks.every(function(p){ return p.answers.indexOf('also') < 0; }) && picks.length === distinct,
+        // Cards in answer order, and each card's labels in that order too.
+        ordered: picks.every(function(p, i){ return (i === 0 || firstOf(picks[i-1]) < firstOf(p)) && p.answers.every(function(q, j){ return j === 0 || order.indexOf(p.answers[j-1]) < order.indexOf(q); }); }),
+        // A card with two or three labels says why, in the approved wording;
+        // a card with one does not.
+        mergeLines: picks.every(function(p){ var l = answerMergeLine(p.answers, r.byHome, p.entry); return p.answers.length > 1 ? /^Why (two|three) labels: /.test(l) : l === null; }),
+        noCommute: r.commuteKnown || picks.every(function(p){ return p.answers.indexOf('commute') < 0; }),
+      };
+    })()`);
+    t('answer cards: at least one, at most three, no home twice @'+inc+'/'+wa, a.n >= 1 && a.n <= 3 && a.unique);
+    t('answer cards: each question answered once, by its sort\'s #1 @'+inc+'/'+wa, a.winnersOk);
+    t('answer cards: the answers only, one card per winning home (no runner-up padding) @'+inc+'/'+wa, a.answersOnly);
+    t('answer cards: Lowest monthly cost, then Shortest commute, then Most home, labels in the same order @'+inc+'/'+wa, a.ordered);
+    t('answer cards: every card with two or three labels says why, and no other card does @'+inc+'/'+wa, a.mergeLines);
+    t('answer cards: no commute answer without a commute @'+inc+'/'+wa, a.noCommute);
+  }
   setup(45000, 15000, 'daily', 'Brampton');
   const lowRes = run(`(function(){ try { rankCities(M, {sort:'home', maxCommute:60}); return false; } catch(e){ return true; } })()`);
   t('low BP profile does not crash the ranking', !lowRes);
@@ -671,128 +804,26 @@ suite('OneRanking');
   const renderSrc2 = src.slice(renderStart2, src.indexOf('function selectPropType', renderStart2));
   t('render() orders cities only through rankCities()', /rankCities\(results,/.test(renderSrc2) && !/\.sort\(\(a,b\)=>b\.compositeScore/.test(renderSrc2));
   t('render() has a separate "Only as a stretch" section', /Only as a stretch/.test(renderSrc2));
-  t('render() records the cards it drew (shownCards) for the lead', /shownCards=\[/.test(renderSrc2));
+  t('render() records the cards it drew (shownCards) for Compare', /shownCards=\[/.test(renderSrc2));
   t('the orange "Limited Commute ... long daily drive" box is gone from the cards', !/long daily drive/.test(renderSrc2));
 }
 
-// ───────────────────────────── SUITE 7: LEAD DELIVERY & BREAKDOWN ─────────────────────────────
-// Added July 16, 2026 — covers the same-day lead-delivery rewrite (Formspree -> Cloudflare
-// Worker, awaited response, real success/failure handling) and the new Down Payment /
-// Mortgage Amount (loan) breakdown rows. Async because sub() is now an async function
-// that awaits a real network call (mocked here via __mockFetch).
+// ───────────────────────────── SUITE 7: BREAKDOWN ─────────────────────────────
+// Added July 16, 2026 with the Down Payment / Mortgage Amount (loan) breakdown
+// rows. Until 2026-09-23 this suite also tested lead delivery (sub(), the
+// send-lead Worker, the lead payload). That went with the lead form, which the
+// user removed from the site to rebuild properly later.
 async function runSuite7(){
-  suite('LeadDelivery&Breakdown');
-
-  function resetForm(){
-    __fetchCalls = [];
-    ['nm','em','ph','status','timeline','inc','dwn','dbt','workCity','bpV','subBtn','leadErr','cap','done'].forEach(id=>{ delete __elStore[id]; });
-    getElById('nm').value = 'Jane Buyer';
-    getElById('em').value = 'jane@example.com';
-    getElById('ph').value = '416-555-0100';
-    getElById('status').value = 'renting';
-    getElById('timeline').value = '3-6';
-    getElById('inc').value = '150000';
-    getElById('dwn').value = '100000';
-    getElById('dbt').value = '0';
-    getElById('workCity').value = 'Toronto';
-    getElById('bpV').textContent = '$630,000';
-    getElById('subBtn').disabled = false;
-    getElById('leadErr').style.display = 'none';
-    getElById('cap').style.display = 'block';
-    getElById('done').style.display = 'none';
-    run(`
-      results=[{n:'Brampton'},{n:'Welland'},{n:'Oshawa'}];
-      fam_selected='3'; dn_selected=100000; grossMonthlyIncome=150000/12;
-      netMonthlyIncome=estimateOntarioNetAnnual(150000)/12; existingDebt=0; firstTimeBuyer=false;
-      buyPower=630000; comfortBuyPower=520000; customMortgageRate=0.0419; workArrangement='daily'; lang='en';
-      // What render() last drew (2026-09-23). Deliberately NOT the order of
-      // results above: the lead must follow the screen, never results.
-      shownCards=[
-        {city:'Oshawa',type:'town',price:595000,monthlyCost:3480,pctOfTakeHome:37,commuteMin:55,fit:'Good Fit',section:'ranked'},
-        {city:'Cambridge',type:'condo',price:410000,monthlyCost:2610,pctOfTakeHome:28,commuteMin:60,fit:'Great fit',section:'ranked'},
-        {city:'Kitchener',type:'condo',price:430000,monthlyCost:2700,pctOfTakeHome:29,commuteMin:60,fit:'Great fit',section:'ranked'},
-        {city:'St. Catharines',type:'condo',price:390000,monthlyCost:2600,pctOfTakeHome:28,commuteMin:60,fit:'Great fit',section:'ranked'},
-        {city:'Peterborough',type:'condo',price:390000,monthlyCost:2550,pctOfTakeHome:27,commuteMin:60,fit:'Great fit',section:'ranked'},
-        {city:'Welland',type:'condo',price:299000,monthlyCost:2200,pctOfTakeHome:23,commuteMin:60,fit:'Great fit',section:'ranked'},
-      ];
-    `);
-  }
-  const runSub = async () => await vm.runInContext('sub()', ctx);
-
-  // --- successful submission ---
-  resetForm(); __fetchBehavior = 'success';
-  await runSub();
-  t('success: fetch called exactly once (Formspree fully removed, no dupe calls)', __fetchCalls.length === 1);
-  t('success: correct Worker URL used', __fetchCalls[0].url === 'https://homepilot-send-lead.stakharrealty.workers.dev');
-  t('success: success screen shown (cap hidden, done shown)', getElById('cap').style.display === 'none' && getElById('done').style.display === 'block');
-  t('success: no error message shown', getElById('leadErr').style.display !== 'block');
-  t('success: submit button left disabled (no double-submit) after success', getElById('subBtn').disabled === true);
-
-  // --- HTTP failure (res.ok === false) ---
-  resetForm(); __fetchBehavior = 'httpfail';
-  await runSub();
-  t('http-fail: success screen NOT shown', getElById('done').style.display !== 'block');
-  t('http-fail: cap (form) still visible', getElById('cap').style.display !== 'none');
-  t('http-fail: error message shown to buyer', getElById('leadErr').style.display === 'block');
-  t('http-fail: submit button re-enabled so buyer can retry', getElById('subBtn').disabled === false);
-
-  // --- app-level failure (HTTP 200 but {ok:false} body) ---
-  resetForm(); __fetchBehavior = 'appfail';
-  await runSub();
-  t('app-fail: success screen NOT shown even though HTTP status was 200', getElById('done').style.display !== 'block');
-  t('app-fail: error message shown', getElById('leadErr').style.display === 'block');
-  t('app-fail: button re-enabled', getElById('subBtn').disabled === false);
-
-  // --- network error (fetch throws / rejects) ---
-  resetForm(); __fetchBehavior = 'networkerror';
-  let threw = false;
-  try { await runSub(); } catch(e){ threw = true; }
-  t('network-error: sub() does not let the exception escape (caught internally)', !threw);
-  t('network-error: success screen NOT shown', getElById('done').style.display !== 'block');
-  t('network-error: error message shown', getElById('leadErr').style.display === 'block');
-  t('network-error: button re-enabled', getElById('subBtn').disabled === false);
-
-  // --- missing required fields blocks submission entirely ---
-  resetForm(); __fetchBehavior = 'success';
-  getElById('nm').value = '';
-  await runSub();
-  t('missing name: sub() returns early, no fetch attempted', __fetchCalls.length === 0);
-
-  resetForm(); __fetchBehavior = 'success';
-  getElById('em').value = '';
-  await runSub();
-  t('missing email: sub() returns early, no fetch attempted', __fetchCalls.length === 0);
-
-  // --- leadPayload content sent to the Worker ---
-  resetForm(); __fetchBehavior = 'success';
-  await runSub();
-  const sentBody = JSON.parse(__fetchCalls[0].opts.body);
-  t('payload: name matches form input', sentBody.name === 'Jane Buyer');
-  t('payload: email matches form input', sentBody.email === 'jane@example.com');
-  t('payload: income is a number matching input', sentBody.income === 150000);
-  t('payload: downPayment is a number matching input', sentBody.downPayment === 100000);
-  t('payload: workCity included', sentBody.workCity === 'Toronto');
-  t('payload: mortgageRatePct reflects current slider value (4.19)', sentBody.mortgageRatePct === '4.19');
-  t('payload: topMatches is an array', Array.isArray(sentBody.topMatches));
-  // IMPROVEMENT_PLAN.md 1.2 / REVIEW_BACKLOG.md P0-3: the lead is what the buyer saw.
-  t('payload: topMatches are the first five cards on screen, in screen order',
-    sentBody.topMatches.map(m=>m.city).join('|') === 'Oshawa|Cambridge|Kitchener|St. Catharines|Peterborough');
-  t('payload: each match carries the card\'s own home type, price and monthly cost',
-    sentBody.topMatches[0].type === 'town' && sentBody.topMatches[0].price === 595000 && sentBody.topMatches[0].monthlyCost === 3480);
-  t('payload: nothing comes from the unordered candidate list (results)', !sentBody.topMatches.some(m=>m.city==='Brampton'));
-  t('payload: the legacy cities field matches too', sentBody.cities === 'Oshawa, Cambridge, Kitchener, St. Catharines, Peterborough');
-  t('payload: workArrangement included', sentBody.workArrangement === 'daily');
-  t('payload: firstTimeBuyer boolean included', typeof sentBody.firstTimeBuyer === 'boolean');
-
-  // --- Zapier stays untouched (placeholder, doesn't fire yet) ---
-  resetForm(); __fetchBehavior = 'success';
-  await runSub();
-  t('zapier: still not called while placeholder URL is unset (only Worker fetch fires)', __fetchCalls.length === 1);
+  suite('Breakdown');
+  // Engine state for the checks below. The lead tests' form reset used to set
+  // it, so this suite silently depended on them: 4.19%, not a first-time buyer.
+  run(`customMortgageRate=0.0419; firstTimeBuyer=false; fam_selected='3'; existingDebt=0;`);
 
   // --- Breakdown display formula (golden-line source check) ---
-  // selectPropType() mutates the DOM in place rather than returning HTML, so instead
-  // of simulating a full render we lock in the exact source lines — this catches any
-  // accidental future edit that breaks the display formula.
+  // The breakdown is drawn into the page (selectPropType(), with the HTML from
+  // costPanelHtml() since 2026-09-24), so instead of simulating a full render we
+  // lock in the exact source lines — this catches any accidental future edit that
+  // breaks the display formula.
   t('source contains effectiveDn cash-rich cap (Math.min(dn_selected, price))', /const effectiveDn = Math\.min\(dn_selected, price\)/.test(src));
   t('source contains Down Payment row using effectiveDn', /row\('Down Payment', '-' \+ fc\(effectiveDn\)\)/.test(src));
   t('source contains Mortgage Amount row = price - effectiveDn', /row\('Mortgage Amount \(loan\)', fc\(Math\.max\(0, price - effectiveDn\)\)/.test(src));
@@ -856,15 +887,21 @@ runSuite7().then(async () => {
     // Per-type View Available Homes links (added same day) — each accordion panel
     // (condo/town/semi/detached) gets its own unambiguous view-btn using that exact
     // type's real price, instead of the city-level button's guess-the-type logic.
-    const selectPropStart = src.indexOf('function selectPropType(cityId, tp, cityName)');
-    const selectPropEndRaw = src.indexOf('\nfunction ', selectPropStart+30);
-    const selectPropEnd = selectPropEndRaw === -1 ? src.length : selectPropEndRaw;
-    const selectPropSrc = src.slice(selectPropStart, selectPropEnd);
-    t('selectPropType() function located for scoping these checks', selectPropStart !== -1 && selectPropEnd > selectPropStart);
-    t('per-type panel contains its own view-btn', /class="view-btn"/.test(selectPropSrc));
-    t('per-type view-btn wires to real DDF listings via openListingsWindow(cityName,tp) -- redesigned 2026-07-25 from inline toggle to dedicated popup/page', selectPropSrc.includes('openListingsWindow(') && /openListingsWindow\(.*cityName.*\)/.test(selectPropSrc));
-    t('per-type view-btn label uses PLBL to show the real type name (e.g. "Townhouse", not raw "town")', /View Available '\+\(PLBL\[tp\]\|\|tp\)\+' in '\+cityName/.test(selectPropSrc));
-    t('per-type view-btn appears inside the panel before panel.innerHTML is assigned (i.e. actually gets rendered, not dead code after assignment)', selectPropSrc.indexOf('class="view-btn"') < selectPropSrc.indexOf('panel.innerHTML = html'));
+    // Since 2026-09-24 (IMPROVEMENT_PLAN.md 2.3a D) the panel's HTML is built by
+    // costPanelHtml(cityName, tp), so refreshOpenCostPanels() can draw an open
+    // panel again when the buyer ticks the rebate box inside it; selectPropType()
+    // opens the panel and puts that HTML in it.
+    const fnSrc = (sig) => { const a = src.indexOf(sig); if (a === -1) return ''; const e = src.indexOf('\nfunction ', a+30); return src.slice(a, e === -1 ? src.length : e); };
+    const selectPropSrc = fnSrc('function selectPropType(cityId, tp, cityName)');
+    const panelSrc = fnSrc('function costPanelHtml(cityName, tp)');
+    t('selectPropType() and costPanelHtml() located for scoping these checks', selectPropSrc !== '' && panelSrc !== '');
+    t('per-type panel contains its own view-btn', /class="view-btn"/.test(panelSrc));
+    t('per-type view-btn is a plain link to the listings page via listingsLinkAttrs(cityName,tp,price) -- 2026-09-24, no pop-up window', /<a class="view-btn"[^>]*'\+listingsLinkAttrs\(cityName,tp,price\)\+'/.test(panelSrc) && !panelSrc.includes('openListingsWindow(') && !selectPropSrc.includes('openListingsWindow('));
+    t('per-type view-btn label uses the plural type name, as the card\'s own button does (e.g. "Townhomes", not "Townhouse" or raw "town")',
+      /View Available '\+\(PLURAL\[tp\]\|\|tp\)\+' in '\+cityName/.test(panelSrc) && /const PLURAL=\{condo:'Condos',town:'Townhomes',semi:'Semi-Detached Homes',detached:'Detached Homes'\};/.test(panelSrc));
+    t('per-type view-btn is in the HTML the panel shows (built before costPanelHtml() returns it, and selectPropType() puts that HTML in the panel), not dead code',
+      panelSrc.indexOf('class="view-btn"') !== -1 && panelSrc.indexOf('class="view-btn"') < panelSrc.indexOf('return html;')
+        && /const html = costPanelHtml\(cityName, tp\);[\s\S]*panel\.innerHTML = html;/.test(selectPropSrc));
   }
   done();
 

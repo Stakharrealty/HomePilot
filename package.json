@@ -15,7 +15,12 @@
     "test:listing-seal-removed": "node tests/listing_verified_seal_removed_test.js",
     "test:footer-contact": "node tests/footer_contact_section_test.js",
     "test:results-outcomes": "node --no-warnings tests/results_outcomes_test.js",
+    "test:worth-knowing": "node --no-warnings tests/worth_knowing_test.js calculator.html",
+    "test:consent-gate": "node tests/consent_gate_test.js",
     "test:homepage-claims": "node --no-warnings tests/homepage_claims_test.js",
+    "test:english-only": "node --no-warnings tests/english_only_test.js",
+    "test:phone-fixes": "node --no-warnings tests/phone_fixes_test.js",
+    "test:phone-length": "node --no-warnings tests/phone_length_test.js",
     "test:listings-frontend": "node tests/listings_frontend_display_test.js",
     "test:listings-grid-width": "node tests/listings_grid_width_test.js",
     "test:listings-card-carousel": "node tests/listings_card_photo_carousel_test.js",
@@ -27,8 +32,7 @@
     "test:listing-card-monthly": "node --no-warnings tests/listing_card_monthly_cost_test.js",
     "test:listings-type-filter": "node --no-warnings tests/listings_type_filter_test.js",
     "test:listing-thumbnail-click": "node --no-warnings tests/listing_thumbnail_click_test.js",
-    "test:listings-popup-sizing": "node --no-warnings tests/listings_popup_sizing_test.js",
-    "test:listings-popup-redesign": "node tests/listings_popup_redesign_test.js",
+    "test:listings-open-in-tab": "node --no-warnings tests/listings_open_in_tab_test.js",
     "test:listings-property-classification": "node --no-warnings tests/listings_property_classification_test.js",
     "test:listings-affordability-budget": "node --no-warnings tests/listings_affordability_budget_test.js",
     "test:listings-proptx-display-gate": "node --no-warnings tests/listings_proptx_display_gate_test.js",
@@ -41,8 +45,8 @@
     "test:listings-price-floor": "node --no-warnings tests/listings_price_floor_test.js",
     "test:listings-relevance": "node --no-warnings tests/listings_relevance_test.js",
     "test:live-listings": "node tests/live_listings_check.js",
-    "test:listings": "npm run test:listing-seal-removed && npm run test:listings-frontend && npm run test:listings-grid-width && npm run test:listings-card-carousel && npm run test:listings-stored-fields && npm run test:listings-detail-endpoint && npm run test:listing-detail-page && npm run test:listing-card-facts && npm run test:listing-card-monthly && npm run test:listings-type-filter && npm run test:listing-thumbnail-click && npm run test:listings-popup-sizing && npm run test:listings-toronto-hamilton-guelph && npm run test:listings-popup-redesign && npm run test:listings-property-classification && npm run test:listings-affordability-budget && npm run test:listings-proptx-display-gate && npm run test:listings-proptx-census && npm run test:listings-proptx-ingest-homes && npm run test:listings-proptx-auto-ingest && npm run test:listings-proptx-idx-notices && npm run test:listings-community && npm run test:listings-coverage && npm run test:listings-price-floor && npm run test:listings-relevance",
-    "test:listings-ci": "npm run test:listing-seal-removed && npm run test:listings-frontend && npm run test:listings-grid-width && npm run test:listings-card-carousel && npm run test:listings-stored-fields && npm run test:listings-detail-endpoint && npm run test:listing-detail-page && npm run test:listing-card-facts && npm run test:listing-card-monthly && npm run test:listings-type-filter && npm run test:listing-thumbnail-click && npm run test:listings-popup-sizing && npm run test:listings-toronto-hamilton-guelph && npm run test:listings-popup-redesign && npm run test:listings-property-classification && npm run test:listings-affordability-budget && npm run test:listings-proptx-display-gate && npm run test:listings-proptx-census && npm run test:listings-proptx-ingest-homes && npm run test:listings-proptx-auto-ingest && npm run test:listings-proptx-idx-notices && npm run test:listings-community && npm run test:listings-coverage && npm run test:listings-price-floor && npm run test:listings-relevance"
+    "test:listings": "npm run test:listing-seal-removed && npm run test:listings-frontend && npm run test:listings-grid-width && npm run test:listings-card-carousel && npm run test:listings-stored-fields && npm run test:listings-detail-endpoint && npm run test:listing-detail-page && npm run test:listing-card-facts && npm run test:listing-card-monthly && npm run test:listings-type-filter && npm run test:listing-thumbnail-click && npm run test:listings-open-in-tab && npm run test:listings-toronto-hamilton-guelph && npm run test:listings-property-classification && npm run test:listings-affordability-budget && npm run test:listings-proptx-display-gate && npm run test:listings-proptx-census && npm run test:listings-proptx-ingest-homes && npm run test:listings-proptx-auto-ingest && npm run test:listings-proptx-idx-notices && npm run test:listings-community && npm run test:listings-coverage && npm run test:listings-price-floor && npm run test:listings-relevance",
+    "test:listings-ci": "npm run test:listing-seal-removed && npm run test:listings-frontend && npm run test:listings-grid-width && npm run test:listings-card-carousel && npm run test:listings-stored-fields && npm run test:listings-detail-endpoint && npm run test:listing-detail-page && npm run test:listing-card-facts && npm run test:listing-card-monthly && npm run test:listings-type-filter && npm run test:listing-thumbnail-click && npm run test:listings-open-in-tab && npm run test:listings-toronto-hamilton-guelph && npm run test:listings-property-classification && npm run test:listings-affordability-budget && npm run test:listings-proptx-display-gate && npm run test:listings-proptx-census && npm run test:listings-proptx-ingest-homes && npm run test:listings-proptx-auto-ingest && npm run test:listings-proptx-idx-notices && npm run test:listings-community && npm run test:listings-coverage && npm run test:listings-price-floor && npm run test:listings-relevance"
   },
   "devDependencies": {
     "http-server": "^14.1.1",

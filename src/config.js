@@ -9,9 +9,12 @@
 
 // Single source of truth for the default/market mortgage rate — every other
 // reference in the app (slider default, reset behavior, "current market rate"
-// hint, share/scenario comparisons, footer disclaimer, DATA_FRESHNESS entry)
+// hint, the rate line under the top section, the disclaimer page, DATA_FRESHNESS entry)
 // reads from this constant. Update ONLY here when refreshing the rate.
-const DEFAULT_MORTGAGE_RATE_PCT = 4.19;
+// 4.39% since 2026-09-24 (IMPROVEMENT_PLAN.md 3.5a): the cheapest advertised
+// insured 5-year fixed that day. A weekly automatic update (3.5) waits until
+// after beta.
+const DEFAULT_MORTGAGE_RATE_PCT = 4.39;
 
 // ── DATA FRESHNESS TRACKER — updated whenever a hardcoded estimate is re-verified ──
 // Purpose: every number in this file that isn't live-computed is a snapshot in time.
@@ -21,9 +24,11 @@ const DEFAULT_MORTGAGE_RATE_PCT = 4.19;
 // lastUpdated, and update this comment's date if you touch multiple items at once.
 const DATA_FRESHNESS = {
   mortgageRate: {
-    value: DEFAULT_MORTGAGE_RATE_PCT + "%", lastUpdated: "2026-07-09",
-    source: "Ratehub.ca + nesto.ca best insured 5yr fixed rates (3.94%–4.09% range July 8, 2026); " +
-            "set slightly above the rock-bottom broker teaser to reflect a realistically achievable rate.",
+    value: DEFAULT_MORTGAGE_RATE_PCT + "%", lastUpdated: "2026-09-24",
+    source: "Cheapest advertised insured 5-year fixed on Sept 24, 2026: nesto 4.39%, Ratehub 4.34%. " +
+            "Fixed rates rose with the 5-year Government of Canada bond yield (3.18% to 3.54%) since " +
+            "the last update (4.19% on July 9, 2026, against 3.94%–4.09%). Fixed, not variable: " +
+            "conservative, and the payment is locked for the term (IMPROVEMENT_PLAN.md 3.5a).",
     refreshCadence: "Monthly — fixed rates move with bond yields, can shift meaningfully in weeks."
   },
   propertyTaxRates: {
@@ -50,11 +55,23 @@ const DATA_FRESHNESS = {
     refreshCadence: "Annually — brackets, BPA, CPP/EI maximums and the surtax thresholds are indexed each January."
   },
   condoFees: {
-    value: "City base fee scaled 0.5× around each city's typical condo price (see CONDO_FEES + calcCosts)",
-    lastUpdated: "2026-07-06",
-    source: "Structural fix only (no new market data) — base $/mo figures are still estimates, not sourced " +
-            "from real condo corporation budgets. Upgrade path: read actual fees from IDX listings once live.",
-    refreshCadence: "No live source yet — revisit once DDF/IDX lands."
+    value: "Median real monthly fee of each place's condo listings where 10+ have one (47 places), " +
+           "else the typed estimate; scaled 0.5× around the place's typical condo price (see CONDO_FEES + calcCosts)",
+    lastUpdated: "2026-09-24",
+    source: "tools/city-prices.mjs over the homepilot-listings D1 database (PropTx IDX, read-only), " +
+            "with the listing pages' own fee rules (IMPROVEMENT_PLAN.md 3.2). CONDO_FEES_SOURCE in cities.js " +
+            "says which places use listings.",
+    refreshCadence: "By hand until after beta (plan 3.1a says weekly) — run `node tools/city-prices.mjs`; a failed run keeps the last good table."
+  },
+  cityPrices: {
+    value: "40th-percentile asking price of each place's current listings × 0.97, to the nearest $10,000, where " +
+           "it has 10+ of that type (183 of 220), else the typed 2025 table (PT_TYPED), which also keeps 5 detached " +
+           "prices on purpose (KEEP_TYPED in tools/city-prices.mjs); PT_SOURCE in cities.js says which",
+    lastUpdated: "2026-09-24",
+    source: "tools/city-prices.mjs over the homepilot-listings D1 database (PropTx IDX, read-only), with the " +
+            "listings page's own place and home-type rules (IMPROVEMENT_PLAN.md 3.1a; the 40th percentile and " +
+            "KEEP_TYPED from PHASE #3 D1). Checked against sold medians: 63 of 75 within 10%.",
+    refreshCadence: "By hand until after beta (plan 3.1a says weekly) — run `node tools/city-prices.mjs`; a failed run keeps the last good table."
   }
 };
 function daysSince(dateStr){ return Math.floor((Date.now()-new Date(dateStr).getTime())/86400000); }
