@@ -239,7 +239,8 @@ function wkDriveTip(answers, onlyType) {
     kind: 'drive', extra, effort: best.effort,
     claim: { lever: 'drive', extra, n: cand.n, type: o.type, price: o.price, monthly: Math.round(o.costs.total), commuteMin: cand.commuteMin,
       from: { n: ref.n, type: ref.type, price: ref.price, monthly: Math.round(ref.costs.total), commuteMin: ref.commuteMin }, saving, monthlySaving: monthly },
-    html: 'Drive <b>' + extra + ' more minutes</b> to ' + cand.n + ' (about ' + cand.commuteMin + ' min each way): ' + what + ', ' +
+    // The extra drive in hours a month too (the user's rule; PHASE #3 review).
+    html: 'Drive <b>' + extra + ' more minutes</b> each way to ' + cand.n + ' (about ' + cand.commuteMin + ' min, ' + wkHoursAMonth(extra) + '): ' + what + ', ' +
       fc(saving) + ' less than in ' + ref.n + ' and ' + fc(monthly) + ' a month less.',
   };
 }
@@ -335,23 +336,51 @@ function wkAlso(base, answers) {
   });
   if (save) {
     const { after, today } = save.h;
+    // PHASE #3 D4 (the user, 2026-09-24): the line names the extra driving
+    // against the Most home answer, in hours a month, and quotes no % the
+    // card doesn't show (the card shows today's). A home whose label says
+    // Good Fit but that sits above the range today says so.
+    const above = today.fit.cls !== 'fs' && today.price > comfortBuyPower ? today.price - comfortBuyPower : 0;
     return {
       kind: 'save', extra: save.x, entry: today,
-      claim: Object.assign(wkClaimOf(after), { lever: 'save', extra: save.x, today: wkClaimOf(today), than: homeKey(top) }),
-      html: wkLeverHtml('save', save.x, base) + wkHome(after) + ' ' + wkFits(after) +
-        (Number.isFinite(after.commuteMin) ? ', about ' + after.commuteMin + ' min.' : '.'),
+      claim: Object.assign(wkClaimOf(after), { lever: 'save', extra: save.x, today: wkClaimOf(today), than: homeKey(top), aboveToday: above, extraMin: wkExtraMin(after, top) }),
+      html: wkLeverHtml('save', save.x, base) + 'this ' + WK_TYPE[after.type] + ' in ' + after.n + ' fits your HomePilot comfort range.' +
+        (above ? " Today it's " + fc(above) + ' above your HomePilot comfort range.' : '') + wkDriveWords(after, top),
     };
   }
   if (!byHome.commuteKnown || byHome.limit === null) return null;
   const e = byHome.overCommute.find((x) => x.comfortable && bigger(x.type) && Number.isFinite(x.commuteMin) && x.commuteMin - byHome.limit <= WK_DRIVE_CAP_MIN);
   if (!e) return null;
   const past = e.commuteMin - byHome.limit;
-  const hours = Number.isFinite(top.commuteMin) ? wkHoursAMonth(e.commuteMin - top.commuteMin) : '';
+  const extraMin = wkExtraMin(e, top);
   return {
     kind: 'drive', extra: past, entry: e,
-    claim: Object.assign(wkClaimOf(e), { lever: 'drive', extra: past, limit: byHome.limit, than: homeKey(top), extraMin: Number.isFinite(top.commuteMin) ? e.commuteMin - top.commuteMin : null }),
-    html: 'A ' + WK_TYPE[e.type] + ' fits in ' + e.n + ': <b>' + past + ' min past your ' + byHome.limit + '-minute limit</b>' + (hours ? ', ' + hours : '') + '.',
+    claim: Object.assign(wkClaimOf(e), { lever: 'drive', extra: past, limit: byHome.limit, than: homeKey(top), extraMin }),
+    // "This semi-detached home in St. Catharines fits today. It's 55 more
+    // minutes each way than Hamilton (10 past your 60-minute limit): about
+    // 16-32 more hours a month." The hours come from the 55 minutes; the line
+    // said only "10 min past your limit" until PHASE #3 D4.
+    html: 'This ' + WK_TYPE[e.type] + ' in ' + e.n + ' fits today. ' + (extraMin > 0
+      ? "It's <b>" + extraMin + ' more minutes each way</b> than ' + top.n + ' (' + past + ' past your ' + byHome.limit + '-minute limit): ' + wkHoursAMonth(extraMin) + '.'
+      : "It's <b>" + past + ' minutes past your ' + byHome.limit + '-minute limit</b>, about ' + e.commuteMin + ' min each way.'),
   };
+}
+
+// How many more minutes each way home `e` is than the Most home answer
+// `top`, or null when either drive is unknown.
+function wkExtraMin(e, top) {
+  return Number.isFinite(e.commuteMin) && Number.isFinite(top.commuteMin) ? e.commuteMin - top.commuteMin : null;
+}
+
+// The save card's drive, after its gain (PHASE #3 D4): " It's 45 more
+// minutes each way than Oakville: about 13-26 more hours a month." A home no
+// further away than the Most home answer only gets its own drive; with no
+// commute (remote work), nothing.
+function wkDriveWords(e, top) {
+  const extra = wkExtraMin(e, top);
+  if (extra === null) return '';
+  if (extra > 0) return " It's <b>" + extra + ' more minutes each way</b> than ' + top.n + ': ' + wkHoursAMonth(extra) + '.';
+  return " It's about " + e.commuteMin + ' min each way.';
 }
 
 // ── What render() draws ────────────────────────────────────────────────────
@@ -380,7 +409,8 @@ function worthKnowing(answers, onlyType) {
   const base = wkBase(onlyType);
   if (!base || !answers || !answers.byHome) return null;
   const key = JSON.stringify([base, lastSearch.calc, workArrangement, workZone, netMonthlyIncome, wkOwnTakeHome(), grossMonthlyIncome, customMortgageRate,
-    firstTimeBuyer, fam_selected, buyPower, comfortBuyPower, partnerIncomeShare, (results || []).map((r) => r.n),
+    // existingDebt: every % and label counts it (2026-09-24).
+    firstTimeBuyer, fam_selected, buyPower, comfortBuyPower, partnerIncomeShare, existingDebt, (results || []).map((r) => r.n),
     answers.picks.map((p) => homeKey(p.entry))]);
   if (_wkCache && _wkCache.key === key) return _wkCache.value;
   const value = _wkCompute(base, answers);

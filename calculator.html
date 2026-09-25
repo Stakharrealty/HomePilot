@@ -90,6 +90,10 @@ body{
   }
   /* header is fixed/overlaid at this width, so the page needs room at the top */
   .w{padding-top:5.5rem}
+  /* After a search the page scrolls the top section to the top of the
+     window, under the fixed 72px header, which hid both box labels and the top
+     of both figures (PHASE #3 review, 2026-09-24). */
+  #bpBox{scroll-margin-top:88px}
 }
 
 /* ── LOGO ───────────────────────────────────────────────────── */
@@ -475,49 +479,64 @@ select{
 @keyframes sp{to{transform:rotate(360deg)}}
 
 /* ── BUY POWER BOX ──────────────────────────────────────────── */
+/* Readable white text (PHASE #3 review, 2026-09-24): the gradient starts a
+   shade darker (#168562, was var(--green) #1D9E75), so full white clears
+   4.5:1 across the box; white on #1D9E75 is only 3.4:1, and with the text at
+   75-90% the small lines measured 2.3-2.9:1. */
 .bp-box{
-  background:linear-gradient(135deg,var(--green) 0%,var(--green-mid) 100%);
+  background:linear-gradient(135deg,#168562 0%,var(--green-mid) 100%);
   border-radius:var(--radius-lg);
   padding:22px 20px;
   margin-top:20px;margin-bottom:16px;
   display:none;color:#fff;
   box-shadow:0 8px 28px rgba(29,158,117,0.28);
 }
-.bp-lbl{
-  font-size:11px;text-transform:uppercase;letter-spacing:0.09em;
-  opacity:0.8;margin-bottom:6px;font-weight:700;
-}
-.bp-val{font-size:32px;font-weight:800;margin-bottom:4px;letter-spacing:-0.5px}
 /* The two boxes (2026-09-24, IMPROVEMENT_PLAN.md 2.2b), as in the mockup the
    user approved: the bank's figure, and the HomePilot comfort range beside it,
-   highlighted (a lighter box with a white edge, a bigger figure). Side by side
-   down to a 375px phone; on a smaller one they stack. */
+   highlighted (a white edge, a bigger figure). Side by side down to a 368px
+   phone; on a smaller one they stack, the HomePilot comfort range first.
+   Since the PHASE #3 review both boxes are a little darker than the green,
+   not lighter, and the highlighted one the darkest: the lighter highlight
+   took its own figure down to 3.0:1. */
 .bp-pair{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px}
-.bp-cell{flex:1 1 140px;min-width:0;background:rgba(255,255,255,0.12);border:1.5px solid transparent;border-radius:12px;padding:12px 14px}
-.bp-comfort{background:rgba(255,255,255,0.24);border-color:rgba(255,255,255,0.45)}
-.bp-cell-lbl{font-size:10px;text-transform:uppercase;letter-spacing:0.07em;font-weight:700;opacity:0.8}
-.bp-comfort .bp-cell-lbl{opacity:0.95}
+.bp-cell{flex:1 1 140px;min-width:0;background:rgba(0,0,0,0.10);border:1.5px solid transparent;border-radius:12px;padding:12px 14px}
+.bp-comfort{background:rgba(0,0,0,0.18);border-color:#fff}
+.bp-cell-lbl{font-size:10px;text-transform:uppercase;letter-spacing:0.07em;font-weight:700}
 .bp-cell-val{font-size:26px;font-weight:800;margin-top:4px;letter-spacing:-0.3px}
 .bp-comfort .bp-cell-val{font-size:30px}
-.bp-cell-sub{font-size:12px;font-weight:500;margin-top:4px;opacity:0.9;line-height:1.4}
+.bp-cell-sub{font-size:12px;font-weight:500;margin-top:4px;line-height:1.4}
 .bp-comfort .bp-cell-sub{font-weight:700}
-.bp-cell-note{font-size:11px;margin-top:3px;opacity:0.75;line-height:1.4}
+.bp-cell-note{font-size:11px;margin-top:3px;line-height:1.4}
 .bp-cell-note:empty{display:none}
 @media(max-width:599px){
   .bp-cell{padding:10px 11px}
   .bp-cell-val{font-size:21px}
   .bp-comfort .bp-cell-val{font-size:23px}
 }
-/* The top section (2026-09-24, IMPROVEMENT_PLAN.md 2.2): one number, the
-   HomePilot comfort range, then one small line each. Built from what the box
-   already used: the white-on-green text at 80-90%, the translucent white inner
-   boxes, the form's .link-btn (white here), .err and the white-and-green
-   buttons of the Share row. */
-.bp-breathe{font-size:13px;font-weight:600;opacity:0.9}
+/* Side by side on a phone, both labels take two lines, so the two figures
+   stay level (only "YOUR HOMEPILOT COMFORT RANGE" wrapped, 440-599px).
+   Stacked (under 368px) each label has the full width: one line. */
+@media(min-width:368px) and (max-width:599px){
+  .bp-cell-lbl{min-height:2.6em}
+}
+/* A figure of ten characters ($1,640,000) ran past its box on 368-407px
+   phones: those figures a size smaller (renderTopSection() sets .bp-long). */
+@media(max-width:419px){
+  .bp-cell-val.bp-long,.bp-comfort .bp-cell-val.bp-long{font-size:18px}
+}
+@media(max-width:367px){
+  .bp-pair{flex-direction:column}
+  .bp-comfort{order:-1}
+}
+/* The top section (2026-09-24, IMPROVEMENT_PLAN.md 2.2): the two figures,
+   then one small line each. Built from what the box already used: the
+   translucent inner boxes, the form's .link-btn (white here) and .err. The
+   small text is full white since the PHASE #3 review (it was 75-90%). */
+.bp-breathe{font-size:13px;font-weight:600}
 .bp-lines{margin-top:12px}
-.bp-line{font-size:12.5px;opacity:0.85;line-height:1.55;margin-top:5px}
+.bp-line{font-size:12.5px;line-height:1.55;margin-top:5px}
 .bp-box .link-btn{color:#fff}
-.bp-fine{font-size:11.5px;opacity:0.75;line-height:1.5;margin-top:12px}
+.bp-fine{font-size:11.5px;line-height:1.5;margin-top:12px}
 .bp-inner{margin-top:10px;background:rgba(255,255,255,0.18);border-radius:10px;padding:10px 12px}
 .bp-inner label{display:block;font-size:12px;font-weight:700;margin-bottom:6px}
 .bp-takehome-row{display:flex;gap:8px;align-items:center}
@@ -553,14 +572,14 @@ select{
    The answer cards are today's .city cards, unchanged, each under a small
    label in the site's eyebrow style (.hiw-eyebrow, .faq-eyebrow). Phones and
    narrow windows: stacked at full width, as the first cards always were.
-   Computers: side by side, a third of the width each; with two answers, a
-   half each. Three across starts at 1240px, where the results column beside
-   the form is 712px and a card about 223-228px; at 1280px about 236-241px,
-   at 1366px about 270px. That is narrower than any phone's card (288px on a
-   320px phone, 343px at 375), not "a small phone's width", as this comment
-   said until 2026-09-24. At 1024px the column is 481px: two fit, and three
-   stack as today up to 1239px. "See all places" is the listings page's
-   outlined "Load more" button (.listings-load-more).
+   Computers: side by side. From 1150px a third of the width each, whether
+   there are one, two or three answers (PHASE #3 review, 2026-09-24: one card
+   stretched to 752px at 1280 and 1392px at 1920, its "Monthly cost" 1,250px
+   from its figure). From 1024 to 1149px two answers sit a half each and three
+   stack (PHASE #3 D6: three across there squeezed the form until it cut its
+   own words). A card is about 222px at 1150-1239 (the narrowed form, further
+   down), 236-241px at 1280, about 270px at 1366. "See all places" is the
+   listings page's outlined "Load more" button (.listings-load-more).
    Side by side, the cards start level (2026-09-24): the labels share one row
    through a subgrid, so a label that wraps ("Most home · Shortest commute")
    no longer pushes its card below the others, and each question stays on
@@ -631,12 +650,14 @@ select{
    Available Homes" are seven rows every slot shares (nested subgrids), so
    each part starts at the same height on every card. Open a breakdown in one
    card and the parts below it move down on all three.
-   From 1024px (the user, 2026-09-24, IMPROVEMENT_PLAN.md 2.2b "laptop
-   widths", option b): three across wherever the form sits beside the
-   results. From 1024 to 1239px the form column narrows instead (the
-   .calc-layout rule further down), so each card keeps about 222px, the
-   narrowest that works at 1240. They stacked below 1240px until then. */
-@media(min-width:1024px){
+   Three across from 1150px (PHASE #3 D6, the user, 2026-09-24). It was from
+   1024px (2.2b "laptop widths", option b), with the form narrowed to fit, but
+   at 1024 that left the form 255px and it cut its own words ("Hybrid (2-4
+   days/we", "All GTA and surround"); nothing is cut from 1150. From 1150 to
+   1239px the form column still narrows (the .calc-layout rule further down),
+   so each card keeps about 222px. One or two answers take a third each too. */
+@media(min-width:1150px){
+  .answer-grid-1,.answer-grid-2{grid-template-columns:repeat(3,minmax(0,1fr))}
   .answer-grid-3{grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(7,auto);row-gap:0}
   .answer-grid-3 > .answer-slot{display:grid;grid-row:span 7;grid-template-rows:subgrid}
   .answer-grid-3 > .answer-slot > .answer-label{align-self:end}
@@ -1101,22 +1122,25 @@ body.cmp-bar-open #waWrap{bottom:80px!important}
     #calculatorSection{position:sticky;top:24px;max-height:calc(100vh - 48px);overflow-y:auto;padding-right:4px}
     #calculatorSection .card{margin-bottom:12px}
   }
-  /* Laptop widths, 1024-1239px (2026-09-24, IMPROVEMENT_PLAN.md 2.2b, option
-     b): the three answer cards sit side by side, so the results column keeps
-     686px (three cards of about 222px and two 10px gaps), the gap beside it
-     is 20px, and the form takes what is left, up to its usual 420px: about
-     270px at 1024, 346px at 1100, 420px from 1174 (less a scrollbar where
-     the browser shows one). The page's side margins go from 40px to 24px at
-     these widths to leave the form more room. */
-  @media(min-width:1024px) and (max-width:1239px){
+  /* Laptop widths, 1150-1239px (2026-09-24, IMPROVEMENT_PLAN.md 2.2b, option
+     b; from 1150, not 1024, since PHASE #3 D6): the three answer cards sit
+     side by side, so the results column keeps 686px (three cards of about
+     222px and two 10px gaps), the gap beside it is 20px, and the form takes
+     what is left, up to its usual 420px: about 396px at 1150, 420px from
+     1174 (less a scrollbar where the browser shows one). The page's side
+     margins go from 40px to 24px at these widths to leave the form more
+     room, and the header's with them, so the logo and the "Back to
+     HomePilot" button line up with the page (they were 16px off). */
+  @media(min-width:1150px) and (max-width:1239px){
     .w{padding-left:24px;padding-right:24px}
+    .hdr{padding-left:24px;padding-right:24px}
     .calc-layout{grid-template-columns:min(420px, calc(100% - 706px)) minmax(0,1fr);gap:20px}
     .answer-grid{column-gap:10px}
   }
   /* Three across, a card is 222-240px wide up to 1279px: there "Monthly cost
      $4,606/mo" ran 1px past the card (measured 2026-09-24 at 1024 and 1100),
      so the figure is a point smaller and 4px from its label. */
-  @media(min-width:1024px) and (max-width:1279px){
+  @media(min-width:1150px) and (max-width:1279px){
     .answer-grid-3 .ac-cost{gap:4px}
     .answer-grid-3 .ac-cost-v{font-size:16px}
   }
@@ -1411,14 +1435,14 @@ body.cmp-bar-open #waWrap{bottom:80px!important}
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#3D4555;display:flex;align-items:center;gap:4px">Mortgage Rate<button type="button" class="info-btn" onclick="toggleTooltip(event,'rate-tooltip')" aria-label="Mortgage rate info">ⓘ</button></div>
         <div style="display:flex;align-items:center;gap:6px">
-          <input id="rateInput" type="number" min="1" max="15" step="0.05"
+          <input id="rateInput" type="number" min="1" max="15" step="0.01"
             style="width:72px;font-size:15px;font-weight:800;color:#1D9E75;border:1.5px solid #E4E7EC;border-radius:8px;padding:4px 8px;text-align:center;outline:none;font-family:var(--font)"
             oninput="syncRate(this.value,'input')" />
           <span style="font-size:14px;font-weight:700;color:#1D9E75">%</span>
         </div>
       </div>
-      <div class="tooltip-box" id="rate-tooltip">This estimate assumes a fixed rate. Variable rates may start lower but can rise over your term — your HomePilot comfort range above is already stress-tested for that possibility (qualified at the higher of 5.25% or your rate + 2%), so it won't change based on which you eventually choose.</div>
-      <input id="rateSlider" type="range" min="1" max="15" step="0.05" value="4.39"
+      <div class="tooltip-box" id="rate-tooltip">This estimate assumes a fixed rate. Variable rates may start lower but can rise over your term. Move the rate and everything on this page follows it: the two figures above, the monthly costs and the places. Both figures are stress-tested (qualified at the higher of 5.25% or your rate + 2%).</div>
+      <input id="rateSlider" type="range" min="1" max="15" step="0.01" value="4.39"
         style="width:100%;accent-color:#1D9E75;cursor:pointer"
         oninput="syncRate(this.value,'slider')" />
       <div style="display:flex;justify-content:space-between;margin-top:4px">
@@ -1615,7 +1639,7 @@ document.addEventListener('keydown',function(e){
     <ul style="margin:0 0 20px;padding:0;list-style:none;display:flex;flex-direction:column;gap:12px">
       <li><strong style="font-size:13px;color:#111318">Income</strong><div style="font-size:13px;color:#3D4555;line-height:1.55">Your household income before taxes, one box per person: yours, and your partner's if you're buying together. Lenders add the two together; take-home pay is worked out for each person separately, because that is how Canada taxes income.</div></li>
       <li><strong style="font-size:13px;color:#111318">Down payment</strong><div style="font-size:13px;color:#3D4555;line-height:1.55">The amount you'll put down on the home. Closing costs are extra, on top of it; each city's breakdown shows them. The down payment affects your mortgage insurance and monthly costs.</div></li>
-      <li><strong style="font-size:13px;color:#111318">Existing debt</strong><div style="font-size:13px;color:#3D4555;line-height:1.55">Car loans, credit cards, other monthly payments. Leave at 0 if none — this affects how much a lender would qualify you for.</div></li>
+      <li><strong style="font-size:13px;color:#111318">Existing debt</strong><div style="font-size:13px;color:#3D4555;line-height:1.55">Car loans, credit cards, other monthly payments. Leave at 0 if none. It lowers how much a lender would lend, and it counts in every % of take-home and every Great / Good / Stretch label.</div></li>
       <li><strong style="font-size:13px;color:#111318">How you work</strong><div style="font-size:13px;color:#3D4555;line-height:1.55">Remote workers get ranked purely by affordability. Hybrid or daily commuters get cities filtered by the longest commute they'll accept, using estimated drive times.</div></li>
       <li><strong style="font-size:13px;color:#111318">Area</strong><div style="font-size:13px;color:#3D4555;line-height:1.55">Narrow results to a specific part of Ontario, or leave it broad to see everything you can afford.</div></li>
       <li><strong style="font-size:13px;color:#111318">First-time buyer</strong><div style="font-size:13px;color:#3D4555;line-height:1.55">This can unlock different programs and incentives that affect what you can afford.</div></li>

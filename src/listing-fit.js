@@ -271,7 +271,13 @@ function ldClosingCosts(listing, profile) {
   // A first-time, resident buyer who has not confirmed the rebate rules: the
   // page says why no rebate is shown.
   const firstTimeNoRebate = profile.firstTimeBuyer === true && profile.lttRebateEligible !== true && profile.canadianResident !== false;
-  return { ...cc, effectiveDn, cashRequired: effectiveDn + cc.total, firstTimeNoRebate };
+  // A price the buyer's down payment can't legally buy (PHASE #3 review,
+  // 2026-09-24): the page says how much this price needs, and how short the
+  // buyer is, rather than costing an insurance premium that can't exist
+  // (mortgageInsuranceFor() returns none there).
+  const minDown = Math.ceil(minDownPaymentFor(price));
+  const shortBy = Math.max(0, minDown - profile.downPayment);
+  return { ...cc, effectiveDn, cashRequired: effectiveDn + cc.total, firstTimeNoRebate, minDown, shortBy };
 }
 
 // The fit tier for a listing whose costs are already computed, or null when

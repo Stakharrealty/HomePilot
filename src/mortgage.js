@@ -77,10 +77,17 @@ function cmhcPremiumRate(dpRatio, amortMonths){
 const ONTARIO_PREMIUM_SALES_TAX_RATE = 0.08;
 // isFirstTime: the first-time answer the amortization depends on (30 years
 // adds 0.20% to the premium); the page's own answer when left out.
+// No premium, and so no tax, where the purchase can't be insured or made at
+// all (PHASE #3 review, 2026-09-24): below the minimum down payment, which
+// covers $1.5M and up with less than 20% down, where mortgage insurance
+// doesn't exist. The results page never gets there (its homes pass
+// meetsMinDownPayment()); the listing pages did, and showed "Sales tax on
+// mortgage insurance (8%)" on a $1.55M home with $140K down.
 function mortgageInsuranceFor(price, dn, isFirstTime){
   price = Number(price); dn = Number(dn);
   if(!(price > 0)) return { premium: 0, salesTax: 0 };
   if(!(dn >= 0)) dn = 0;
+  if(!meetsMinDownPayment(price, dn)) return { premium: 0, salesTax: 0 };
   const ln = Math.max(0, price - dn);
   const dpRatio = dn / price;
   const ftb = isFirstTime === undefined ? firstTimeBuyer === true : isFirstTime === true;

@@ -155,8 +155,10 @@ function rankCities(cities, opts) {
     const comfortable = !comfortableOpts.length ? null
       : sort === 'cost' ? comfortableOpts.reduce((a, b) => (b.costs.total < a.costs.total ? b : a))
       : comfortableOpts[0];
-    // Nothing comfortable: the last option in HOME_ORDER, the cheapest type.
-    const chosen = comfortable || options[options.length - 1];
+    // Nothing comfortable: the cheapest home by monthly cost. It was the last
+    // option in HOME_ORDER, which stopped being the cheapest type when the
+    // listing prices put some semis below townhouses (2026-09-24).
+    const chosen = comfortable || options.reduce((a, b) => (b.costs.total < a.costs.total ? b : a));
     const commuteMin = commuteKnown ? commuteEstimateMin(city.n) : null;
     const entry = {
       city, n: city.n, type: chosen.type, price: chosen.price, costs: chosen.costs, fit: chosen.fit,
@@ -195,7 +197,8 @@ function rankCities(cities, opts) {
 //     than the answer above it on any count (2.2b): render() asks
 //     wkAlso() (worth-knowing.js, through worthKnowing()) for one card on what it takes to get
 //     more home, or shows none.
-// Returns { picks: [{ entry, answers }], byHome, byCommute, byCost, commuteKnown }.
+// Returns { picks: [{ entry, answers }], byHome, byCommute, byCost, commuteKnown,
+// onlyType } (onlyType: the home-type filter the answers were picked under).
 // Each pick's entry is a rankCities() entry; answers lists the questions it
 // answers, in order ('cost', 'commute', 'home').
 const ANSWER_LABELS = { home: 'Most home', commute: 'Shortest commute', cost: 'Lowest monthly cost', also: 'Also worth a look' };
@@ -204,6 +207,7 @@ const ANSWER_CARDS = 3;
 // Home types in a sentence ("every place that fits offers a condo"). Also
 // HomePilot Worth Knowing's words (WK_TYPE, worth-knowing.js).
 const HOME_TYPE_WORDS = { condo: 'condo', town: 'townhouse', semi: 'semi-detached home', detached: 'detached home' };
+const HOME_TYPE_PLURALS = { condo: 'condos', town: 'townhouses', semi: 'semi-detached homes', detached: 'detached homes' };
 // One home: a place and a home type.
 function homeKey(e) { return e.n + '|' + e.type; }
 function answerPicks(cities, opts) {
@@ -220,25 +224,42 @@ function answerPicks(cities, opts) {
     if (same) same.answers.push(q);
     else picks.push({ entry: e, answers: [q] });
   });
-  return { picks, byHome, byCommute, byCost, commuteKnown: byHome.commuteKnown };
+  return { picks, byHome, byCommute, byCost, commuteKnown: byHome.commuteKnown, onlyType: o.onlyType || null };
 }
 
 // Why one card carries two or three labels: the first line of its At a
-// glance, in the wordings the user approved (IMPROVEMENT_PLAN.md 2.2b,
-// 2026-09-24). `answers` is the card's answers; `byHome` answerPicks()'s
-// "most home" ranking; `entry` the card's home. null for a card with one label.
-// "Every place that fits offers a condo" when every place's most home that
-// fits is that one type: then "most home" can only be decided by the next
-// rule (the shortest drive, or with no commute the lowest monthly cost). A
-// card that is the cheapest and the biggest without a commute answer (a remote
-// buyer's) follows the same pattern; the plan's wordings cover commuters.
-function answerMergeLine(answers, byHome, entry) {
+// glance, in the wordings the user approved (IMPROVEMENT_PLAN.md 2.2b, and
+// PHASE #3 D5, 2026-09-24). `answers` is the card's answers; `byHome`
+// answerPicks()'s "most home" ranking; `entry` the card's home; `onlyType`
+// the buyer's home-type filter, or null. null for a card with one label.
+//   - Only one home fits (5b): the card carries every answer the page has,
+//     and one place fits. Then that place has one home that fits, or its
+//     cheapest and its most home would be two cards.
+//   - A home-type filter (5a): the line names the type, because the answers
+//     only compared that type. "Nothing that fits is cheaper, closer or
+//     bigger" stood over a townhouse while a cheaper, closer condo fitted.
+//     Under a filter "most home" can't tell two places apart, so it goes
+//     with the closest (or, with no commute, the cheapest).
+//   - Otherwise the approved lines. "Every place that fits offers a condo"
+//     when every place's most home that fits is that one type: then "most
+//     home" can only be decided by the next rule (the shortest drive, or with
+//     no commute the lowest monthly cost). The two lines for a remote buyer's
+//     card, the cheapest and the biggest, follow the same pattern (5c: kept).
+function answerMergeLine(answers, byHome, entry, onlyType) {
   const a = new Set(answers || []);
   if (a.size < 2 || !entry) return null;
+  const why = 'Why ' + (a.size === 3 ? 'three' : 'two') + ' labels: ';
+  const word = HOME_TYPE_WORDS[entry.type] || 'home';
+  const everyAnswer = !!byHome && a.size === (byHome.commuteKnown ? 3 : 2);
+  if (everyAnswer && byHome.ranked.length === 1) return why + "it's the only " + (onlyType ? word : 'home') + ' that fits your HomePilot comfort range.';
+  if (onlyType) {
+    if (a.size === 3) return why + 'no other ' + word + ' that fits your HomePilot comfort range is cheaper, closer or bigger.';
+    if (a.has('cost') && a.has('commute')) return why + "it's the cheapest " + word + ' that fits, and also the shortest drive.';
+    return why + "you're looking at " + (HOME_TYPE_PLURALS[onlyType] || 'homes') + ' only, so the ' + (a.has('commute') ? 'closest' : 'cheapest') + ' one is also the most home.';
+  }
   if (a.has('cost') && a.has('commute') && a.has('home')) return 'Why three labels: nothing that fits your HomePilot comfort range is cheaper, closer or bigger.';
   if (a.has('cost') && a.has('commute')) return "Why two labels: it's the cheapest home that fits, and also the shortest drive.";
   const oneType = !!byHome && byHome.ranked.length > 0 && byHome.ranked.every((e) => e.type === entry.type);
-  const word = HOME_TYPE_WORDS[entry.type] || 'home';
   if (a.has('commute')) return oneType
     ? 'Why two labels: every place that fits offers a ' + word + ', so the closest one also gives you the most home.'
     : "Why two labels: it's the biggest home that fits, and also the shortest drive.";

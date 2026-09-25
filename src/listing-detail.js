@@ -91,8 +91,11 @@ function buildHomePilotView(listing, profile, budget) {
 // underlying state comes entirely from ldComfortPosition() (listing-fit.js),
 // which reuses calcBP()'s existing comfortBP/bp -- no new thresholds here.
 function ldComfortSentence(comfort) {
-  if (comfort.state === "within-comfort") return "This home is within your comfort affordability range.";
-  if (comfort.state === "above-comfort-within-bank") return "This home is above your comfort affordability range, though still within what a lender would likely qualify you for.";
+  // The branded name, and no pre-approval ring to it (PHASE #3 review,
+  // 2026-09-24): it said "your comfort affordability range" and "within what a
+  // lender would likely qualify you for".
+  if (comfort.state === "within-comfort") return "This home is within your HomePilot comfort range.";
+  if (comfort.state === "above-comfort-within-bank") return "This home is above your HomePilot comfort range, but within what a bank might lend you, by HomePilot's estimate.";
   return "This home is above what HomePilot's calculator estimates you would qualify for.";
 }
 
@@ -116,14 +119,20 @@ function renderClosingCostsBlock(closing) {
   if (closing.nrst > 0) rows += ldRow("Ontario non-resident speculation tax (25%)", fmtPrice(closing.nrst));
   if (closing.mnrst > 0) rows += ldRow("Toronto non-resident speculation tax (10%)", fmtPrice(closing.mnrst));
   // Under 20% down (2026-09-24, IMPROVEMENT_PLAN.md 2.2b (b)): it can't go on the mortgage.
-  if (closing.premiumSalesTax > 0) rows += ldRow("Sales tax on mortgage insurance (8%)", fmtPrice(closing.premiumSalesTax));
+  // The premium it is 8% of, so the figure can be checked (PHASE #3 review).
+  if (closing.premiumSalesTax > 0) rows += ldRow(`Sales tax on mortgage insurance (8% of the ${fmtPrice(closing.premium)} premium)`, fmtPrice(closing.premiumSalesTax));
   rows += ldRow("Legal fees (estimated)", fmtPrice(closing.legal))
     + ldRow("Title insurance (estimated)", fmtPrice(closing.titleIns))
     + ldRow("Home inspection (estimated)", fmtPrice(closing.inspection))
     + ldRow("Moving costs (estimated)", fmtPrice(closing.moving))
     + ldRow("Closing adjustments (estimated)", fmtPrice(closing.adjustments))
     + ldRow("Estimated cash required to purchase", fmtPrice(closing.cashRequired), "ld-total");
-  return `<div class="ld-onetime"><h3>Estimated cash required to purchase</h3><div class="ld-costs">${rows}</div>`
+  // Below the minimum down payment for this price (PHASE #3 review): say so
+  // first. The rows above still show the costs at the buyer's own figure.
+  const short = closing.shortBy > 0
+    ? `<p class="ld-short">This price needs at least ${fmtPrice(closing.minDown)} down. You entered ${fmtPrice(closing.effectiveDn)}, ${fmtPrice(closing.shortBy)} short.</p>`
+    : "";
+  return `<div class="ld-onetime"><h3>Estimated cash required to purchase</h3>${short}<div class="ld-costs">${rows}</div>`
     + `<p class="ld-muted ld-disclosure">These are estimates only and will vary by transaction -- new builds may attract HST. `
     + `Land transfer tax and rebate figures are approximate and not a substitute for a lawyer's calculation. `
     + (closing.firstTimeNoRebate ? `The first-time buyer rebate is not included: it applies only if neither you nor your spouse has ever owned a home anywhere in the world, and you are a Canadian citizen or permanent resident. ` : "")
@@ -252,6 +261,9 @@ function renderHomePilotSection(view) {
     + (view.marketKnown ? "" : `<p class="ld-muted">HomePilot doesn't have a cost profile for this municipality yet, so the property tax and insurance figures above use Ontario-wide averages rather than local rates. Treat them as rough.</p>`)
     + `<div class="ld-income">`
     + ldRow(view.netIsOwn ? "Your take-home income" : "Estimated take-home income", `${fmtPrice(view.net)}/mo`)
+    // The debt as its own row, so take-home less this home less the debt is
+    // what remains (PHASE #3 review: the rows didn't add up without it).
+    + (view.debt > 0 ? ldRow("Your monthly debt payments", `${fmtPrice(view.debt)}/mo`) : "")
     + (view.pctOfIncome !== null ? ldRow(view.debt > 0 ? "Housing and debt payments as % of take-home income" : "Housing cost as % of take-home income", `${Math.round(view.pctOfIncome)}%`) : "")
     + ldRow(view.debt > 0 ? "Remaining after this home and your debt payments" : "Remaining after this home", `${fmtPrice(view.remaining)}/mo`, "ld-remaining")
     + `</div>`

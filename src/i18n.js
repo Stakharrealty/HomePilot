@@ -22,6 +22,7 @@ const T={
     err:"Please fill in your income to continue.",
     fit_great_lbl:"Great fit",fit_good_lbl:"Good Fit",fit_stretch_lbl:"Stretch",
     true_cost:"True monthly cost",mortgage:"Mortgage",
-    stretch_warn:"⚠️ This property type slightly exceeds your current buying power. A larger down payment, co-borrower, or reduced debt could make it achievable."
+    stretch_warn:"⚠️ Stretch: this home's monthly cost would take 45% or more of your take-home pay.",
+    stretch_warn_debt:"⚠️ Stretch: this home's monthly cost plus your debt payments would take 45% or more of your take-home pay."
   }
 };

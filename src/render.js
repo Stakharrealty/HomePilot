@@ -24,8 +24,8 @@
 //   - Cities past the buyer's commute limit are set aside with a note ("8
 //     hidden — estimated drive over 60 min. Show them"), never ranked.
 //   - Each card states the home it recommends (type, price, monthly cost, % of
-//     take-home), which is exactly what shownCards records for the PDF
-//     report and Compare.
+//     take-home), which is exactly what shownCards records for
+//     Compare.
 //   - The commute shows as an estimated drive in minutes, not a tier; the
 //     orange "Limited Commute ... long daily drive" box is gone, because the
 //     buyer has now said how long a drive they accept.
@@ -201,7 +201,7 @@ function render(){
       shown.push(shownCardOf(p.entry,'answer-'+p.answers[0],id,Object.assign({answers:p.answers.slice()},p.also?{also:p.also.claim}:{})));
       // Each question on one line (.answer-q), so a two-question label wraps at
       // the dot, never mid-phrase ("...MONTHLY / COST").
-      const lead=p.also?p.also.html:answerMergeLine(p.answers,byHome,p.entry);
+      const lead=p.also?p.also.html:answerMergeLine(p.answers,byHome,p.entry,onlyType);
       return slot(p.answers.join(' '),p.answers.map(q=>'<span class="answer-q">'+ANSWER_LABELS[q]+'</span>').join(' · '),p.entry,p.also?'also':'ranked',id,lead);
     });
   const answersEl=document.getElementById('answers');
@@ -223,7 +223,11 @@ function render(){
   // later"); the rate slider stays.
   const rateBarEl=document.getElementById('rateBar');
   const anyCards=ranked.length+stretchOnly.length+visibleOver.length>0;
-  if(!anyCards){
+  // A rate the buyer moved keeps the bar, even when nothing is left at that
+  // rate: the slider runs the search again (applyRateToSearch(), main.js),
+  // and without the bar there would be no way back.
+  const rateMoved=Math.abs(customMortgageRate*100-DEFAULT_MORTGAGE_RATE_PCT)>0.001;
+  if(!anyCards&&!rateMoved){
     if(rateBarEl) rateBarEl.style.display='none';
     return;
   }
@@ -235,8 +239,9 @@ function render(){
     const inputEl  = document.getElementById('rateInput');
     if(sliderEl) sliderEl.value = currentPct;
     if(inputEl)  inputEl.value  = currentPct;
+    // The same words syncRate() writes (it blanked them until 2026-09-24).
     const hintEl = document.getElementById('rateHint');
-    if(hintEl) hintEl.textContent = parseFloat(currentPct) === DEFAULT_MORTGAGE_RATE_PCT ? 'Current market rate' : '';
+    if(hintEl) hintEl.textContent = rateHintText(parseFloat(currentPct));
   }
 }
 
@@ -310,7 +315,9 @@ function renderSeeAll(){
     let h='';
     if(open&&stretchOnly.length){
       h+='<div class="more-section"><div class="sec-title">Only as a stretch</div>'+
-        '<div class="count">A bank may lend enough for these, but nothing here is comfortable: every option is above your HomePilot comfort range or would take 45% or more of your take-home pay.</div>'+
+        // Debt counts in the 45% (2026-09-24), and the branded name, not a
+        // bare "comfortable".
+        '<div class="count">A bank may lend enough for these, but none of them fits: each is above your HomePilot comfort range, or its monthly cost'+(monthlyDebt()>0?' plus your debt payments':'')+' would take 45% or more of your take-home pay.</div>'+
         stretchOnly.map(e=>card(e,'stretch')).join('')+'</div>';
     }
     if(open&&visibleOver.length){
@@ -368,7 +375,7 @@ function cityCardHtml(e, section, cardId, answer, lead){
     '<div class="commute-badge'+(section==='over'?' access-limited':e.commuteMin<=25?' access-excellent':'')+'">About '+e.commuteMin+' min drive · estimate</div>';
   let unlockNote='';
   if(section==='stretch'){
-    unlockNote='<div style="font-size:12px;color:#996600;margin-top:6px;display:flex;align-items:center;gap:5px"><span>⚠</span>Even the '+(PROP_LABELS[e.type]||'home').toLowerCase()+' here is beyond comfortable</div>';
+    unlockNote='<div style="font-size:12px;color:#996600;margin-top:6px;display:flex;align-items:center;gap:5px"><span>⚠</span>Even the '+(PROP_LABELS[e.type]||'home').toLowerCase()+' here doesn\'t fit your HomePilot comfort range</div>';
   } else if(section==='over'){
     unlockNote='<div style="font-size:12px;color:#8C2F2F;margin-top:6px">Over your '+maxCommuteMin+'-minute limit</div>';
   }
@@ -479,7 +486,12 @@ function cityCardHtml(e, section, cardId, answer, lead){
     '<input type="checkbox" id="cmp-chk-'+id+'" onchange="toggleCmpCity(\''+x.n+'\',this)">'+
     '<span class="cmp-cb-lbl">Compare this city (select up to 3 cities)</span></label>'+
     '<div class="bk">'+
-    (fit.cls==='fs'?'<div style="font-size:12px;color:#633806;background:#FAEEDA;border-radius:8px;padding:8px 10px;margin-top:10px;line-height:1.6;">'+t.stretch_warn+'</div>':'')+
+    // The Stretch line: what the label means, debt included when there is
+    // some (2026-09-24). Not on the "Also worth a look" card, whose first line
+    // says what would change it. It said "slightly exceeds your current buying
+    // power… co-borrower, or reduced debt could make it achievable": false for
+    // a home the bank check had passed, and advice.
+    (fit.cls==='fs'&&section!=='also'?'<div style="font-size:12px;color:#633806;background:#FAEEDA;border-radius:8px;padding:8px 10px;margin-top:10px;line-height:1.6;">'+(monthlyDebt()>0?t.stretch_warn_debt:t.stretch_warn)+'</div>':'')+
     '</div>')+
     '</div>'+
     '<a class="view-btn"'+listingsLinkAttrs(x.n,activeProp,displayPrice)+'>View Available '+(activeProp==='all'?'Homes':PLBL[activeProp])+' in '+x.n+'</a>'+
@@ -635,7 +647,10 @@ function costPanelHtml(cityName, tp) {
   html += totalRow('% of Income Consumed', burdenPct + '%', burdenPct >= 45 ? '#C05A00' : '#085041');
 
   // SECTION 3 — Closing Costs
-  html += sectionHeadHighlight('Estimated Closing Costs');
+  // "Cash needed to close" (PHASE #3 review, 2026-09-24): the section counts
+  // the down payment, and the form says "Down payment (closing costs are
+  // extra)", so "Estimated Closing Costs" over it read wrong.
+  html += sectionHeadHighlight('Cash Needed to Close');
   html += row('Down Payment', fc(dn_selected));
   html += row('Provincial Land Transfer Tax', fc(cc.ltt.provNet));
   if(cc.isToronto) html += row('Toronto Land Transfer Tax', fc(cc.ltt.muniNet));
@@ -655,7 +670,9 @@ function costPanelHtml(cityName, tp) {
   if(cc.mnrst > 0) html += row('Toronto Non-Resident Speculation Tax (10%)', fc(cc.mnrst), '#C05A00');
   // Its own line (the user, 2026-09-24): the premium is on the mortgage, the
   // tax on it is cash.
-  if(cc.premiumSalesTax > 0) html += row('Sales Tax on Mortgage Insurance (8%)', fc(cc.premiumSalesTax));
+  // With the premium it is 8% of, so the figure can be checked (PHASE #3
+  // review, 2026-09-24).
+  if(cc.premiumSalesTax > 0) html += row('Sales Tax on Mortgage Insurance (8% of the ' + fc(cc.premium) + ' premium)', fc(cc.premiumSalesTax));
   html += row('Legal Fees', '~' + fc(cc.legal));
   html += row('Title Insurance', '~' + fc(cc.titleIns));
   html += row('Home Inspection', '~' + fc(cc.inspection));
@@ -672,7 +689,10 @@ function costPanelHtml(cityName, tp) {
   // "View Available Homes" opens the dedicated listings page for this city +
   // property type (tp): a plain link, in the same tab on a phone and a new
   // tab on a computer. See listingsLinkAttrs() in listings-display.js.
-  html += '<a class="view-btn" style="margin-top:12px"'+listingsLinkAttrs(cityName,tp,price)+'>View Available '+(PLBL[tp]||tp)+' in '+cityName+'</a>';
+  // Plural, as on the card's own button: "View Available Condos in Welland"
+  // (it read "View Available Condo"; PHASE #3 review, 2026-09-24).
+  const PLURAL={condo:'Condos',town:'Townhomes',semi:'Semi-Detached Homes',detached:'Detached Homes'};
+  html += '<a class="view-btn" style="margin-top:12px"'+listingsLinkAttrs(cityName,tp,price)+'>View Available '+(PLURAL[tp]||tp)+' in '+cityName+'</a>';
 
   html += '</div>';
 

@@ -19,7 +19,10 @@
 // recordHomePilotConsent(), requestCalculation(), openConsentModal(),
 // closeConsentModal(), onConsentCheckboxChange(), acceptConsentAndCalculate().
 
-const HP_CONSENT_VERSION = '2026-09-17c';
+// 2026-09-24: the Privacy Policy changed (the lead form gone, Cloudflare Web
+// Analytics, what stays in the browser, what AI Insights sends), so returning
+// visitors are asked again.
+const HP_CONSENT_VERSION = '2026-09-24';
 const HP_CONSENT_KEY = 'hp_consent';
 
 // Fallback for browsers where localStorage throws (Safari private mode,

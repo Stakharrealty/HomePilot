@@ -114,8 +114,7 @@ function checkTakeHome(raw, grossMonthly){
   if(v > grossMonthly) return { error: "That's more than your income before tax (" + fc(grossMonthly) + '/mo). Enter what reaches your bank account each month.' };
   return { value: v };
 }
-// The two income boxes, read the same way by go(), the share link and the
-// debt warning. The partner box is optional: blank means 0.
+// The two income boxes, read the same way by go() and the debt warning. The partner box is optional: blank means 0.
 function readIncomes(){
   const own=parseFloat(document.getElementById('inc').value)||0;
   const el2=document.getElementById('inc2');
@@ -152,7 +151,7 @@ function showFirstUnansweredChoice(){
 
 function setWorkArrangement(type) {
   // Only the three real answers; anything else (the "Choose one" placeholder,
-  // a bad shared link) leaves the question unanswered.
+  // an old value the browser restored) leaves the question unanswered.
   if(!WORK_ARRANGEMENTS.includes(type)) return;
   workArrangement = type;
   showChoiceError('wa_err', false);
@@ -205,8 +204,8 @@ function openFormField(lineId, fieldId, controlId){
   const control = document.getElementById(controlId);
   if(control && typeof control.focus === 'function') control.focus();
 }
-// A postal code that is already there (a shared link, the browser restoring
-// the form, a test) is shown, never used unseen.
+// A postal code that is already there (the browser restoring the form, a
+// test) is shown, never used unseen.
 function openWorkPostalIfSet(){
   const postal = document.getElementById('workPostal');
   if(!postal || !String(postal.value || '').trim()) return;
@@ -310,23 +309,34 @@ let lastSearch = null, takeHomeEditOpen = false;
 // The bank box's two lines under its figure, in the wordings the user
 // decided. "Same: your savings are the limit, not your income" alone, when
 // both halves are true of the figures on screen: the down payment caps the
-// bank's figure (calcBP()'s downPaymentLimited) and the bank's figure IS the
-// HomePilot comfort range, so savings cap that too. Otherwise the bank's rule
-// and the stretch line. (Until 2026-09-24 a $10,000 gap counted as "the same":
-// $290,000 against a bank's $300,000 for $80K and $15K down read "A bank would
-// lend the same", while income, not savings, capped the $290,000.)
-// Returns { same, sub, note }.
-function bankBoxLines(calc){
-  const same = !!calc.downPaymentLimited && calc.bp === calc.comfortBP;
-  return same
-    ? { same, sub: 'Same: your savings are the limit, not your income', note: '' }
-    : { same, sub: 'Banks allow up to 39% of your before-tax income', note: 'Above your HomePilot comfort range is stretch territory' };
+// bank's figure (calcBP()'s downPaymentLimited) AND the HomePilot comfort
+// range (comfortDownPaymentLimited), and the two are the same figure.
+// Otherwise the bank's rule and the stretch line. (Until 2026-09-24 a $10,000
+// gap counted as "the same": $290,000 against a bank's $300,000 for $80K and
+// $15K down read "A bank would lend the same", while income, not savings,
+// capped the $290,000.) Returns { same, sub, note }.
+// Also 2026-09-24 (PHASE #3 review): equal figures alone were taken to mean
+// savings capped both. In 60
+// of 600 "Same" boxes income capped it at the same figure, while Worth
+// Knowing on that page said "Earn $10,000 more a year". And when the down
+// payment, not the 39% rule, sets the bank's figure, the line says so: it
+// read "Banks allow up to 39% of your before-tax income" under the most
+// $30,000 down could legally buy. No stretch line when the figures are equal:
+// there is nothing between them. `dn` is the search's down payment.
+function bankBoxLines(calc, dn){
+  const same = !!calc.downPaymentLimited && !!calc.comfortDownPaymentLimited && calc.bp === calc.comfortBP;
+  if(same) return { same, sub: 'Same: your savings are the limit, not your income', note: '' };
+  return {
+    same,
+    sub: calc.downPaymentLimited && dn > 0 ? 'The most your ' + fc(dn) + ' down payment can buy' : 'Banks allow up to 39% of your before-tax income',
+    note: calc.bp > calc.comfortBP ? 'Above your HomePilot comfort range is stretch territory' : '',
+  };
 }
 
 // "Based on 4.39% rate, stress tested at 6.39%": the rate the search was
-// worked out at (the rate in force; go() always searches at the market rate)
-// and its stress-test rate. The rate slider changes monthly costs, never the
-// two figures above, so it does not change this line either.
+// worked out at and its stress-test rate. Since 2026-09-24 the rate slider
+// runs the search again at its rate (applyRateToSearch()), so this line, the
+// two figures and the cards always use the same rate.
 function rateLine(rate){
   const pct = (r) => (r * 100).toFixed(2).replace(/\.?0+$/, '');
   return 'Based on ' + pct(rate) + '% rate, stress tested at ' + pct(getStressRate(rate)) + '%';
@@ -364,9 +374,15 @@ function renderTopSection(){
   const calc = s.calc;
   const bpv = document.getElementById('bpV');
   if(bpv) bpv.textContent = fc(calc.comfortBP);
-  const bank = bankBoxLines(calc);
+  const bank = bankBoxLines(calc, s.dn);
   const setText = (id, t) => { const el = document.getElementById(id); if(el) el.textContent = t; };
   setText('bpBankV', fc(calc.bp));
+  // A ten-character figure ($1,640,000) is a size smaller on small phones
+  // (.bp-long, calculator.html): it ran past its box at 368-407px.
+  ['bpV', 'bpBankV'].forEach((id) => {
+    const el = document.getElementById(id);
+    if(el && el.classList) el.classList.toggle('bp-long', String(el.textContent || '').length >= 10);
+  });
   setText('bpBankSub', bank.sub);
   setText('bpBankNote', bank.note);
   const bankBox = document.getElementById('bpBank');
@@ -464,7 +480,11 @@ function takeHomeChanged(){
 // The mortgage rate slider and its box, under the top section (moved here
 // from scenario-sandbox.js on 2026-09-24, when Scenarios, Share and Download
 // Report were taken off the page; IMPROVEMENT_PLAN.md 2.2c: the slider stays).
-// It changes monthly costs, never buying power.
+// Since 2026-09-24 (PHASE #3 review) a new rate is the same search at that
+// rate: both figures, the cards, HomePilot Worth Knowing and the listing pages
+// all use it. It used to change the monthly costs only, while the line above
+// still read "Based on 4.39% rate" and the listing pages judged the HomePilot
+// comfort range at the new rate, so the two pages disagreed.
 function syncRate(val, source) {
   const v = parseFloat(val);
   if(isNaN(v) || v < 0.5 || v > 20) return;
@@ -474,15 +494,43 @@ function syncRate(val, source) {
   } else {
     document.getElementById('rateSlider').value = v;
   }
-  // Update hint label
-  const base = DEFAULT_MORTGAGE_RATE_PCT;
-  const diff = (v - base).toFixed(2);
-  const hint = v === base ? 'Current market rate' :
-    (v < base ? '▼ ' + Math.abs(diff) + '% below market' : '▲ ' + diff + '% above market');
   const hintEl = document.getElementById('rateHint');
-  if(hintEl) hintEl.textContent = hint;
-  // Re-render costs live
-  if(results && results.length > 0) render();
+  if(hintEl) hintEl.textContent = rateHintText(v);
+  if(lastSearch) { applyRateToSearch(); render(); }
+}
+
+// The words under the rate box. 4.39% is HomePilot's default, the lowest
+// advertised insured 5-year fixed rate, not "the market rate": buyers with
+// 20% or more down usually pay more (2026-09-24).
+function rateHintText(pct){
+  const d = Math.round((pct - DEFAULT_MORTGAGE_RATE_PCT) * 100) / 100;
+  if(!d) return "HomePilot's default rate (5-year fixed)";
+  return (d < 0 ? '▼ ' + Math.abs(d).toFixed(2) + '% below' : '▲ ' + d.toFixed(2) + '% above') + " HomePilot's default rate";
+}
+
+// The last search again at customMortgageRate, with every answer as it was:
+// both figures, the places, the top section and the small print.
+function applyRateToSearch(){
+  const s = lastSearch;
+  if(!s) return;
+  const calc = calcBP(s.total, s.dn, s.dbt);
+  buyPower = calc.bp; comfortBuyPower = calc.comfortBP;
+  s.rate = customMortgageRate; s.calc = calc;
+  results = candidateCities(s.area, calc.bp).map(m => ({...m, displayMax: Math.min(m.max, calc.bp), homePrice: Math.min(m.max, calc.bp)}));
+  // A ticked home may not be on the page any more (compare.js keeps the home
+  // its card showed), as after a new search.
+  if(typeof initCompare === 'function') initCompare();
+  renderTopSection();
+  writeRateNote();
+}
+
+// "How we calculated this": the rate, the amortization and the stress test.
+function writeRateNote(){
+  const rn = document.getElementById('rateNote');
+  if(!rn) return;
+  const rateDisplay = (customMortgageRate * 100).toFixed(2).replace(/\.?0+$/, '') + '%';
+  const stressRateDisplay = (getStressRate(customMortgageRate) * 100).toFixed(2) + '%';
+  rn.innerHTML = `Based on ${rateDisplay} mortgage rate · ${amortizationNote(firstTimeBuyer === true)} · Stress tested at ${stressRateDisplay} · <span style="color:rgba(255,255,255,0.6);font-style:italic">Educational estimate only — not a mortgage pre-approval. Actual qualification depends on lender underwriting, credit, and full application details.</span>`;
 }
 
 // "How we calculated this": opens and closes the small print under the line.
@@ -500,7 +548,6 @@ function go(){
   const incomes=readIncomes(), inc=incomes.total;
   const dn=parseFloat(document.getElementById("dwn").value)||0;
   const dbt=parseFloat(document.getElementById("dbt").value.trim())||0;
-  existingDebt=dbt;
   customMortgageRate=DEFAULT_MORTGAGE_RATE_PCT/100;
   const _rb=document.getElementById('rateBar');
   if(_rb){
@@ -510,7 +557,7 @@ function go(){
     if(_rs) _rs.value=DEFAULT_MORTGAGE_RATE_PCT;
     if(_ri) _ri.value=DEFAULT_MORTGAGE_RATE_PCT;
     const _rh=document.getElementById('rateHint');
-    if(_rh) _rh.textContent='Current market rate';
+    if(_rh) _rh.textContent=rateHintText(DEFAULT_MORTGAGE_RATE_PCT);
   }
   // Resolve work location coords (only for a commuter; unanswered is not one)
   if(workArrangement === 'hybrid' || workArrangement === 'daily') {
@@ -535,10 +582,17 @@ function go(){
   // without clearing the buying-power box, so the buyer saw an error message
   // next to the previous run's number.
   const err=document.getElementById("err");
+  // Since 2026-09-24 (PHASE #3 review) a failed search also takes the last
+  // results off the page and forgets them. They stayed, under a top section
+  // that was hidden, with the new debt already in force: tap a filter and the
+  // page said "you're close" while Worth Knowing, run with the old answers,
+  // said a Hamilton condo fits at 43%.
   const fail=(msg)=>{
     if(msg){ err.textContent=msg; err.style.display="block"; }
     const bp=document.getElementById("bpBox"); if(bp) bp.style.display="none";
     const bpv=document.getElementById("bpV"); if(bpv) bpv.textContent="";
+    const res=document.getElementById("res"); if(res) res.style.display="none";
+    lastSearch=null;
     return false;
   };
   err.style.display="none";
@@ -562,6 +616,8 @@ function go(){
   if(!choicesOk){ showFirstUnansweredChoice(); return void fail(); }
   const btn=document.getElementById("goBtn");btn.disabled=true;btn.innerHTML='<div class="spin"></div>';
   try{
+    // Only a search that passed every check changes the debt in force.
+    existingDebt=dbt;
     const calc=calcBP(inc,dn,dbt);
     const{bp:b,comfortBP:cBP}=calc;
     buyPower=b;comfortBuyPower=cBP;fam_selected=fam;dn_selected=dn;grossMonthlyIncome=inc/12;
@@ -591,9 +647,7 @@ function go(){
     lastSearch={own:incomes.own,partner:incomes.partner,total:inc,dn,dbt,area,rate:customMortgageRate,calc};
     takeHomeEditOpen=false;
     renderTopSection();
-    const rateDisplay=(customMortgageRate*100).toFixed(2).replace(/\.?0+$/,'')+'%';
-    const stressRateDisplay=(getStressRate(customMortgageRate)*100).toFixed(2)+'%';
-    const rn=document.getElementById('rateNote');if(rn)rn.innerHTML=`Based on ${rateDisplay} mortgage rate · ${amortizationNote(firstTimeBuyer===true)} · Stress tested at ${stressRateDisplay} · <span style="color:rgba(255,255,255,0.6);font-style:italic">Educational estimate only — not a mortgage pre-approval. Actual qualification depends on lender underwriting, credit, and full application details.</span>`;
+    writeRateNote();
     // The footer rate note that was written here had no element on any page
     // since the calculator moved off index.html (removed 2026-09-24, plan 6.3).
     document.getElementById("bpBox").style.display="block";
