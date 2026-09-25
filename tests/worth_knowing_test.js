@@ -135,6 +135,9 @@ const BUYERS = [
   { tag: '$150K + $60K hybrid Markham', income: 150000, partner: 60000, down: 150000, debt: 800, firstTime: false, work: 'hybrid', workCity: 'Markham', limit: 60 },
   { tag: '$150K + $60K hybrid Markham, detached only', income: 150000, partner: 60000, down: 150000, debt: 800, firstTime: false, work: 'hybrid', workCity: 'Markham', limit: 60, onlyType: 'detached' },
   { tag: '$60K + $150K hybrid Markham (partner earns more)', income: 60000, partner: 150000, down: 150000, debt: 800, firstTime: false, work: 'hybrid', workCity: 'Markham', limit: 60 },
+  // A save tip well under the Stretch line (a Kitchener semi at 37% with the
+  // 2026-09-24 prices): the "not just fits" wording needs a buyer who has one.
+  { tag: '$220K remote, $30K down', income: 220000, down: 30000, firstTime: true, work: 'remote' },
 ];
 
 // The drive rule for the normal page, as the plan decides it ("a big saving
@@ -177,7 +180,7 @@ const driveHolds = (wk) => {
   return { ok: !better, why: better ? 'beaten outright by ' + JSON.stringify(better) : '', n: list.length };
 };
 
-const seen = { normalTips: 0, emptyClose: 0, emptyFar: 0, emptyNothing: 0, kinds: new Set(), justFits: 0, notJust: 0, savings: 0, earnSplit: 0, justUnder: 0,
+const seen = { normalTips: 0, emptyClose: 0, emptyFar: 0, emptyNothing: 0, kinds: new Set(), justFits: 0, notJust: 0, savings: 0, earnSplit: 0, justUnder: 0, aboveToday: 0,
   also: { save: 0, drive: 0, none: 0, full: 0 } };
 const worked = {};
 
@@ -239,9 +242,19 @@ function checkAlso(b, tag, base, picks, wk) {
     const now = todayHome(c.n, c.type);
     if (!now || now.comfortable) return 'the home must be one the buyer could buy today and that does not fit yet: ' + JSON.stringify(now);
     if (!(now.price === c.today.price && now.monthly === c.today.monthly && now.pct === c.today.pct && now.fit === c.today.fit)) return 'the card is not today\'s home: ' + JSON.stringify([now, c.today]);
-    const words = `Save ${fc(c.extra)} more and a ${data('WK_TYPE')[c.type]} in ${c.n} `;
-    if (!text(also.html).startsWith(words) || !text(also.html).includes('fits your HomePilot comfort range') || !text(also.html).includes(pctWords(c))
-      || (c.commuteMin !== null && !text(also.html).endsWith(`, about ${c.commuteMin} min.`))) return 'wording: ' + text(also.html);
+    // PHASE #3 D4 (the user, 2026-09-24), word for word: the gain, what today
+    // looks like when the label says it fits but the price is above the
+    // range, then the extra drive against the Most home answer in hours a
+    // month. No % the card doesn't show (the card shows today's).
+    const comfortNow = data('comfortBuyPower'), stretchLbl = data('T.en.fit_stretch_lbl');
+    const above = now.fit !== stretchLbl && now.price > comfortNow ? now.price - comfortNow : 0;
+    const extraMin = Number.isFinite(c.commuteMin) && Number.isFinite(top.commuteMin) ? c.commuteMin - top.commuteMin : null;
+    const words = `Save ${fc(c.extra)} more and this ${data('WK_TYPE')[c.type]} in ${c.n} fits your HomePilot comfort range.`
+      + (above ? ` Today it's ${fc(above)} above your HomePilot comfort range.` : '')
+      + (extraMin === null ? '' : extraMin > 0 ? ` It's ${extraMin} more minutes each way than ${top.n}: ${hoursWords(b.work, extraMin)}.` : ` It's about ${c.commuteMin} min each way.`);
+    if (text(also.html) !== words) return 'wording: ' + text(also.html) + ' vs ' + words;
+    if (c.aboveToday !== above || c.extraMin !== extraMin) return 'the claim: ' + JSON.stringify([c.aboveToday, above, c.extraMin, extraMin]);
+    if (above) seen.aboveToday++;
     return '';
   }
   if (also.kind === 'drive') {
@@ -249,9 +262,14 @@ function checkAlso(b, tag, base, picks, wk) {
     const d0 = drives[0];
     if (!d0 || d0.n !== c.n || d0.type !== c.type || d0.commuteMin !== c.commuteMin) return 'not the nearest bigger home past the limit: ' + JSON.stringify([d0, c]);
     if (c.extra !== c.commuteMin - base.limit || c.extra <= 0 || c.extra > C.DRIVE) return 'minutes past the limit: ' + c.extra;
-    const hrs = hoursWords(b.work, c.commuteMin - top.commuteMin);
-    const words = `A ${data('WK_TYPE')[c.type]} fits in ${c.n}: ${c.extra} min past your ${base.limit}-minute limit` + (hrs ? ', ' + hrs : '') + '.';
+    // PHASE #3 D4: the extra minutes the hours come from, against the Most
+    // home answer, with the minutes past the limit in brackets.
+    const extraMin = c.commuteMin - top.commuteMin;
+    const words = `This ${data('WK_TYPE')[c.type]} in ${c.n} fits today. ` + (extraMin > 0
+      ? `It's ${extraMin} more minutes each way than ${top.n} (${c.extra} past your ${base.limit}-minute limit): ${hoursWords(b.work, extraMin)}.`
+      : `It's ${c.extra} minutes past your ${base.limit}-minute limit, about ${c.commuteMin} min each way.`);
     if (text(also.html) !== words) return 'wording: ' + text(also.html) + ' vs ' + words;
+    if (c.extraMin !== extraMin) return 'the claim: ' + JSON.stringify([c.extraMin, extraMin]);
     return '';
   }
   return 'unknown kind ' + also.kind;
@@ -384,8 +402,9 @@ for (const b of BUYERS) {
           HOME_RANK[c.type] >= HOME_RANK[c.from.type] && c.extra === c.commuteMin - c.from.commuteMin && c.extra > 0 && c.extra <= C.DRIVE
             && c.saving === c.from.price - c.price && c.monthlySaving === c.from.monthly - c.monthly && c.saving > 0 && c.monthlySaving > 0
             && (c.saving >= C.SAVING || c.monthlySaving >= C.MONTHLY), JSON.stringify(c));
-        t(`(${tag}) drive: the words carry the engine's numbers`, text(tip.html).includes(`${c.extra} more minutes to ${c.n}`) && text(tip.html).includes(`${fc(c.saving)} less than in ${c.from.n}`)
-          && text(tip.html).includes(`about ${c.commuteMin} min each way`));
+        // With the extra drive in hours a month (the user's rule; PHASE #3).
+        t(`(${tag}) drive: the words carry the engine's numbers`, text(tip.html).includes(`${c.extra} more minutes each way to ${c.n}`) && text(tip.html).includes(`${fc(c.saving)} less than in ${c.from.n}`)
+          && text(tip.html).includes(`(about ${c.commuteMin} min, ${hoursWords(b.work, c.extra)})`), text(tip.html));
       }
     }
   } else {
@@ -611,12 +630,12 @@ t('covered: "Also worth a look" as a save card, as a drive card, as no card in a
   seen.also.save > 0 && seen.also.drive > 0 && seen.also.none > 0 && seen.also.full > 0, JSON.stringify(seen.also));
 
 // The plan's worked example (2.0): one tip for each lever that has one, at the
-// 60-minute default as at 90. Written on 2026-09-23 with save, drive and earn
-// tips (a Whitby condo for $5,000 more saved). Since 2026-09-24, at the 4.39%
-// rate, with the $450 debt counted and the listing-based prices, no $5,000
-// step up to $50,000 more saved gets a place within either limit to fit, so
-// there is no save tip, and the page is "close" on the drive and earn tips.
-// That is checked step by step here, not assumed.
+// 60-minute default as at 90. Which levers have one moves with the prices (a
+// Whitby condo for $5,000 more saved on 2026-09-23; no save tip at all with
+// the median listing prices; a Scarborough condo for $40,000 with the 40th
+// percentile), so the save tip is expected exactly when a $5,000 step up to
+// $50,000 more saved gets a place within the limit to fit, searched step by
+// step here, never pinned. Drive and earn tips are expected at both limits.
 {
   const noSaveWithin = (limit) => {
     const b = BUYERS.find((x) => x.tag === 'worked example, ' + limit + ' min');
@@ -625,8 +644,9 @@ t('covered: "Also worth a look" as a save card, as a drive card, as no card in a
     return '';
   };
   const why60 = noSaveWithin(60), why90 = noSaveWithin(90);
-  t('worked example: "close" at 60 minutes and at 90, with a drive and an earn tip; no save tip, and rightly: no step up to ' + fc(C.SAVE) + ' more saved fits',
-    !!worked[60] && !!worked[90] && worked[60].kinds === 'drive,earn' && worked[90].kinds === 'drive,earn' && /but you're close\.$/.test(worked[60].cnt) && /but you're close\.$/.test(worked[90].cnt) && !why60 && !why90,
+  const want = (why) => (why ? 'save,' : '') + 'drive,earn';
+  t('worked example: "close" at 60 minutes and at 90, with a drive and an earn tip, and a save tip exactly when a step up to ' + fc(C.SAVE) + ' more saved fits (' + (why60 || 'none') + ' at 60, ' + (why90 || 'none') + ' at 90)',
+    !!worked[60] && !!worked[90] && worked[60].kinds === want(why60) && worked[90].kinds === want(why90) && /but you're close\.$/.test(worked[60].cnt) && /but you're close\.$/.test(worked[90].cnt),
     JSON.stringify([worked[60] && worked[60].kinds, worked[90] && worked[90].kinds, why60, why90]));
 }
 console.log('=== HomePilot Worth Knowing: the worked example (IMPROVEMENT_PLAN.md 2.0) ===');

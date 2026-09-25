@@ -38,13 +38,14 @@
 // It prints each block's height, so a longer page shows where it grew.
 //
 // Then, since 2026-09-24, the answer cards on a computer, at 1024, 1100,
-// 1200, 1240 and 1280px wide, where they sit three across at about 222-241px
-// each (see measureDesktopInPage() below): three side by side, starting
-// level; no home-type row cut off; every figure in every cost breakdown at
-// least 8px from its label; no sideways scroll; and from 1024 to 1239px the
-// form beside them still at least 250px wide (IMPROVEMENT_PLAN.md 2.2b,
-// option b: the form narrows so the three cards fit; below that the user
-// wants to be asked).
+// 1150, 1200, 1240 and 1280px wide (see measureDesktopInPage() below). From
+// 1150px they sit three across at about 222-241px each: starting level, every
+// part lined up; from 1024 to 1149px they stack, with the form at its 420px
+// (PHASE #3 D6: three across there squeezed the form until it cut its own
+// words). Everywhere: no home-type row cut off; every figure in every cost
+// breakdown at least 8px from its label; no sideways scroll; no word cut off
+// in the form's drop-downs or boxes; and one or two answers a third of the
+// width each from 1150px, not stretched across the column.
 //
 // When no Chrome or Edge is found, or it will not start, the test says SKIP
 // and exits 0 (a GitHub Actions warning in CI) rather than blocking a deploy
@@ -247,31 +248,52 @@ async function measureInPage(b) {
 // ("MOST HOME · SHORTEST COMMUTE") wrapped and pushed its card 16-17px below
 // the other two; and in the cost breakdowns a label ran into its figure
 // ("Estimated Cash Required to Close" 0.1px from "~$123,950").
-const DESKTOP_WIDTHS = [1024, 1100, 1200, 1240, 1280];
+const DESKTOP_WIDTHS = [1024, 1100, 1150, 1200, 1240, 1280];
+// Three across from here (PHASE #3 D6).
+const THREE_ACROSS_PX = 1150;
 // Buyers with three cards (2026-09-24, at the 4.39% rate and the listing
 // prices): three different answers; and a merged two-question card ("Shortest
 // commute · Most home", a label that wraps) next to "Also worth a look", whose
 // trade makes its At a glance the longest.
 const DESKTOP_BUYERS = [
   { name: "$120K + $60K, $200K down, hybrid Toronto", income: 120000, partnerIncome: 60000, down: 200000, debt: 0, work: "hybrid", workCity: "Toronto", firstTime: true },
-  { name: "$120K + $60K, $150K down, $500/mo debt, hybrid Toronto (a merged card and 'Also worth a look')", income: 120000, partnerIncome: 60000, down: 150000, debt: 500, work: "hybrid", workCity: "Toronto", firstTime: true, expectAlso: true },
+  // The first of these down payments that gives a merged card and "Also worth
+  // a look" is measured (the prices decide which does; $150K stopped doing
+  // it with the 40th-percentile prices).
+  { name: "$120K + $60K, hybrid Toronto, $500/mo debt (a merged card and 'Also worth a look')", income: 120000, partnerIncome: 60000, down: 150000, debt: 500, work: "hybrid", workCity: "Toronto", firstTime: true, expectAlso: true,
+    tryDowns: [150000, 100000, 200000, 60000] },
   { name: "$300K + $200K, $500K down, daily Toronto", income: 300000, partnerIncome: 200000, down: 500000, debt: 0, work: "daily", workCity: "Toronto", firstTime: false },
+  // One and two answer cards: a third each from 1150px, not stretched (the
+  // review measured one card at 752px at 1280 and 1392px at 1920).
+  { name: "$200K, $20K down, remote (one answer card)", income: 200000, down: 20000, debt: 0, work: "remote", firstTime: true, cards: 1 },
+  { name: "$130K, $70K down, remote (two answer cards)", income: 130000, down: 70000, debt: 0, work: "remote", firstTime: true, cards: 2 },
 ];
 const MIN_FORM_PX = 250;
 const MIN_LABEL_GAP_PX = 8;
 async function measureDesktopInPage(b) {
   const d = document;
   const set = (id, v) => { d.getElementById(id).value = v; };
-  set("inc", String(b.income));
-  set("inc2", b.partnerIncome ? String(b.partnerIncome) : "");
-  set("dwn", String(b.down));
-  set("dbt", String(b.debt || 0));
-  set("fam", "3");
-  set("area", "all");
-  setFTB(b.firstTime === true);
-  setWorkArrangement(b.work);
-  if (b.work !== "remote") { set("workCity", b.workCity); set("workPostal", ""); }
-  go();
+  const searchWith = (down) => {
+    set("inc", String(b.income));
+    set("inc2", b.partnerIncome ? String(b.partnerIncome) : "");
+    set("dwn", String(down));
+    set("dbt", String(b.debt || 0));
+    set("fam", "3");
+    set("area", "all");
+    setFTB(b.firstTime === true);
+    setWorkArrangement(b.work);
+    if (b.work !== "remote") { set("workCity", b.workCity); set("workPostal", ""); }
+    go();
+  };
+  let usedDown = b.down;
+  if (b.tryDowns) {
+    for (const down of b.tryDowns) {
+      searchWith(down);
+      usedDown = down;
+      const slots = [...d.querySelectorAll("#answers .answer-slot")];
+      if (slots.some((x) => x.dataset.answers === "also") && slots.some((x) => x.dataset.answers.includes(" "))) break;
+    }
+  } else searchWith(b.down);
   if (b.onlyType) filtProp(b.onlyType, d.getElementById("pt-" + b.onlyType));
   if (d.fonts && d.fonts.ready) await d.fonts.ready;
   const frame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
@@ -316,7 +338,26 @@ async function measureDesktopInPage(b) {
     }
     r.click();
   }
+  // Every drop-down and box on the form: does its longest option (or its
+  // placeholder) fit? Measured with the control's own font, inside its
+  // padding and borders, less about 20px for a native drop-down's arrow (a
+  // styled one keeps its arrow in the padding).
+  const ctx = d.createElement("canvas").getContext("2d");
+  const cut = [];
+  d.querySelectorAll("#calculatorSection select, #calculatorSection input[placeholder]").forEach((el) => {
+    if (!el.offsetParent) return;
+    const cs = getComputedStyle(el);
+    ctx.font = cs.fontWeight + " " + cs.fontSize + " " + cs.fontFamily;
+    const edges = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) + parseFloat(cs.borderLeftWidth) + parseFloat(cs.borderRightWidth);
+    const arrow = el.tagName === "SELECT" && cs.appearance !== "none" ? 20 : 0;
+    const room = el.getBoundingClientRect().width - edges - arrow;
+    const texts = el.tagName === "SELECT" ? [...el.options].map((o) => o.textContent) : [el.placeholder];
+    texts.forEach((t) => { const w = ctx.measureText(t).width; if (w > room + 0.5) cut.push((el.id || el.name) + ": " + JSON.stringify(t) + " " + Math.round(w) + "px in " + Math.round(room) + "px"); });
+  });
   return {
+    usedDown,
+    cutText: cut,
+    answersWidth: Math.round(d.getElementById("answers").getBoundingClientRect().width),
     viewport: innerWidth,
     slots: d.querySelectorAll("#answers .answer-slot").length,
     columns: getComputedStyle(d.querySelector("#answers .answer-grid")).gridTemplateColumns.split(" ").length,
@@ -395,16 +436,32 @@ async function measureDesktopInPage(b) {
         if (r.exceptionDetails) throw new Error("the page script failed: " + (r.exceptionDetails.exception && r.exceptionDetails.exception.description || r.exceptionDetails.text));
         const m = r.result.value;
         console.log("  " + b.name + ": cards " + m.widths.join("/") + "px, tops " + m.tops.join("/") + ", labels " + m.labels.join(" | ") + ", smallest label gap " + m.minGap + "px over " + m.pairs + " lines");
+        const across = width >= THREE_ACROSS_PX;
+        if (b.cards) {
+          // One or two answers: a third of the width each from 1150px; below
+          // it two sit a half each and one takes the column.
+          const want = across ? m.answersWidth / 3 : b.cards === 2 ? m.answersWidth / 2 : m.answersWidth;
+          check(`${width}px, ${b.name}: ${b.cards} card${b.cards > 1 ? "s" : ""}, each ${across ? "a third" : b.cards === 2 ? "a half" : "the whole"} of the answers' width`,
+            m.viewport === width && m.slots === b.cards && m.widths.length === b.cards && m.widths.every((w) => Math.abs(w - want) <= 14), m.widths.join("/") + " in " + m.answersWidth);
+          check(`${width}px, ${b.name}: nothing makes the page scroll sideways, and no word in the form is cut off`, m.pageWidth <= width && m.cutText.length === 0, m.pageWidth + "px wide; " + m.cutText.join("; "));
+          continue;
+        }
+        if (!across) {
+          check(`${width}px, ${b.name}: under ${THREE_ACROSS_PX}px the three answer cards stack, each the full width of the answers`, m.viewport === width && m.slots === 3 && m.columns === 1 && m.widths.every((w) => Math.abs(w - m.answersWidth) <= 1), JSON.stringify({ viewport: m.viewport, slots: m.slots, columns: m.columns, widths: m.widths, answers: m.answersWidth }));
+        } else {
         check(`${width}px, ${b.name}: three answer cards side by side`, m.viewport === width && m.slots === 3 && m.columns === 3, JSON.stringify({ viewport: m.viewport, slots: m.slots, columns: m.columns }));
         check(`${width}px, ${b.name}: the three cards start level, a wrapped label included`, Math.max(...m.tops) - Math.min(...m.tops) <= 1, m.tops.join("/"));
         check(`${width}px, ${b.name}: no home-type row is cut off (nothing wider than its list, every chevron inside it)`, m.overflow === 0 && m.chevronsCut === 0, m.overflow + "px over, " + m.chevronsCut + " chevrons cut");
         check(`${width}px, ${b.name}: in every cost breakdown each figure stays at least ${MIN_LABEL_GAP_PX}px from its label`, m.pairs > 0 && m.minGap >= MIN_LABEL_GAP_PX, m.minGap + "px");
         check(`${width}px, ${b.name}: every part (top, At a glance, home types, AI Insights, Compare) and "View Available Homes" lines up across the three cards, however many home types each lists, breakdowns open or closed`, m.buttonSpread !== null && m.buttonSpread <= 1, m.buttonSpread + "px apart");
+        }
         check(`${width}px, ${b.name}: every line at the top of the answer cards fits inside its card`, m.headOverflow === 0, m.headOverflow + "px over");
         check(`${width}px, ${b.name}: nothing makes the page scroll sideways`, m.pageWidth <= width, m.pageWidth + "px wide");
-        if (b.expectAlso) check(`${width}px, ${b.name}: the third card is "Also worth a look"`, m.also === 1 && /Also worth a look/i.test(m.labels[2] || ""), m.labels.join(" | "));
-        check(`${width}px, ${b.name}: the form beside the cards is ${width < 1240 ? "at least " + MIN_FORM_PX + "px wide" : "its usual 420px"}`,
-          width < 1240 ? m.formWidth >= MIN_FORM_PX && m.formWidth <= 420 : m.formWidth === 420, m.formWidth + "px");
+        if (b.expectAlso) check(`${width}px, ${b.name} (${m.usedDown / 1000}K down): the third card is "Also worth a look"`, m.also === 1 && /Also worth a look/i.test(m.labels[2] || ""), m.labels.join(" | "));
+        const narrowed = across && width < 1240;
+        check(`${width}px, ${b.name}: the form beside the cards is ${narrowed ? "at least " + MIN_FORM_PX + "px wide" : "its usual 420px"}`,
+          narrowed ? m.formWidth >= MIN_FORM_PX && m.formWidth <= 420 : m.formWidth === 420, m.formWidth + "px");
+        check(`${width}px, ${b.name}: no word in the form's drop-downs or boxes is cut off`, m.cutText.length === 0, m.cutText.join("; "));
       }
     }
   } catch (e) {

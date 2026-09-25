@@ -33,11 +33,11 @@ function loadEngine() {
   return ctx;
 }
 
-// Values recorded from the engine BEFORE the override parameter was added.
-// Existing callers (calculator, results page) must keep getting exactly these.
-// Re-recorded 2026-09-24 at the 4.39% rate (IMPROVEMENT_PLAN.md 3.5a) and the
-// listing-based prices and condo fees (3.1a, 3.2): the same calls, the
-// engine's new figures; the override must still change none of them.
+// Existing callers (calculator, results page) get exactly these, with or
+// without an empty override. First recorded before the override parameter
+// was added; re-recorded 2026-09-24 at the 4.39% rate (IMPROVEMENT_PLAN.md
+// 3.5a). The two condo cases' fee and total are not taken from here: they are
+// worked out from the listing-based tables (withTableFee() below).
 const GOLDEN_CALC = [[["Mississauga",750000,3,150000,"detached"],{"mort":3001,"tax":646,"ins":145,"util":405,"maint":625,"condoFee":0,"total":4822}],[["Mississauga",520000,2,60000,"condo"],{"mort":2607,"tax":448,"ins":48,"util":175,"maint":130,"condoFee":652,"total":4060}],[["Hamilton",640000,4,90000,"semi"],{"mort":3117,"tax":708,"ins":121,"util":395,"maint":480,"condoFee":0,"total":4821}],[["Guelph",560000,1,40000,"town"],{"mort":2972,"tax":574,"ins":90,"util":225,"maint":373,"condoFee":0,"total":4234}],[["Toronto - Downtown",800000,2,200000,"condo"],{"mort":3001,"tax":444,"ins":59,"util":175,"maint":200,"condoFee":792,"total":4671}],[["Toronto - Scarborough",900000,5,180000,"detached"],{"mort":3601,"tax":500,"ins":171,"util":525,"maint":750,"condoFee":0,"total":5547}]];
 const GOLDEN_QUAL = [[[90000,150000,500,750000,"detached","Mississauga"],false],[[140000,150000,500,750000,"detached","Mississauga"],true],[[220000,150000,500,750000,"detached","Mississauga"],true],[[90000,60000,500,520000,"condo","Mississauga"],false],[[140000,60000,500,520000,"condo","Mississauga"],true],[[220000,60000,500,520000,"condo","Mississauga"],true],[[90000,90000,500,640000,"semi","Hamilton"],false],[[140000,90000,500,640000,"semi","Hamilton"],false],[[220000,90000,500,640000,"semi","Hamilton"],true],[[90000,40000,500,560000,"town","Guelph"],false],[[140000,40000,500,560000,"town","Guelph"],true],[[220000,40000,500,560000,"town","Guelph"],true],[[90000,200000,500,800000,"condo","Toronto - Downtown"],false],[[140000,200000,500,800000,"condo","Toronto - Downtown"],false],[[220000,200000,500,800000,"condo","Toronto - Downtown"],true],[[90000,180000,500,900000,"detached","Toronto - Scarborough"],false],[[140000,180000,500,900000,"detached","Toronto - Scarborough"],false],[[220000,180000,500,900000,"detached","Toronto - Scarborough"],true]];
 
@@ -78,7 +78,19 @@ async function openPage({ listing, status = 200, profile, budget, search, fetchT
   const eng = loadEngine();
   const market = (n) => eng.M.find((c) => c.n === n);
   let calcSame = true, calcDetail = "";
-  for (const [args, want] of GOLDEN_CALC) {
+  // A condo's fee is the place's typical fee scaled 0.5x around its typical
+  // condo price, both from the listing-based tables (CONDO_FEES, PT), which a
+  // price refresh moves. So for the two condo cases the fee and the total are
+  // worked out here from the tables of the day, by calcCosts()'s own rule,
+  // and every other figure stays pinned (PHASE #3 review, 2026-09-24: pinned
+  // fees broke on every refresh and invited loosening).
+  const withTableFee = ([place, price], want) => {
+    const anchor = (eng.PT[place] && eng.PT[place].condo) || price;
+    const condoFee = Math.round((eng.CONDO_FEES[place] || 500) * (1 + 0.5 * (price / anchor - 1)));
+    return { ...want, condoFee, total: want.mort + want.tax + want.ins + want.util + want.maint + condoFee };
+  };
+  for (const [args, pinned] of GOLDEN_CALC) {
+    const want = args[4] === "condo" ? withTableFee(args, pinned) : pinned;
     const got = eng.calcCosts(market(args[0]), args[1], args[2], args[3], args[4]);
     if (JSON.stringify(got) !== JSON.stringify(want)) { calcSame = false; calcDetail += args.join("/") + " "; }
     const gotU = eng.calcCosts(market(args[0]), args[1], args[2], args[3], args[4], undefined);
@@ -464,6 +476,10 @@ async function openPage({ listing, status = 200, profile, budget, search, fetchT
   check("(N12b) with $900/mo debt: 'Housing and debt payments as % of take-home income' is housing plus debt over take-home, and what remains is after both",
     has(dText, "Housing and debt payments as % of take-home income" + dPct + "%") && !has(dText, "Housing cost as % of take-home income")
       && has(dText, "Remaining after this home and your debt payments" + fmt(9800 - exp.total - DEBT) + "/mo"), dText.slice(0, 700));
+  // The debt as its own row (PHASE #3 review, 2026-09-24), so take-home less
+  // this home less the debt is what remains; no such row without debt.
+  check("(N12b2) ...and the debt is its own row, so the rows add up: take-home - this home - debt = what remains",
+    has(dText, "Your monthly debt payments" + fmt(DEBT) + "/mo") && !has(NBpct.doc.getElementById("ldHomePilot").textContent, "Your monthly debt payments"), dText.slice(0, 700));
   // A home that is a Good Fit on housing alone and a Stretch once the $900 is
   // counted: the badge must say Stretch.
   const MID = { ...BASE, listPrice: 640000 };
@@ -483,11 +499,24 @@ async function openPage({ listing, status = 200, profile, budget, search, fetchT
   const lowText = low.doc.getElementById("ldHomePilot").textContent;
   const lowIns = eng.mortgageInsuranceFor(500000, 60000, false);
   const lowCc = eng.calcClosingCosts("Mississauga", 500000, false, { downPayment: 60000, firstTimeBuyer: false });
-  check("(N12d) under 20% down: 'Sales tax on mortgage insurance (8%)' is its own line, 8% of the premium, and in the cash required",
+  check("(N12d) under 20% down: 'Sales tax on mortgage insurance (8% of the $X premium)' is its own line, 8% of the premium it names, and in the cash required",
     lowIns.premium > 0 && lowIns.salesTax === Math.round(lowIns.premium * 0.08) && lowCc.premiumSalesTax === lowIns.salesTax
-      && has(lowText, "Sales tax on mortgage insurance (8%)" + fmt(lowIns.salesTax)) && has(lowText, "Estimated cash required to purchase" + fmt(60000 + lowCc.total)),
+      && has(lowText, "Sales tax on mortgage insurance (8% of the " + fmt(lowIns.premium) + " premium)" + fmt(lowIns.salesTax)) && has(lowText, "Estimated cash required to purchase" + fmt(60000 + lowCc.total)),
     lowText.slice(-900));
   check("(N12e) at 20% down or more there is no such line", !has(t1, "Sales tax on mortgage insurance"));
+  // Below the minimum down payment (PHASE #3 review, 2026-09-24): no premium
+  // can exist, so no tax line, and the page says what the price needs. Two
+  // cases the review found: $1.55M with $140K down (20% needed above $1.5M,
+  // where there is no mortgage insurance at all), and $420K with $20K down.
+  for (const [price, dn, need] of [[1550000, 140000, 310000], [420000, 20000, 21000]]) {
+    const pg = await openPage({ listing: { ...BASE, listPrice: price }, profile: { ...PROFILE, downPayment: dn }, budget: price });
+    const txt = pg.doc.getElementById("ldHomePilot").textContent;
+    check(`(N12f) $${price.toLocaleString("en-CA")} with $${dn.toLocaleString("en-CA")} down: no insurance tax line, and "This price needs at least ${fmt(need)} down. You entered ${fmt(dn)}, ${fmt(need - dn)} short."`,
+      eng.mortgageInsuranceFor(price, dn, false).salesTax === 0 && !has(txt, "Sales tax on mortgage insurance")
+        && has(txt, "This price needs at least " + fmt(need) + " down. You entered " + fmt(dn) + ", " + fmt(need - dn) + " short.") && pg.errors.length === 0,
+      txt.slice(-900));
+  }
+  check("(N12g) ...and a down payment that meets the minimum gets no such sentence", !has(lowText, "This price needs at least") && !has(t1, "This price needs at least"));
 
   // Comfort position -- all three states, derived from calcBP() itself (never hand-picked numbers)
   const bpVals = eng.calcBP(180000, 170000, 0); // matches PROFILE: grossMonthlyIncome 15000 x 12, downPayment 170000, existingDebt 0, rate/FTB = loadEngine's defaults (4.39%, non-FTB) = PROFILE's own values
@@ -499,24 +528,24 @@ async function openPage({ listing, status = 200, profile, budget, search, fetchT
   const CA = await openPage({ listing: { ...BASE, listPrice: aboveComfortPrice }, profile: PROFILE });
   const CB = await openPage({ listing: { ...BASE, listPrice: aboveBankPrice }, profile: PROFILE });
   check("(N14) price within comfort range -> the comfort-range sentence",
-    has(CW.doc.getElementById("ldHomePilot").textContent, "This home is within your comfort affordability range."));
+    has(CW.doc.getElementById("ldHomePilot").textContent, "This home is within your HomePilot comfort range."));
   check("(N15) price above comfort range but within the bank ceiling -> the in-between sentence",
-    has(CA.doc.getElementById("ldHomePilot").textContent, "though still within what a lender would likely qualify you for"));
+    has(CA.doc.getElementById("ldHomePilot").textContent, "This home is above your HomePilot comfort range, but within what a bank might lend you, by HomePilot's estimate."));
   check("(N16) price above the bank ceiling -> the over-ceiling sentence",
     has(CB.doc.getElementById("ldHomePilot").textContent, "This home is above what HomePilot's calculator estimates you would qualify for."));
   const comfortText = (CW.doc.querySelector(".ld-comfort") || {}).textContent || "";
   check("(N17) the comfort-position sentence shows no dollar figure at all (no maximum-affordability number, by product decision)",
     comfortText.length > 0 && !comfortText.includes("$"));
   check("(N18) comfort sentence renders with no budget URL param at all (independent of the fit badge/ceiling)",
-    has(NBpct.doc.getElementById("ldHomePilot").textContent, "comfort affordability range") || has(NBpct.text, "qualify you for"));
+    has(NBpct.doc.getElementById("ldHomePilot").textContent, "HomePilot comfort range") || has(NBpct.text, "qualify you for"));
 
   // Missing / incomplete buyer profile -- the new sections must not appear at all, never partially or with guessed numbers
   check("(N19) no profile: none of the new sections render (no cash-required, no mortgage assumptions, no comfort sentence, no % of income)",
-    !has(N.text, "Estimated cash required to purchase") && !has(N.text, "Mortgage assumptions") && !has(N.text, "comfort affordability range") && !has(N.text, "Housing cost as %"));
+    !has(N.text, "Estimated cash required to purchase") && !has(N.text, "Mortgage assumptions") && !has(N.text, "HomePilot comfort range") && !has(N.text, "Housing cost as %"));
   for (const [label, p] of [["negative income", { ...PROFILE, grossMonthlyIncome: -5 }], ["garbage JSON", "{not json"], ["absurd down payment", { ...PROFILE, downPayment: 1e15 }]]) {
     const G2 = await openPage({ listing: BASE, profile: p, budget: 900000 });
     check(`(N20) invalid stored profile (${label}) -> new sections also fall back cleanly (no half-rendered cash-required/comfort content)`,
-      !has(G2.text, "Estimated cash required to purchase") && !has(G2.text, "comfort affordability range"));
+      !has(G2.text, "Estimated cash required to purchase") && !has(G2.text, "HomePilot comfort range"));
   }
 
   // Never invented / NaN figures anywhere in the new sections

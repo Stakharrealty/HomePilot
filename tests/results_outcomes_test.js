@@ -171,7 +171,9 @@ const moreCards = (win) => { openSeeAll(win); return [...win.document.querySelec
 const cardEls = (win) => { openSeeAll(win); return [...win.document.querySelectorAll("#answers .city, #list .city, #listMore .city")]; };
 // The places the comfortable cards show (a place can have two cards).
 const placesOf = (cards) => new Set(cards.map((c) => c.city)).size;
-const WARNING = /⚠|long daily drive|stretches your comfort|beyond comfortable|Over your/;
+// "doesn't fit your HomePilot comfort range": the stretch card's note since
+// 2026-09-24 (it said "beyond comfortable").
+const WARNING = /⚠|long daily drive|stretches your comfort|beyond comfortable|doesn't fit your HomePilot comfort range|Over your/;
 const TYPE_LABEL = { condo: "Condo", town: "Townhouse", semi: "Semi-Detached", detached: "Detached" };
 
 // The review's test buyer: first-time couple, $130K, $70K down, $450/month
@@ -247,7 +249,7 @@ const TRIO = { income: 120000, partnerIncome: 60000, down: 200000, debt: 0, fami
     // places" with a different home), so the count is of places.
     check(`(5a) "N cities" equals the places the comfortable cards show (${tag})`, cards.length === 0 ? /fits your HomePilot comfort range yet/.test(cnt) : Number(n) === placesOf(cards), `${cnt} vs ${placesOf(cards)}`);
     const stretchCards = [...win.document.querySelectorAll("#listMore .more-section")].filter((s) => /Only as a stretch/.test(s.textContent));
-    check(`(5b) stretch-only cities sit in their own section, below (${tag})`, stretchCards.every((s) => [...s.querySelectorAll(".city")].every((el) => /beyond comfortable/.test(el.textContent))));
+    check(`(5b) stretch-only cities sit in their own section, below (${tag})`, stretchCards.every((s) => [...s.querySelectorAll(".city")].every((el) => /doesn't fit your HomePilot comfort range/.test(el.textContent))));
   }
 
   // =============== 3. the old lead form is gone ===============
@@ -397,8 +399,10 @@ const TRIO = { income: 120000, partnerIncome: 60000, down: 200000, debt: 0, fami
   // The What-If scenarios that were checked here were taken off the page on
   // 2026-09-24 (2.2c). HomePilot Worth Knowing's search again is the page's
   // own: with nothing changed it must name the page's Most home answer, also
-  // with the rate slider moved (the slider changes monthly costs, never buying
-  // power).
+  // with the rate slider moved. Since the PHASE #3 review (2026-09-24) the
+  // slider runs the search again at its rate: both figures move with it, and
+  // the rate line says the rate in force (it changed monthly costs only, under
+  // a line that still said 4.39%).
   win.eval("setResultsSort('home')");
   const answerForQ = (q) => { const slot = [...win.document.querySelectorAll("#answers .answer-slot")].find((s) => s.dataset.answers.split(" ").includes(q)); return slot ? readCard(slot.querySelector(".city")) : null; };
   const screenHome = answerForQ("home");
@@ -407,14 +411,24 @@ const TRIO = { income: 120000, partnerIncome: 60000, down: 200000, debt: 0, fami
     !!screenHome && !!wkFirst && wkFirst.n === screenHome.city && TYPE_LABEL[wkFirst.type] === screenHome.type && wkFirst.price === screenHome.price,
     JSON.stringify(wkFirst) + " vs " + JSON.stringify(screenHome && [screenHome.city, screenHome.type, screenHome.price]));
   search(win, { income: 180000, down: 120000, debt: 450, family: 3, firstTime: true, work: "hybrid", workCity: "Toronto", maxCommute: "60" });
-  const bpBefore6 = win.eval("buyPower");
+  const bpBefore6 = win.eval("buyPower"), comfortBefore6 = win.eval("comfortBuyPower");
   win.eval("syncRate('3.0','input')");
   const slidHome = answerForQ("home");
   const wkSlid = JSON.parse(win.eval("JSON.stringify((function(){ var e = wkRun(wkBase(null), {}).ranking.ranked[0]; return e && {n:e.n, type:e.type, price:e.price}; })())"));
-  check("(6b) rate slider at 3%: HomePilot Worth Knowing's search again and the page agree on the Most home, and buying power does not move",
-    !!slidHome && !!wkSlid && wkSlid.n === slidHome.city && TYPE_LABEL[wkSlid.type] === slidHome.type && wkSlid.price === slidHome.price && win.eval("buyPower") === bpBefore6,
-    JSON.stringify({ page: slidHome && [slidHome.city, slidHome.type, slidHome.price], wk: wkSlid, bp: [bpBefore6, win.eval("buyPower")] }));
+  // calcBP() reads the rate in force, 3% here: the figures a search at 3% gives.
+  // (textOf and byId are declared further down; a local reader here.)
+  const text6 = (id) => { const el = win.document.getElementById(id); return (el ? el.textContent : "").replace(/\s+/g, " ").trim(); };
+  const at3 = win.eval("calcBP(180000, 120000, 450)");
+  check("(6b) rate slider at 3%: the search runs again at 3%: both figures are a 3% search's (they move), the rate line says '3% rate, stress tested at 5.25%', and HomePilot Worth Knowing's search again and the page agree on the Most home",
+    !!slidHome && !!wkSlid && wkSlid.n === slidHome.city && TYPE_LABEL[wkSlid.type] === slidHome.type && wkSlid.price === slidHome.price
+      && win.eval("buyPower") === at3.bp && win.eval("comfortBuyPower") === at3.comfortBP && at3.bp > bpBefore6
+      && text6("bpBankV") === win.eval("fc(" + at3.bp + ")") && text6("bpV") === win.eval("fc(" + at3.comfortBP + ")")
+      && text6("bpRateLine") === "Based on 3% rate, stress tested at 5.25%" && win.eval("lastSearch.rate") === 0.03,
+    JSON.stringify({ page: slidHome && [slidHome.city, slidHome.type, slidHome.price], wk: wkSlid, bp: [bpBefore6, win.eval("buyPower"), at3.bp], line: text6("bpRateLine") }));
   win.eval("syncRate(String(DEFAULT_MORTGAGE_RATE_PCT),'input')");
+  check("(6b2) ...and back at the default rate both figures are the first search's again, and the hint says HomePilot's default rate",
+    win.eval("buyPower") === bpBefore6 && win.eval("comfortBuyPower") === comfortBefore6 && text6("rateHint") === "HomePilot's default rate (5-year fixed)",
+    JSON.stringify([win.eval("buyPower"), bpBefore6, text6("rateHint")]));
   // Back to the "No limit" the sections below expect (as section 3 leaves it).
   win.eval("setMaxCommute('none')");
 
@@ -579,7 +593,13 @@ const TRIO = { income: 120000, partnerIncome: 60000, down: 200000, debt: 0, fami
   // (11g checked the lead's incomes; the lead form was removed 2026-09-23.
   // 11h checked what a shared link stored, and 11e that Scenarios kept the
   // split; both were removed 2026-09-24, 2.2c.)
-  check("(11h) nothing on the results page sent the buyer's answers anywhere (Share is gone)", sent.length === 0, JSON.stringify(sent.map((s) => s.url)));
+  // Nothing called fetch above, so first prove the stand-in would catch a
+  // request: open AI Insights on the first answer card, which does call it
+  // (PHASE #3 review: this check was trivially true).
+  const sentBefore = sent.length;
+  win.eval("(function(){ var c = document.querySelector('#answers .city'); if (c) fetchCityInsights(c.id, c.querySelector('.cn').textContent); })()");
+  check("(11h) nothing on the results page sent the buyer's answers anywhere (Share is gone): no request before AI Insights, and then only its own",
+    sentBefore === 0 && sent.length === 1 && /homepilot-insights/.test(sent[0].url), JSON.stringify(sent.map((s) => s.url)));
   search(win, { ...PAIR, partnerIncome: -5000, income: 100000 });
   check("(11i) a negative income is refused with a visible message",
     win.document.getElementById("err").style.display === "block" && /can't be negative/.test(win.document.getElementById("err").textContent));
@@ -886,9 +906,17 @@ const TRIO = { income: 120000, partnerIncome: 60000, down: 200000, debt: 0, fami
   // Side by side on a computer and on a 375px phone; they stack only on a
   // smaller phone (CSS; jsdom does no layout, tests/phone_length_test.js measures it).
   const css14 = require("fs").readFileSync(require("path").join(__dirname, "..", "calculator.html"), "utf8");
-  check("(14c2) the stylesheet puts the two boxes side by side (flex, each at least 140px), the HomePilot one lighter, with a white edge and a bigger figure",
-    /\.bp-pair\{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px\}/.test(css14) && /\.bp-cell\{flex:1 1 140px;/.test(css14)
-      && /\.bp-comfort\{background:rgba\(255,255,255,0\.24\);border-color:rgba\(255,255,255,0\.45\)\}/.test(css14) && /\.bp-comfort \.bp-cell-val\{font-size:30px\}/.test(css14));
+  // Since the PHASE #3 review (2026-09-24) the boxes are a little darker than
+  // the green, not lighter, the highlighted one the darkest, with a white
+  // edge; the small text is full white (it measured 2.3-2.9:1 at 75-90%).
+  check("(14c2) the stylesheet puts the two boxes side by side (flex, each at least 140px), the HomePilot one darkest, with a white edge and a bigger figure, and no small text below full white",
+    /\.bp-pair\{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px\}/.test(css14) && /\.bp-cell\{flex:1 1 140px;min-width:0;background:rgba\(0,0,0,0\.10\);/.test(css14)
+      && /\.bp-comfort\{background:rgba\(0,0,0,0\.18\);border-color:#fff\}/.test(css14) && /\.bp-comfort \.bp-cell-val\{font-size:30px\}/.test(css14)
+      && !/\.bp-(cell-lbl|cell-sub|cell-note|line|fine|breathe)\{[^}]*opacity/.test(css14) && /\.bp-box\{\s*background:linear-gradient\(135deg,#168562 0%,var\(--green-mid\) 100%\);/.test(css14));
+  check("(14c3) on phones: both labels take two lines (the figures stay level), a ten-character figure is a size smaller under 420px, and under 368px the boxes stack with the HomePilot comfort range first",
+    /@media\(min-width:368px\) and \(max-width:599px\)\{\s*\.bp-cell-lbl\{min-height:2\.6em\}\s*\}/.test(css14) && /@media\(max-width:419px\)\{\s*\.bp-cell-val\.bp-long,\.bp-comfort \.bp-cell-val\.bp-long\{font-size:18px\}\s*\}/.test(css14)
+      && /@media\(max-width:367px\)\{\s*\.bp-pair\{flex-direction:column\}\s*\.bp-comfort\{order:-1\}\s*\}/.test(css14)
+      && byId("bpV").classList.contains("bp-long") === (textOf(byId("bpV")).length >= 10) && byId("bpBankV").classList.contains("bp-long") === (textOf(byId("bpBankV")).length >= 10));
   check("(14d) 'Based on' with two incomes: household total, the two in brackets, the down payment and the debt",
     textOf(byId("bpBasedOn")) === "Based on $130,000/yr ($70,000 + $60,000) · $75,000 down · $450/mo debt", textOf(byId("bpBasedOn")));
   const estimate = win.eval("householdNetAnnual(grossMonthlyIncome*12)/12");
@@ -951,9 +979,14 @@ const TRIO = { income: 120000, partnerIncome: 60000, down: 200000, debt: 0, fami
   search(win, { ...SAVER, down: 60000 });
   const bankLines = () => ({ sub: textOf(byId("bpBankSub")), note: textOf(byId("bpBankNote")), v: textOf(byId("bpBankV")) });
   const BANK_SUB = "Banks allow up to 39% of your before-tax income", BANK_NOTE = "Above your HomePilot comfort range is stretch territory";
-  check("(14m) savings cap the bank but the HomePilot comfort range sits well under it: the bank's own lines, not 'Same'",
+  // Since the PHASE #3 review (2026-09-24): when the down payment, not the 39%
+  // rule, sets the bank's figure, its line says so ("The most your $60,000
+  // down payment can buy"); it read "Banks allow up to 39%..." under a figure
+  // the minimum down payment had set.
+  const DOWN_SUB = (dn) => "The most your " + fcw(dn) + " down payment can buy";
+  check("(14m) savings cap the bank but the HomePilot comfort range sits well under it: 'The most your $60,000 down payment can buy' and the stretch line, not 'Same'",
     capped.downPaymentLimited && capped.bp - capped.comfortBP > 10000
-      && JSON.stringify(bankLines()) === JSON.stringify({ sub: BANK_SUB, note: BANK_NOTE, v: fcw(capped.bp) }), JSON.stringify(capped) + " " + JSON.stringify(bankLines()));
+      && JSON.stringify(bankLines()) === JSON.stringify({ sub: DOWN_SUB(60000), note: BANK_NOTE, v: fcw(capped.bp) }), JSON.stringify(capped) + " " + JSON.stringify(bankLines()));
   // A $10,000 gap is not "the same": the bank lends more, and income, not
   // savings, caps the HomePilot comfort range (it read "Your savings are the
   // limit... A bank would lend the same." until 2026-09-24).
@@ -965,21 +998,30 @@ const TRIO = { income: 120000, partnerIncome: 60000, down: 200000, debt: 0, fami
     finally { firstTimeBuyer = ft; } })())`));
   search(win, { ...(gap10Buyer || { income: 80000, down: 15000 }), debt: 0, family: 3, firstTime: true, work: "daily" });
   const gap10 = win.eval("lastSearch.calc");
-  check("(14m2) " + (gap10Buyer ? "$" + gap10Buyer.income / 1000 + "K, $" + gap10Buyer.down / 1000 + "K down" : "no such buyer found") + ": HomePilot comfort range $10,000 under the bank's figure, so the bank box gives its own lines",
-    gap10.downPaymentLimited && gap10.bp - gap10.comfortBP === 10000
-      && JSON.stringify(bankLines()) === JSON.stringify({ sub: BANK_SUB, note: BANK_NOTE, v: fcw(gap10.bp) }), JSON.stringify(gap10) + " " + JSON.stringify(bankLines()));
-  const bankSweep = win.eval(`(function(){ var bad = [], n = 0, same = 0, ftSaved = firstTimeBuyer;
+  check("(14m2) " + (gap10Buyer ? "$" + gap10Buyer.income / 1000 + "K, $" + gap10Buyer.down / 1000 + "K down" : "no such buyer found") + ": HomePilot comfort range $10,000 under the bank's figure, so not 'Same': the down payment's line and the stretch line",
+    !!gap10Buyer && gap10.downPaymentLimited && gap10.bp - gap10.comfortBP === 10000
+      && JSON.stringify(bankLines()) === JSON.stringify({ sub: DOWN_SUB(gap10Buyer.down), note: BANK_NOTE, v: fcw(gap10.bp) }), JSON.stringify(gap10) + " " + JSON.stringify(bankLines()));
+  // Every buyer in a sweep gets exactly the rule's lines: "Same" only when
+  // savings cap BOTH figures and they are equal; the down payment's line when
+  // savings cap the bank's figure otherwise; the 39% line when income does;
+  // the stretch line only when the bank's figure is above the HomePilot
+  // comfort range. It counts the buyers whose two figures are equal by
+  // coincidence (savings cap the bank's, income the HomePilot comfort range):
+  // "Same" was wrong for them (60 of 600 in the review).
+  const bankSweep = win.eval(`(function(){ var bad = [], n = 0, same = 0, down = 0, coincide = 0, ftSaved = firstTimeBuyer;
     [true, false].forEach(function(ft){ firstTimeBuyer = ft;
       for (var inc = 20000; inc <= 320000; inc += 15000) [10000, 15000, 25000, 50000, 70000, 100000].forEach(function(dn){ [0, 500, 1500].forEach(function(dbt){
-        var c = calcBP(inc, dn, dbt), l = bankBoxLines(c); n++;
-        var savings = l.same && l.sub === 'Same: your savings are the limit, not your income' && l.note === '';
-        var bank = !l.same && l.sub === '${BANK_SUB}' && l.note === '${BANK_NOTE}';
-        if (savings) same++;
-        if (!(savings || bank) || (savings && !(c.bp === c.comfortBP && c.downPaymentLimited)) || (bank && c.bp === c.comfortBP && c.downPaymentLimited)) bad.push(inc + '/' + dn + '/' + dbt + ':' + JSON.stringify(l));
+        var c = calcBP(inc, dn, dbt), l = bankBoxLines(c, dn); n++;
+        var wantSame = c.downPaymentLimited && c.comfortDownPaymentLimited && c.bp === c.comfortBP;
+        var wantSub = wantSame ? 'Same: your savings are the limit, not your income' : c.downPaymentLimited ? 'The most your ' + fc(dn) + ' down payment can buy' : '${BANK_SUB}';
+        var wantNote = !wantSame && c.bp > c.comfortBP ? '${BANK_NOTE}' : '';
+        if (wantSame) same++; else if (c.downPaymentLimited) down++;
+        if (!wantSame && c.downPaymentLimited && c.bp === c.comfortBP) coincide++;
+        if (l.same !== wantSame || l.sub !== wantSub || l.note !== wantNote) bad.push(inc + '/' + dn + '/' + dbt + ':' + JSON.stringify(l));
       }); }); });
-    firstTimeBuyer = ftSaved; return { n: n, same: same, bad: bad.slice(0, 5) }; })()`);
-  check(`(14m3) over ${bankSweep.n} buyers the bank box has one of the two decided wordings, and says "Same" only when the two figures are the same and savings cap them (${bankSweep.same} such buyers)`,
-    bankSweep.bad.length === 0 && bankSweep.same > 0, JSON.stringify(bankSweep.bad));
+    firstTimeBuyer = ftSaved; return { n: n, same: same, down: down, coincide: coincide, bad: bad.slice(0, 5) }; })()`);
+  check(`(14m3) over ${bankSweep.n} buyers the bank box has the rule's lines: "Same" only when savings cap both figures and they are equal (${bankSweep.same}), the down payment's line when savings cap the bank's alone (${bankSweep.down}, ${bankSweep.coincide} of them equal by coincidence)`,
+    bankSweep.bad.length === 0 && bankSweep.same > 0 && bankSweep.down > 0 && bankSweep.coincide > 0, JSON.stringify(bankSweep.bad));
 
   // Take-home: the buyer's own figure.
   search(win, TOP);
@@ -1278,7 +1320,11 @@ const TRIO = { income: 120000, partnerIncome: 60000, down: 200000, debt: 0, fami
     // What each card's first At a glance line says, and what answerMergeLine()
     // says it should, for this search (the page moves on to the next buyer).
     const glances = list.map((a) => firstGlance(a.slot)), mergeLines = list.map((a) => a.answers.length > 1 ? mergeLineFor(a.answers) : null);
-    const rec = { b, list, wk, labels, glances, mergeLines };
+    // What the engine says each answer is, and what shownCards recorded
+    // (PHASE #3 review: the merged cards were checked by their labels only).
+    const ranked = { cost: engineRanked("cost"), commute: engineRanked("commute"), home: engineRanked("home") };
+    const shown = JSON.parse(win.eval("JSON.stringify(shownCards.filter(function(c){ return /^answer-/.test(c.section); }).map(function(c){ return {section:c.section, answers:(c.answers||[]).join('+'), city:c.city, type:c.type}; }))"));
+    const rec = { b, list, wk, labels, glances, mergeLines, ranked, shown };
     if (!found.commuteHome && labels.includes("commute+home") && labels.includes("cost")) found.commuteHome = rec;
     if (!found.costCommute && labels.includes("cost+commute") && labels.includes("home")) found.costCommute = rec;
     if (!found.triple && labels.join() === "cost+commute+home") found.triple = rec;
@@ -1287,17 +1333,22 @@ const TRIO = { income: 120000, partnerIncome: 60000, down: 200000, debt: 0, fami
     if (!wk.also && list.length < 3 && !found.noAlso) found.noAlso = rec;
   }
   const fmt15 = (r) => r ? r.list.map((a) => a.label + " = " + a.key).join("; ") + " (" + [r.b.workCity, r.b.income, r.b.down].join(" ") + ")" : "none found";
+  // Every answer card is its question's #1 in the engine, and shownCards has
+  // it under its first answer with all of its answers.
+  const enginesAgree = (r) => !!r && r.list.filter((a) => a.answers[0] !== "also").every((a, i) =>
+    a.answers.every((q) => sameHome(a, r.ranked[q][0])) && !!r.shown[i] && r.shown[i].section === "answer-" + a.answers[0] && r.shown[i].answers === a.answers.join("+") && r.shown[i].city === a.city);
   const ch = found.commuteHome;
   check("(15s) same home for 'Shortest commute' and 'Most home': 'Lowest monthly cost', then one card labelled 'Shortest commute · Most home', which says why in its first At a glance line",
-    !!ch && ch.list[0].label === "Lowest monthly cost" && ch.list[1].label === "Shortest commute · Most home" && ch.glances[1] === ch.mergeLines[1]
+    !!ch && enginesAgree(ch) && ch.list[0].label === "Lowest monthly cost" && ch.list[1].label === "Shortest commute · Most home" && ch.glances[1] === ch.mergeLines[1]
       && /^Why two labels: (every place that fits offers an? [a-z -]+, so the closest one also gives you the most home|it's the biggest home that fits, and also the shortest drive)\.$/.test(ch.glances[1])
       && ch.glances[0] === null, fmt15(ch) + " / " + JSON.stringify(ch && [ch.glances, ch.mergeLines]));
   const cc = found.costCommute;
   check("(15s2) same home for 'Lowest monthly cost' and 'Shortest commute': 'Why two labels: it's the cheapest home that fits, and also the shortest drive.'",
-    !cc || (cc.list[0].label === "Lowest monthly cost · Shortest commute" && cc.glances[0] === "Why two labels: it's the cheapest home that fits, and also the shortest drive."), fmt15(cc));
+    !!cc && enginesAgree(cc) && cc.list[0].label === "Lowest monthly cost · Shortest commute" && cc.glances[0] === "Why two labels: it's the cheapest home that fits, and also the shortest drive.", fmt15(cc));
   const tr = found.triple;
-  check("(15s3) one home answers all three: one card labelled 'Lowest monthly cost · Shortest commute · Most home': 'Why three labels: nothing that fits your HomePilot comfort range is cheaper, closer or bigger.'",
-    !!tr && tr.list[0].label === "Lowest monthly cost · Shortest commute · Most home" && tr.glances[0] === "Why three labels: nothing that fits your HomePilot comfort range is cheaper, closer or bigger.", fmt15(tr));
+  check("(15s3) one home answers all three: one card labelled 'Lowest monthly cost · Shortest commute · Most home': 'Why three labels: it's the only home that fits your HomePilot comfort range.' when only one place fits, else 'nothing that fits your HomePilot comfort range is cheaper, closer or bigger.'",
+    !!tr && enginesAgree(tr) && tr.list[0].label === "Lowest monthly cost · Shortest commute · Most home" && tr.glances[0] === tr.mergeLines[0]
+      && tr.glances[0] === (tr.ranked.home.length === 1 ? "Why three labels: it's the only home that fits your HomePilot comfort range." : "Why three labels: nothing that fits your HomePilot comfort range is cheaper, closer or bigger."), fmt15(tr));
   check("(15t) a card left free: 'Also worth a look' exactly when HomePilot Worth Knowing works one out (a save card and a drive card found), drawn last as today's card for that home, its trade the first line of At a glance; no home shown twice",
     [found.commuteHome, found.costCommute, found.triple, found.alsoSave, found.alsoDrive, found.noAlso].filter(Boolean).every((r) => alsoDrawnOk(r.list, r.wk) && new Set(r.list.map((a) => a.key)).size === r.list.length)
       && !!found.alsoSave && !!found.alsoDrive && !!found.noAlso,
@@ -1332,10 +1383,13 @@ const TRIO = { income: 120000, partnerIncome: 60000, down: 200000, debt: 0, fami
       && (merged ? rA[0].label === "Lowest monthly cost · Most home" && sameHome(rA[0], rCost[0]) && /^Why two labels: /.test(firstGlance(rA[0].slot) || "")
         : rA[0].label === "Lowest monthly cost" && sameHome(rA[0], rCost[0]) && rA[1].label === "Most home" && sameHome(rA[1], rHome[0]))
       && alsoDrawnOk(rA, wkR) && (!wkR.also || wkR.also.kind === "save");
-    remoteSeen.push({ ok, detail: rA.map((a) => a.label + " = " + a.key).join("; ") });
+    remoteSeen.push({ ok, merged, save: !!wkR.also && wkR.also.kind === "save", detail: rA.map((a) => a.label + " = " + a.key).join("; ") });
   }
-  check("(15w) remote: 'Lowest monthly cost' and 'Most home' (one card when they are the same home, saying why), no commute answer, and 'Also worth a look' only as a save card",
-    remoteSeen.length >= 2 && remoteSeen.every((r) => r.ok), JSON.stringify(remoteSeen.filter((r) => !r.ok)));
+  // Each case is exercised, not only allowed (PHASE #3 review): a merged
+  // card, two separate cards, and a save card.
+  check("(15w) remote: 'Lowest monthly cost' and 'Most home' (one card when they are the same home, saying why), no commute answer, and 'Also worth a look' only as a save card; seen merged, separate and with a save card",
+    remoteSeen.length >= 2 && remoteSeen.every((r) => r.ok) && remoteSeen.some((r) => r.merged) && remoteSeen.some((r) => !r.merged) && remoteSeen.some((r) => r.save),
+    JSON.stringify(remoteSeen.map((r) => ({ ok: r.ok, merged: r.merged, save: r.save, detail: r.detail }))));
 
   // Nothing comfortable: no answer cards. Since 2026-09-24 that is the
   // "you're close" page (IMPROVEMENT_PLAN.md 2.0), which section 16 checks.
@@ -1346,20 +1400,25 @@ const TRIO = { income: 120000, partnerIncome: 60000, down: 200000, debt: 0, fami
   // Phone and computer layout, from the stylesheet (jsdom does no layout).
   const css = require("fs").readFileSync(require("path").join(__dirname, "..", "calculator.html"), "utf8").match(/<style>([\s\S]*?)<\/style>/)[1];
   const baseAt = css.indexOf(".answer-grid{display:grid;grid-template-columns:minmax(0,1fr)");
-  const threeAt = css.search(/@media\(min-width:1024px\)\{\s*\.answer-grid-3\{grid-template-columns:repeat\(3,minmax\(0,1fr\)\)[;}]/);
+  const threeAt = css.search(/@media\(min-width:1150px\)\{\s*\.answer-grid-1,\.answer-grid-2\{grid-template-columns:repeat\(3,minmax\(0,1fr\)\)\}\s*\.answer-grid-3\{grid-template-columns:repeat\(3,minmax\(0,1fr\)\)[;}]/);
   const twoAt = css.search(/@media\(min-width:1024px\)\{\s*\.answer-grid\{align-items:start;row-gap:14px\}\s*\.answer-grid-2\{grid-template-columns:repeat\(2,minmax\(0,1fr\)\)[;}]/);
   const outsideMedia = (at) => { const before = css.slice(0, at); return (before.match(/\{/g) || []).length === (before.match(/\}/g) || []).length; };
   search(win, TRIO);
   check("(15z) phone: the answer cards stack at full width, one column, as the first cards always did (the base rule, outside any media query)",
     baseAt !== -1 && outsideMedia(baseAt) && !/max-width[^{]*\{[^}]*answer-grid/.test(css));
-  // From 1024px (the user, 2026-09-24, plan 2.2b option b; it was 1240): from
-  // 1024 to 1239px the form column narrows instead, so the results keep 686px.
+  // Three across from 1150px (PHASE #3 D6, the user, 2026-09-24; it was 1024,
+  // and 1240 before that), one or two answers a third each there too; from
+  // 1024 to 1149px two sit a half each and three stack. From 1150 to 1239px
+  // the form column narrows, so the results keep 686px.
   const fullCss = require("fs").readFileSync(require("path").join(__dirname, "..", "calculator.html"), "utf8");
-  check("(15aa) computer: three answers side by side, a third of the width each, from 1024px, two a half each; both after the phone rule, so they win",
+  check("(15aa) computer: from 1150px a third of the width each, for one, two or three answers; from 1024px two a half each, and three stack below 1150; all after the phone rule, so they win",
     threeAt > baseAt && twoAt > baseAt && byId("answers").querySelector(".answer-grid").classList.contains("answer-grid-3") && d.querySelectorAll("#answers .answer-grid-3 > .answer-slot").length === 3
-      && !/@media\(min-width:1240px\)\{\s*\.answer-grid-3/.test(css));
-  check("(15aa2) ...and from 1024 to 1239px the form narrows so they fit: results 686px, a 20px gap, the form what is left up to 420px, page margins 24px",
-    /@media\(min-width:1024px\) and \(max-width:1239px\)\{\s*\.w\{padding-left:24px;padding-right:24px\}\s*\.calc-layout\{grid-template-columns:min\(420px, calc\(100% - 706px\)\) minmax\(0,1fr\);gap:20px\}\s*\.answer-grid\{column-gap:10px\}\s*\}/.test(fullCss));
+      && !/@media\(min-width:1240px\)\{\s*\.answer-grid-3/.test(css) && !/@media\(min-width:1024px\)\{\s*\.answer-grid-3\{grid-template-columns:repeat\(3/.test(css));
+  check("(15aa2) ...and from 1150 to 1239px the form narrows so they fit: results 686px, a 20px gap, the form what is left up to 420px, page and header margins 24px; below 1150 the form keeps its 420px",
+    /@media\(min-width:1150px\) and \(max-width:1239px\)\{\s*\.w\{padding-left:24px;padding-right:24px\}\s*\.hdr\{padding-left:24px;padding-right:24px\}\s*\.calc-layout\{grid-template-columns:min\(420px, calc\(100% - 706px\)\) minmax\(0,1fr\);gap:20px\}\s*\.answer-grid\{column-gap:10px\}\s*\}/.test(fullCss)
+      && !/@media\(min-width:1024px\) and \(max-width:1239px\)/.test(fullCss));
+  check("(15aa3) after a search the top section lands below the fixed header, not under it (scroll-margin-top on #bpBox from 1024px)",
+    /@media\(min-width:1024px\)\{[^@]*#bpBox\{scroll-margin-top:88px\}/.test(fullCss));
   check("(15ab) 'See all places' is the listings page's outlined 'Load more' button, not a new design", /\.listings-load-more,\.see-all-btn\{/.test(css) && /\.listings-load-more:hover,\.see-all-btn:hover\{/.test(css)
     && byId("seeAllBtn").className === "see-all-btn");
   // Side by side, the labels share one row (a subgrid), so a two-question label
@@ -1424,16 +1483,20 @@ const TRIO = { income: 120000, partnerIncome: 60000, down: 200000, debt: 0, fami
     const toCard = cardEls(win).map(readCard).find((x) => x.city === c.n);
     check("(16b) the drive tip's figures are the cards': the answer card it starts from, and the same home's row on the other place's card (price, monthly cost, drive)",
       !!from && !!to && to.price === c.price && to.monthly === c.monthly && from.price === c.from.price && from.monthly === c.from.monthly
-        && text.includes(`Drive ${toCard.drive - from.drive} more minutes to ${c.n} (about ${toCard.drive} min each way)`)
+        && text.includes(`Drive ${toCard.drive - from.drive} more minutes each way to ${c.n} (about ${toCard.drive} min, about ${Math.round((toCard.drive - from.drive) * 2 * 5 * 4.33 / 60)} more hours a month)`)
         && text.includes(`${fcw(from.price - to.price)} less than in ${c.from.n} and ${fcw(from.monthly - to.monthly)} a month less`)
         && toCard.drive - from.drive <= 30 && (from.price - to.price >= 50000 || from.monthly - to.monthly >= 300),
       text + " / " + JSON.stringify({ from, to }));
   } else check("(16b) this buyer gets a drive tip (15 minutes to Pickering for the same semi, $105,000 less)", false, JSON.stringify(wkR.tips.map((x) => x.kind)));
-  const leverR = wkR.tips.find((x) => x.kind === "earn" || x.kind === "save");
+  const LEVER_BUYERS = [RICH, { income: 220000, down: 30000, debt: 0, family: 3, firstTime: true, work: "remote" },
+    { income: 180000, down: 120000, debt: 450, family: 3, firstTime: true, work: "hybrid", workCity: "Toronto", maxCommute: "60" },
+    { income: 150000, partnerIncome: 60000, down: 150000, debt: 800, family: 3, firstTime: false, work: "hybrid", workCity: "Markham", maxCommute: "60" }];
+  let leverB = null, leverR = null;
+  for (const b of LEVER_BUYERS) { search(win, b); const w = wkNow(); const tip = !w.empty && w.tips.find((x) => x.kind === "earn" || x.kind === "save"); if (tip) { leverB = b; leverR = tip; break; } }
   if (leverR) {
-    const [ok, detail] = checkLeverOnPage(RICH, leverR);
+    const [ok, detail] = checkLeverOnPage(leverB, leverR);
     check(`(16c) the ${leverR.kind} tip: searching again with ${fcw(leverR.claim.extra)} more, ${leverR.claim.n}'s card shows the bigger home at the tip's price, monthly cost, % and label`, ok, detail);
-  } else check("(16c) this buyer gets a save or earn tip", false, JSON.stringify(wkR.tips.map((x) => x.kind)));
+  } else check("(16c) one of these buyers gets a save or earn tip on a normal page", false, "");
 
   // Savings are the limit: that tip first (14l checks its words).
   search(win, SAVER);
@@ -1474,10 +1537,14 @@ const TRIO = { income: 120000, partnerIncome: 60000, down: 200000, debt: 0, fami
   // prices, a take-home that high makes a Scarborough condo fit, so the page
   // is no longer empty); their savings keep the homes above the HomePilot
   // comfort range.
-  search(win, { ...WORKED, down: 30000 });
-  byId("takeHomeChange").click();
-  byId("takeHomeInput").value = "10500";
-  byId("takeHomeEdit").querySelector(".bp-apply-btn").click();
+  const ownTakeHome = (down) => {
+    search(win, { ...WORKED, down });
+    byId("takeHomeChange").click();
+    byId("takeHomeInput").value = "10500";
+    byId("takeHomeEdit").querySelector(".bp-apply-btn").click();
+    return answerCards(win).length === 0 && closestCards(win).length > 0;
+  };
+  for (const down of [40000, 35000, 30000, 25000, 20000, 15000]) { if (ownTakeHome(down)) break; byId("takeHomeReset").click(); }
   const closestOwn = closestCards(win);
   check("(16g2) own take-home $10,500/mo: the closest cards' pills say Good Fit, and so do their labels: 'Closest to fitting · Above your HomePilot comfort range'",
     closestOwn.length > 0 && answerCards(win).length === 0 && closestOwn.every((c) => c.fit !== LBL[2]) && closestLabelOk(),
@@ -1486,8 +1553,8 @@ const TRIO = { income: 120000, partnerIncome: 60000, down: 200000, debt: 0, fami
   search(win, WORKED);
   const stretchHtml = win.eval(`(function(){ var els = document.querySelectorAll('#answers .city'); return rankCities(results,{sort:'home',maxCommute:maxCommuteMin}).stretchOnly.slice(0,3).map(function(e,i){ return [cityCardHtml(e,'stretch',els[i].id,true), cityCardHtml(e,'stretch',els[i].id)]; }); })()`);
   const asEl = (h) => { const box = d.createElement("div"); box.innerHTML = h; return box.firstElementChild.outerHTML; };
-  check("(16h) ...each is the stretch card 'Only as a stretch' draws, with the answer cards' top: below it the same parts (the 'beyond comfortable' note, breakdowns, AI Insights, compare, View available homes)",
-    [...d.querySelectorAll("#answers .city")].every((el, i) => el.outerHTML === asEl(stretchHtml[i][0]) && belowTop(stretchHtml[i][0]) === belowTop(stretchHtml[i][1])) && closest60.every((c) => /beyond comfortable/.test(c.text) && c.fit === LBL[2]));
+  check("(16h) ...each is the stretch card 'Only as a stretch' draws, with the answer cards' top: below it the same parts (the 'doesn't fit your HomePilot comfort range' note, breakdowns, AI Insights, compare, View available homes)",
+    [...d.querySelectorAll("#answers .city")].every((el, i) => el.outerHTML === asEl(stretchHtml[i][0]) && belowTop(stretchHtml[i][0]) === belowTop(stretchHtml[i][1])) && closest60.every((c) => /doesn't fit your HomePilot comfort range/.test(c.text) && c.fit === LBL[2]));
   const tips60 = wkTips();
   check("(16i) ...then HomePilot Worth Knowing, the main message: one tip per lever that has one, in the order save, drive, earn",
     byId("answers").nextElementSibling === byId("worthKnowing") && !!byId("worthKnowing").querySelector(".wk-box") && tips60.length >= 1
@@ -1502,13 +1569,18 @@ const TRIO = { income: 120000, partnerIncome: 60000, down: 200000, debt: 0, fami
   // prices) no step up to $50,000 more saved gets this couple a place within
   // the limit, so there is no save tip (tests/worth_knowing_test.js checks
   // every step); the drive and earn tips remain.
-  check("(16i2) ...a drive and an earn tip at the 60-minute default; the drive tip is the nearest place past the limit that fits, with its minutes past the limit",
-    tips60.map((x) => x.kind).join(",") === "drive,earn" && !!drive60 && past60.length > 0 && drive60.claim.n === past60[0].n && drive60.claim.price === past60[0].price
+  check("(16i2) ...a drive and an earn tip at the 60-minute default (after a save tip when there is one); the drive tip is the nearest place past the limit that fits, with its minutes past the limit",
+    tips60.map((x) => x.kind).join(",") === (wk60.tips.some((x) => x.kind === "save") ? "save," : "") + "drive,earn" && !!drive60 && past60.length > 0 && drive60.claim.n === past60[0].n && drive60.claim.price === past60[0].price
       && tips60.find((x) => x.kind === "drive").text.includes(`Drive ${past60[0].commuteMin - 60} minutes past your 60-minute limit and a ${WK_WORD[past60[0].type]} in ${past60[0].n}`),
     tips60.map((x) => x.text).join(" | "));
   for (const tip of wk60.tips.filter((x) => x.kind === "save" || x.kind === "earn")) {
     const [ok, detail] = checkLeverOnPage(WORKED, tip);
-    const firstAfter = (() => { search(win, withChange(WORKED, tip.kind, tip.claim.extra)); const a = answerCards(win)[0]; search(win, WORKED); return a; })();
+    // The "Most home" answer card (the tip names the page's most home #1), not
+    // the first card: the answers run Lowest monthly cost, Shortest commute,
+    // Most home.
+    const firstAfter = (() => { search(win, withChange(WORKED, tip.kind, tip.claim.extra));
+      const slot = [...d.querySelectorAll("#answers .answer-slot")].find((x) => x.dataset.answers.split(" ").includes("home"));
+      const a = slot ? readCard(slot.querySelector(".city")) : null; search(win, WORKED); return a; })();
     check(`(16j) worked example, ${tip.kind} ${fcw(tip.claim.extra)}: searching again with it, ${tip.claim.n}'s ${tip.claim.type} fits at the tip's figures and is the 'Most home' answer`,
       ok && !!firstAfter && firstAfter.city === tip.claim.n && TYPE_KEY[firstAfter.type] === tip.claim.type, detail);
     check(`(16k) worked example, ${tip.kind}: "just fits" exactly when the % lands at 43% or more (within 2 points of the 45% Stretch line)`,
@@ -1543,7 +1615,9 @@ const TRIO = { income: 120000, partnerIncome: 60000, down: 200000, debt: 0, fami
   // "above your comfort range". $140K, $150K down, no debt, hybrid: eight
   // places fit, two only as a stretch, and 29 past the limit fit (2026-09-24;
   // the $100K-down couple with $450 debt this used is an empty page now).
-  search(win, { ...COUPLE, income: 140000, down: 150000, debt: 0, work: "hybrid", maxCommute: "60" });
+  const bothSections = (b) => { search(win, b); const r = win.eval("(function(){ var x = rankCities(results,{sort:'home',maxCommute:maxCommuteMin}); return x.ranked.length > 0 && x.stretchOnly.length > 0 && x.overCommute.length > 0; })()"); return r; };
+  for (const extra of [{ income: 140000, down: 150000 }, { income: 150000, down: 100000 }, { income: 120000, down: 100000 }, { income: 180000, down: 60000 }, { income: 110000, down: 150000 }])
+    if (bothSections({ ...COUPLE, ...extra, debt: 0, work: "hybrid", maxCommute: "60" })) break;
   openSeeAll(win);
   if (!win.eval("showOverCommute")) win.eval("toggleOverCommute()");
   const normalText = resultsText();
@@ -1556,8 +1630,8 @@ const TRIO = { income: 120000, partnerIncome: 60000, down: 200000, debt: 0, fami
   // The same couple with the 90-minute limit the plan used: a drive tip too.
   search(win, { ...WORKED, maxCommute: "90" });
   const wk90 = wkNow(), drive90 = wk90.tips.find((x) => x.kind === "drive");
-  check("(16p) worked example at 90 minutes: \"Nothing within 90 minutes ... but you're close.\", with a drive and an earn tip (no save tip, as at 60)",
-    textOf(byId("cnt")) === "Nothing within 90 minutes fits your HomePilot comfort range yet, but you're close." && wkTips().map((x) => x.kind).join(",") === "drive,earn",
+  check("(16p) worked example at 90 minutes: \"Nothing within 90 minutes ... but you're close.\", with a drive and an earn tip (and a save tip when there is one, as at 60)",
+    textOf(byId("cnt")) === "Nothing within 90 minutes fits your HomePilot comfort range yet, but you're close." && wkTips().map((x) => x.kind).join(",") === (wk90.tips.some((x) => x.kind === "save") ? "save," : "") + "drive,earn",
     wkTips().map((x) => x.text).join(" | "));
   if (drive90) {
     // Once the page is close, the drive tip names the nearest place past the
@@ -1614,7 +1688,10 @@ const TRIO = { income: 120000, partnerIncome: 60000, down: 200000, debt: 0, fami
   // its own line for a buyer with less than 20% down (CMHC: it can't be added
   // to the loan), in the total, and not there at 20% or more.
   const fs17 = require("fs"), path17 = require("path");
-  const cashRows = (t) => [...t.matchAll(/([A-Z][A-Za-z0-9() %&.'-]+?)~?(-?)\$([\d,]+)/g)];
+  // A row is its label and the figure that ends it: the next row's label (a
+  // capital) or the end follows the figure. The 8% line names its premium
+  // ("8% of the $9,000 premium") before its own figure (PHASE #3 review).
+  const cashRows = (t) => [...t.matchAll(/([A-Z].*?)~?(-?)\$([\d,]+)(?=[A-Z~]|$)/g)];
   const openBreakdown = (b) => {
     search(win, b);
     const card = d.querySelector("#answers .city");
@@ -1629,12 +1706,12 @@ const TRIO = { income: 120000, partnerIncome: 60000, down: 200000, debt: 0, fami
   const lowPrice = low.panel ? win.eval(`PT[${JSON.stringify(low.city)}][${JSON.stringify(low.type)}]`) : 0;
   const ins = low.panel ? JSON.parse(win.eval(`JSON.stringify(mortgageInsuranceFor(${lowPrice}, Math.min(dn_selected, ${lowPrice})))`)) : {};
   // The cash-to-close part: from its heading to the total.
-  const closing = lowText.slice(lowText.indexOf("Estimated Closing Costs"), lowText.indexOf("Estimated Cash Required to Close"));
+  const closing = lowText.slice(lowText.indexOf("Cash Needed to Close"), lowText.indexOf("Estimated Cash Required to Close"));
   const closeTotal = Number((/Estimated Cash Required to Close~\$([\d,]+)/.exec(lowText) || [0, "0"])[1].replace(/,/g, ""));
   const closeSum = cashRows(closing).reduce((s, m) => s + (m[2] === "-" ? -1 : 1) * Number(m[3].replace(/,/g, "")), 0);
-  check("(17a) under 20% down: 'Sales Tax on Mortgage Insurance (8%)', 8% of the premium on the loan, is its own line in cash to close, and the rows add up to the total",
+  check("(17a) under 20% down: 'Sales Tax on Mortgage Insurance (8% of the $X premium)', 8% of the premium on the loan, is its own line under 'Cash Needed to Close', and the rows add up to the total",
     !!low.panel && LOW.down / lowPrice < 0.2 && ins.premium > 0 && ins.salesTax === Math.round(ins.premium * 0.08)
-      && lowText.includes("Sales Tax on Mortgage Insurance (8%)" + fcw(ins.salesTax)) && closeSum === closeTotal,
+      && lowText.includes("Sales Tax on Mortgage Insurance (8% of the " + fcw(ins.premium) + " premium)" + fcw(ins.salesTax)) && closeSum === closeTotal && !lowText.includes("Estimated Closing Costs"),
     JSON.stringify({ city: low.city, type: low.type, price: lowPrice, ins, closeSum, closeTotal }));
   const HIGH = { income: 250000, down: 400000, debt: 0, family: 3, firstTime: true, work: "remote" };
   const high = openBreakdown(HIGH);
@@ -1645,7 +1722,7 @@ const TRIO = { income: 120000, partnerIncome: 60000, down: 200000, debt: 0, fami
   const ldSrc = fs17.readFileSync(path17.join(__dirname, "..", "src", "listing-detail.js"), "utf8");
   const lfSrc = fs17.readFileSync(path17.join(__dirname, "..", "src", "listing-fit.js"), "utf8");
   check("(17c) ...and the listing pages show the same line from the same engine (the down payment passed to calcClosingCosts())",
-    /downPayment: effectiveDn, firstTimeBuyer: profile\.firstTimeBuyer === true/.test(lfSrc) && /Sales tax on mortgage insurance \(8%\)/.test(ldSrc));
+    /downPayment: effectiveDn, firstTimeBuyer: profile\.firstTimeBuyer === true/.test(lfSrc) && /Sales tax on mortgage insurance \(8% of the \$\{fmtPrice\(closing\.premium\)\} premium\)/.test(ldSrc));
 
   // The rate: 4.39% everywhere it is quoted, and the disclaimer page's format
   // no longer prints "4.%" (an unescaped "." in its regex ate the digit).
