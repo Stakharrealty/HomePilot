@@ -61,16 +61,17 @@ const DATA_FRESHNESS = {
     source: "tools/city-prices.mjs over the homepilot-listings D1 database (PropTx IDX, read-only), " +
             "with the listing pages' own fee rules (IMPROVEMENT_PLAN.md 3.2). CONDO_FEES_SOURCE in cities.js " +
             "says which places use listings.",
-    refreshCadence: "Weekly (plan 3.1a) — run `node tools/city-prices.mjs`; a failed run keeps the last good table."
+    refreshCadence: "By hand until after beta (plan 3.1a says weekly) — run `node tools/city-prices.mjs`; a failed run keeps the last good table."
   },
   cityPrices: {
-    value: "Median asking price of each place's current listings × 0.97 where it has 10+ of that type " +
-           "(188 of 220), else the typed 2025 table (PT_TYPED); PT_SOURCE in cities.js says which",
+    value: "40th-percentile asking price of each place's current listings × 0.97, to the nearest $10,000, where " +
+           "it has 10+ of that type (183 of 220), else the typed 2025 table (PT_TYPED), which also keeps 5 detached " +
+           "prices on purpose (KEEP_TYPED in tools/city-prices.mjs); PT_SOURCE in cities.js says which",
     lastUpdated: "2026-09-24",
     source: "tools/city-prices.mjs over the homepilot-listings D1 database (PropTx IDX, read-only), with the " +
-            "listings page's own place and home-type rules (IMPROVEMENT_PLAN.md 3.1a). Before/after for every " +
-            "place and type, against TRREB sold figures: _private/phase3/city-prices-before-after.md.",
-    refreshCadence: "Weekly (plan 3.1a) — run `node tools/city-prices.mjs`; a failed run keeps the last good table."
+            "listings page's own place and home-type rules (IMPROVEMENT_PLAN.md 3.1a; the 40th percentile and " +
+            "KEEP_TYPED from PHASE #3 D1). Checked against sold medians: 63 of 75 within 10%.",
+    refreshCadence: "By hand until after beta (plan 3.1a says weekly) — run `node tools/city-prices.mjs`; a failed run keeps the last good table."
   }
 };
 function daysSince(dateStr){ return Math.floor((Date.now()-new Date(dateStr).getTime())/86400000); }

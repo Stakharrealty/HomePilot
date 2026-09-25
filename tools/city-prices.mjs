@@ -10,10 +10,17 @@
 // listed-else-typed, so any place or type this script leaves out keeps its
 // typed figure.
 //
-// THE METHOD (the owner's decision, 2026-09-24)
-//   price: the median ASKING price of the place's current listings of that
-//          home type x 0.97 (one market-wide sale-to-list ratio), rounded to
-//          the nearest $1,000. Only where the place has 10+ such listings.
+// THE METHOD (the owner's decisions, 2026-09-24)
+//   price: the 40th-percentile ASKING price of the place's current listings of
+//          that home type x 0.97 (one market-wide sale-to-list ratio), rounded
+//          to the nearest $10,000. Only where the place has 10+ such listings.
+//          Not the median: unsold dear homes pile up in the listings, so the
+//          median ran about 15% above sold prices for detached homes. Checked
+//          against 73 sold medians, the 40th percentile x 0.97 came within 10%
+//          on 57 (the median on 42), and ran a little high overall (+3%), the
+//          safe side. $10,000, because buying power rounds to $10,000: a price
+//          between two steps refused a buyer with exactly the minimum down.
+//          KEEP_TYPED (below) names the few prices that stay typed anyway.
 //   fee:   the median real monthly fee of the place's condo listings. Only
 //          where 10+ of them have a usable fee.
 //
@@ -68,8 +75,24 @@ const WORKER_DIR = path.join(ROOT, "workers", "homepilot-listings");
 const DATABASE = "homepilot-listings-db";
 
 const SALE_TO_LIST = 0.97;
+const PRICE_PERCENTILE = 0.4;
+const PRICE_STEP = 10_000;
 const MIN_LISTINGS = 10;
 const MIN_FEES = 10;
+
+// Prices that keep the typed figure whatever the listings say (the owner's
+// decision, 2026-09-24). In each, the typed price was within 6% of the recent
+// sold median and the listings figure 16-43% off it: estates that sit unsold
+// (Erin, Grand Valley, Scugog, Halton Hills), or a mix far below what sells
+// (Toronto - East End). The sold figures are board data, used for this check
+// only. Remove an entry once the listings figure comes close again.
+export const KEEP_TYPED = {
+  "Erin": ["detached"],
+  "Grand Valley": ["detached"],
+  "Scugog": ["detached"],
+  "Halton Hills": ["detached"],
+  "Toronto - East End": ["detached"],
+};
 // PT's own key order, and the order of the derived-type CASE in db.js.
 const TYPES = ["condo", "town", "semi", "detached"];
 
@@ -259,7 +282,7 @@ function median(sorted) {
   return n % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
-// Linear-interpolation percentile, for the --stats file only.
+// Linear-interpolation percentile: the price figure, and the --stats file.
 function percentile(sorted, p) {
   if (!sorted.length) return null;
   const at = (sorted.length - 1) * p;
@@ -295,15 +318,16 @@ export function summarizePlace(rows, feeToMonthly) {
   const types = {};
   for (const t of TYPES) {
     const s = prices[t].sort((a, b) => a - b);
-    const mid = median(s);
+    const point = percentile(s, PRICE_PERCENTILE);
     types[t] = {
       n: s.length,
-      median: mid,
+      median: median(s),
       p25: percentile(s, 0.25),
+      p40: percentile(s, 0.4),
       p75: percentile(s, 0.75),
       low: s.length ? s[0] : null,
       high: s.length ? s[s.length - 1] : null,
-      price: s.length >= MIN_LISTINGS ? Math.round((mid * SALE_TO_LIST) / 1000) * 1000 : null,
+      price: s.length >= MIN_LISTINGS ? Math.round((point * SALE_TO_LIST) / PRICE_STEP) * PRICE_STEP : null,
       subtypes: Object.fromEntries(Object.entries(bySubtype[t]).map(([label, list]) => {
         const sorted = list.sort((a, b) => a - b);
         return [label, { n: sorted.length, median: median(sorted) }];
@@ -328,6 +352,20 @@ export function summarizePlace(rows, feeToMonthly) {
   };
 }
 
+// A KEEP_TYPED price is worked out and reported like any other, but not used:
+// it is left out of PT_LISTED, so the app reads the typed figure.
+export function applyKeepTyped(place, summary) {
+  for (const t of KEEP_TYPED[place] || []) {
+    const cell = summary.types[t];
+    if (cell.price !== null) {
+      cell.listedPrice = cell.price;
+      cell.price = null;
+    }
+    cell.keptTyped = true;
+  }
+  return summary;
+}
+
 // ── The app's own files ──
 
 function loadCities(text = fs.readFileSync(CITIES_JS, "utf8")) {
@@ -350,10 +388,11 @@ function renderBlock(run, results, eol) {
   const lines = [
     `${BEGIN} -- do not edit by hand; run \`node tools/city-prices.mjs\`.`,
     `// Run ${run.date} on the live listings: those updated since ${run.listingsSince}, the`,
-    `// listings page's own ${MAX_LISTING_AGE_HOURS}-hour window. price = median asking price of the place's`,
-    `// listings of that type x ${SALE_TO_LIST}, to the nearest $1,000, only where it has ${MIN_LISTINGS}+ of them.`,
+    `// listings page's own ${MAX_LISTING_AGE_HOURS}-hour window. price = ${Math.round(PRICE_PERCENTILE * 100)}th-percentile asking price of the`,
+    `// place's listings of that type x ${SALE_TO_LIST}, to the nearest $${PRICE_STEP.toLocaleString("en-CA")}, only where it has ${MIN_LISTINGS}+ of them.`,
     `// fee = median real monthly fee of the place's condo listings, only where ${MIN_FEES}+ have one.`,
-    "// n = listings (or fees) behind the figure. A place or type left out keeps its typed figure.",
+    "// n = listings (or fees) behind the figure. A place or type left out keeps its typed figure,",
+    "// including the KEEP_TYPED prices in tools/city-prices.mjs.",
     `const CITY_PRICES_RUN=${JSON.stringify(run)};`,
     "const PT_LISTED={",
   ];
@@ -438,6 +477,7 @@ function printSummary(results, cities) {
     const parts = TYPES.map((t) => {
       const c = s.types[t];
       const typed = cities.PT_TYPED[r.place] ? cities.PT_TYPED[r.place][t] : null;
+      if (c.keptTyped) return `${t} ${c.n}: keeps typed ${money(typed)} (KEEP_TYPED; listings ${money(c.listedPrice)})`;
       return c.price !== null
         ? `${t} ${c.n}: ${money(c.price)} (typed ${money(typed)})`
         : `${t} ${c.n}: keeps typed ${money(typed)}`;
@@ -497,6 +537,12 @@ async function main() {
     log(`Not a place in src/cities.js: ${unknown.join(", ")}`);
     return 2;
   }
+  const badKeep = Object.entries(KEEP_TYPED).filter(([p, list]) =>
+    !allPlaces.includes(p) || !list.every((t) => TYPES.includes(t) && cities.PT_TYPED[p] && cities.PT_TYPED[p][t] > 0));
+  if (badKeep.length) {
+    log(`KEEP_TYPED names a place or type with no typed price: ${badKeep.map(([p]) => p).join(", ")}`);
+    return 2;
+  }
   const places = args.places.length ? args.places : allPlaces;
   const writes = !args.dryRun && !args.places.length;
   const wranglerJs = findWrangler();
@@ -525,7 +571,7 @@ async function main() {
       const { rows, rowsRead } = await d1SelectOrRetry(wranglerJs, sql, place);
       done++;
       log(`  [${done}/${places.length}] ${place}: ${rows.length} listings (D1 rows read: ${rowsRead})`);
-      return { ...base, sql, rowsRead, summary: summarizePlace(rows, feeToMonthly) };
+      return { ...base, sql, rowsRead, summary: applyKeepTyped(place, summarizePlace(rows, feeToMonthly)) };
     } catch (e) {
       if (e instanceof StopError) throw e;
       done++;
@@ -542,7 +588,9 @@ async function main() {
     date: new Intl.DateTimeFormat("en-CA", { timeZone: "America/Toronto" }).format(new Date(now)),
     asOf: new Date(now).toISOString(),
     listingsSince: cutoff,
+    percentile: PRICE_PERCENTILE,
     saleToList: SALE_TO_LIST,
+    priceStep: PRICE_STEP,
     minListings: MIN_LISTINGS,
     minFees: MIN_FEES,
   };
